@@ -30,6 +30,7 @@ export type ViewState = {
 export type ProjectState = {
   id: string;
   name: string;
+  workspaceMeta: { createdAt: string; updatedAt: string };
 
   // Runtime only (not serializable)
   dirHandle: FileSystemDirectoryHandle;
@@ -104,6 +105,7 @@ export async function buildProjectFromDirectoryHandle(
   return {
     id,
     name,
+    workspaceMeta: ws.meta,
     dirHandle,
 
     handles: scanned.handles,

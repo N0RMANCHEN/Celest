@@ -73,6 +73,42 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (set
     get().markActiveProjectDirty("graph");
   },
 
+  updateNodeTitle: (nodeId, title) => {
+    set((s) => ({
+      projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
+        const node = p.graph.nodes[nodeId];
+        if (!node || node.title === title) return p;
+        const nextGraph = upsertNode(p.graph, { ...node, title });
+        return { ...p, graph: nextGraph };
+      }),
+    }));
+    get().markActiveProjectDirty("graph");
+  },
+
+  updateNoteText: (nodeId, text) => {
+    set((s) => ({
+      projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
+        const node = p.graph.nodes[nodeId];
+        if (!node || node.kind !== "note" || node.text === text) return p;
+        const nextGraph = upsertNode(p.graph, { ...node, text });
+        return { ...p, graph: nextGraph };
+      }),
+    }));
+    get().markActiveProjectDirty("graph");
+  },
+
+  updateFilePath: (nodeId, path) => {
+    set((s) => ({
+      projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
+        const node = p.graph.nodes[nodeId];
+        if (!node || node.kind !== "fileRef" || node.path === path) return p;
+        const nextGraph = upsertNode(p.graph, { ...node, path });
+        return { ...p, graph: nextGraph };
+      }),
+    }));
+    get().markActiveProjectDirty("graph");
+  },
+
   onNodesChange: (changes: NodeChange[]) => {
     let didChange = false;
     set((s) => ({
@@ -152,7 +188,10 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (set
   onSelectionChange: (ids) => {
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
-        const next = Array.from(new Set(ids)).sort();
+        const safeIds = Array.isArray(ids)
+          ? ids.filter((id): id is string => typeof id === "string")
+          : [];
+        const next = Array.from(new Set(safeIds)).sort();
         if (arrayEq(p.selectedIds, next)) return p;
         return { ...p, selectedIds: next };
       }),

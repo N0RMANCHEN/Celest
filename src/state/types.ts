@@ -77,7 +77,7 @@ export type SaveUiState = {
 export type PersistenceSlice = {
   saveUiByProjectId: Record<string, SaveUiState>;
 
-  initProjectPersistence: (projectId: string) => void;
+  initProjectPersistence: (projectId: string, opts?: { lastSavedAt?: string }) => void;
   removeProjectPersistence: (projectId: string) => void;
 
   /** Mark active project as dirty and schedule debounced autosave. */
@@ -92,7 +92,7 @@ export type PersistenceSlice = {
 
 export type ViewSlice = {
   getActiveView: () => ViewState | null;
-  setActiveView: (viewId: string) => void;
+  setActiveView: (viewId: ViewState["id"]) => void;
   updateActiveViewViewport: (vp: Viewport) => void;
 };
 
@@ -101,6 +101,10 @@ export type GraphSlice = {
 
   /** Step4C: quick-create a Note node by double-clicking the canvas. */
   createNoteNodeAt: (pos: { x: number; y: number }) => void;
+
+  updateNodeTitle: (nodeId: string, title: string) => void;
+  updateNoteText: (nodeId: string, text: string) => void;
+  updateFilePath: (nodeId: string, path: string) => void;
 
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;

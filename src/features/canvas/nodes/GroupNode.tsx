@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 
+import { getNodeSpec } from "../../../entities/graph/registry";
 import type { CanvasNodeData } from "../../../entities/graph/types";
 
 type Props = {
@@ -21,9 +22,11 @@ const titleStyle: CSSProperties = {
 };
 
 export default function GroupNode({ data }: Props) {
+  const spec = getNodeSpec("group");
+
   return (
     <div style={boxStyle}>
-      <div style={titleStyle}>🧩 Group — {data.title}</div>
+      <div style={titleStyle}>{`${spec.icon} Group — ${data.title}`}</div>
     </div>
   );
 }

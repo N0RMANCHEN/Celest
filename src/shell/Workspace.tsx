@@ -69,7 +69,14 @@ export default function Workspace() {
 
       {vm.panels.inspector ? (
         <div className="workbench__right">
-          <InspectorPanel selectedInfo={vm.selectedInfo} onClose={() => {}} />
+          <InspectorPanel
+            selectedNode={vm.selectedGraphNode}
+            selectedFsEntry={vm.selectedInfo}
+            saveUi={vm.saveUi}
+            onChangeTitle={vm.onUpdateNodeTitle}
+            onChangeNoteText={vm.onUpdateNoteText}
+            onChangeFilePath={vm.onUpdateFilePath}
+          />
         </div>
       ) : null}
     </div>

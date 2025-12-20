@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Handle, Position } from "reactflow";
 
+import { getNodeSpec } from "../../../entities/graph/registry";
 import type { CanvasNodeData } from "../../../entities/graph/types";
 
 type Props = {
@@ -14,6 +15,7 @@ const cardStyle: CSSProperties = {
   background: "var(--panel-2)",
   minWidth: 180,
   boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
+  position: "relative",
 };
 
 const titleStyle: CSSProperties = {
@@ -33,15 +35,40 @@ const subtitleStyle: CSSProperties = {
   overflow: "hidden",
 };
 
+const portRowStyle: CSSProperties = {
+  display: "flex",
+  gap: 6,
+  marginTop: 8,
+  flexWrap: "wrap",
+};
+
+const portBadgeStyle: CSSProperties = {
+  fontSize: 10,
+  padding: "3px 6px",
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "rgba(255,255,255,0.06)",
+};
+
 export default function NoteNode({ data }: Props) {
+  const spec = getNodeSpec("note");
+
   return (
     <div style={cardStyle}>
-      <Handle type="target" position={Position.Left} id="in" />
+      <Handle type="target" position={Position.Left} id={spec.ports[0]?.id ?? "in"} />
 
       <div style={titleStyle}>📝 {data.title}</div>
       {data.subtitle ? <div style={subtitleStyle}>{data.subtitle}</div> : null}
 
-      <Handle type="source" position={Position.Right} id="out" />
+      <div style={portRowStyle}>
+        {spec.ports.map((p) => (
+          <span key={p.id} style={portBadgeStyle}>
+            {p.direction === "in" ? "⬅" : "➡"} {p.label}
+          </span>
+        ))}
+      </div>
+
+      <Handle type="source" position={Position.Right} id={spec.ports[1]?.id ?? "out"} />
     </div>
   );
 }

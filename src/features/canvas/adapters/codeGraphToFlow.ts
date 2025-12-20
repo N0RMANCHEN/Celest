@@ -25,6 +25,8 @@ function mapNodeType(kind: CodeGraphNode["kind"]): CanvasNodeType {
       return "fileRefNode";
     case "group":
       return "groupNode";
+    case "subgraphInstance":
+      return "subgraphNode";
     case "note":
     default:
       return "noteNode";
@@ -37,6 +39,8 @@ function mapNodeData(n: CodeGraphNode): CanvasNodeData {
       return { kind: n.kind, title: n.title, subtitle: n.path };
     case "note":
       return { kind: n.kind, title: n.title, subtitle: n.text };
+    case "subgraphInstance":
+      return { kind: n.kind, title: n.title, subtitle: `uses: ${n.defId}` };
     default:
       return { kind: n.kind, title: n.title };
   }

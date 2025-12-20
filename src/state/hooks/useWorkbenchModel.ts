@@ -28,6 +28,7 @@ export function useWorkbenchModel() {
   const panels = useAppStore((s) => s.panels);
   const project = useAppStore((s) => s.getActiveProject());
   const activeView = useAppStore((s) => s.getActiveView());
+  const saveUi = useAppStore((s) => s.getActiveSaveUi());
   const fsExpandedByProjectId = useAppStore((s) => s.fsExpandedByProjectId);
   const fsSelectedIdByProjectId = useAppStore((s) => s.fsSelectedIdByProjectId);
   const getFsIndexForProject = useAppStore((s) => s.getFsIndexForProject);
@@ -41,6 +42,9 @@ export function useWorkbenchModel() {
     onConnect,
     onSelectionChange,
     createNoteNodeAt,
+    updateNodeTitle,
+    updateNoteText,
+    updateFilePath,
     setActiveView,
     updateActiveViewViewport,
     toggleFsExpanded,
@@ -53,6 +57,9 @@ export function useWorkbenchModel() {
       onConnect: s.onConnect,
       onSelectionChange: s.onSelectionChange,
       createNoteNodeAt: s.createNoteNodeAt,
+      updateNodeTitle: s.updateNodeTitle,
+      updateNoteText: s.updateNoteText,
+      updateFilePath: s.updateFilePath,
       setActiveView: s.setActiveView,
       updateActiveViewViewport: s.updateActiveViewViewport,
       toggleFsExpanded: s.toggleFsExpanded,
@@ -87,6 +94,12 @@ export function useWorkbenchModel() {
       ...(fsNode.parentId ? { parentId: fsNode.parentId } : {}),
     };
   }, [fsIndex, fsSelectedId]);
+
+  const selectedGraphNode = useMemo(() => {
+    if (!project) return null;
+    const firstSelected = project.selectedIds.find((id) => project.graph.nodes[id]);
+    return firstSelected ? project.graph.nodes[firstSelected] ?? null : null;
+  }, [project]);
 
   const activeViewId = activeView?.id ?? "main";
   const viewport = activeView?.viewport ?? FALLBACK_VIEWPORT;
@@ -134,6 +147,7 @@ export function useWorkbenchModel() {
     fsExpanded,
     fsSelectedId,
     activeFilePath,
+    saveUi,
 
     canvasNodes: canvasVM.nodes,
     canvasEdges: canvasVM.edges,
@@ -141,12 +155,16 @@ export function useWorkbenchModel() {
     activeViewId,
     viewport,
     focusRequest,
+    selectedGraphNode,
 
     onNodesChange,
     onEdgesChange,
     onConnect,
     onSelectionChange,
     onCreateNoteNodeAt: handleCreateNote,
+    onUpdateNodeTitle: updateNodeTitle,
+    onUpdateNoteText: updateNoteText,
+    onUpdateFilePath: updateFilePath,
 
     setActiveView,
     updateActiveViewViewport,

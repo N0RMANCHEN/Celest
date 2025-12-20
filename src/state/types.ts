@@ -102,6 +102,10 @@ export type GraphSlice = {
   /** Step4C: quick-create a Note node by double-clicking the canvas. */
   createNoteNodeAt: (pos: { x: number; y: number }) => void;
 
+  updateNodeTitle: (nodeId: string, title: string) => void;
+  updateNoteText: (nodeId: string, text: string) => void;
+  updateFilePath: (nodeId: string, path: string) => void;
+
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (c: Connection) => void;

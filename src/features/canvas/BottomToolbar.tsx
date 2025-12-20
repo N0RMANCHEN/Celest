@@ -42,7 +42,6 @@ function ToolButton(props: {
           ? "1px solid rgba(17, 24, 39, 0.16)"
           : "1px solid transparent",
         background: active ? "rgba(17, 24, 39, 0.06)" : "transparent",
-        cursor: "pointer",
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",

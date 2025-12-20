@@ -32,6 +32,7 @@ import {
   type Node,
   type NodeChange,
   type NodeTypes,
+  type OnNodeDrag,
   type OnSelectionChangeParams,
   type Viewport,
 } from "@xyflow/react";
@@ -112,6 +113,11 @@ function FlowCanvasInner(props: Props) {
   const lastCommitRef = useRef<{ viewId: string; v: Viewport } | null>(null);
   const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
+
+  // Pane click can sometimes fire after a node drag ends (mouseup on pane).
+  // If we clear selection there, it causes a visible "selected tint" flash.
+  // We ignore pane clicks that happen immediately after drag-stop.
+  const lastDragStopAtRef = useRef(0);
 
   // Controlled selection ids, updated from props.
   const selectedIdsRef = useRef<string[]>([]);
@@ -199,6 +205,13 @@ function FlowCanvasInner(props: Props) {
   // - double click creates note node (if enabled)
   const handlePaneClick = useCallback(
     (evt: ReactMouseEvent) => {
+      // Ignore the synthetic pane click that sometimes appears right after dragging a node.
+      const now = performance.now();
+      if (lastDragStopAtRef.current && now - lastDragStopAtRef.current < 80) {
+        lastDragStopAtRef.current = 0;
+        return;
+      }
+
       if (evt.detail >= 2 && onCreateNoteNodeAt) {
         const pos = rf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
         onCreateNoteNodeAt(pos);
@@ -209,6 +222,34 @@ function FlowCanvasInner(props: Props) {
     },
     [onCreateNoteNodeAt, onSelectionChange, rf]
   );
+
+  // Dragging a node should not clear selection on mouseup (pane click).
+  // Also, select the node immediately when drag starts (so it stays tinted while dragging).
+  const handleNodeDragStart = useCallback<OnNodeDrag<Node<CanvasNodeData>>>(
+    (evt, node) => {
+      // If the dragged node is already selected, keep current selection.
+      if (selectedIdsRef.current.includes(node.id)) return;
+
+      // If Shift is held, extend selection; otherwise select only this node.
+      if (evt.shiftKey) {
+        const next = new Set(selectedIdsRef.current);
+        next.add(node.id);
+        onSelectionChange(Array.from(next));
+        return;
+      }
+
+      onSelectionChange([node.id]);
+    },
+    [onSelectionChange]
+  );
+
+  const handleNodeDragStop = useCallback<
+    OnNodeDrag<Node<CanvasNodeData>>
+  >(() => {
+    // Some versions fire a pane click on mouseup after drag-stop.
+    // Record time so pane clicks right after drag-stop can be ignored.
+    lastDragStopAtRef.current = performance.now();
+  }, []);
 
   // Immediate click selection → update store now (no need to click empty space)
   const handleNodeClick = useCallback(
@@ -312,6 +353,8 @@ function FlowCanvasInner(props: Props) {
       onPaneClick={handlePaneClick}
       onNodeClick={handleNodeClick}
       onEdgeClick={handleEdgeClick}
+      onNodeDragStart={handleNodeDragStart}
+      onNodeDragStop={handleNodeDragStop}
       connectionLineType={ConnectionLineType.SmoothStep}
       fitView={false}
       proOptions={{ hideAttribution: true }}

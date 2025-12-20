@@ -1,0 +1,42 @@
+/**
+ * cursor.css
+ * ----------------
+ * Global cursor policy (product requirement):
+ * - Default is always arrow (cursor: default), even on clickable elements.
+ * - Typing areas keep the I-beam cursor (inputs/textarea/contenteditable/Monaco).
+ *
+ * IMPORTANT:
+ * - This file should be imported LAST, so it can override any scattered cursor rules.
+ */
+
+/* 1) Default cursor everywhere */
+html,
+body,
+body * {
+  cursor: default !important;
+}
+
+/* 2) ReactFlow connect handles: show crosshair (still not a hand cursor) */
+.react-flow__handle {
+  cursor: crosshair !important;
+}
+
+/* 3) Typing areas: keep I-beam */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+textarea,
+[contenteditable="true"],
+[contenteditable="true"] * {
+  cursor: text !important;
+}
+
+/* Monaco editor should stay as text (covers nested spans) */
+.monaco-editor,
+.monaco-editor * {
+  cursor: text !important;
+}

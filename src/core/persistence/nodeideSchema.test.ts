@@ -7,6 +7,8 @@ import {
   wrapGraphFile,
 } from "./nodeideSchema";
 
+import type { CodeGraphModel } from "../../entities/graph/types";
+
 describe("nodeide schema", () => {
   it("defaultWorkspaceFile is versioned and stable", () => {
     const ws = defaultWorkspaceFile();
@@ -17,7 +19,8 @@ describe("nodeide schema", () => {
   });
 
   it("wrapGraphFile sets versions and meta timestamps", () => {
-    const wrapped = wrapGraphFile({ version: 1, nodes: {}, edges: {} } as any);
+    const g: CodeGraphModel = { version: 1, nodes: {}, edges: {} };
+    const wrapped = wrapGraphFile(g);
     expect(wrapped.version).toBe(GRAPH_SCHEMA_VERSION);
     expect(wrapped.meta.createdAt).toBeTruthy();
     expect(wrapped.meta.updatedAt).toBeTruthy();

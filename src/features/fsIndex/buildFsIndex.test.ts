@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildFsIndexSnapshot } from "./buildFsIndex";
 
+import type { FsMeta } from "../../entities/fsIndex/types";
+
 describe("buildFsIndexSnapshot", () => {
   it("builds a stable snapshot with a root and sorted children", () => {
     const meta = {
@@ -41,7 +43,8 @@ describe("buildFsIndexSnapshot", () => {
   });
 
   it("returns null if no root can be inferred", () => {
-    const snap = buildFsIndexSnapshot({} as any);
+    const empty: Record<string, FsMeta> = {};
+    const snap = buildFsIndexSnapshot(empty);
     expect(snap).toBeNull();
   });
 });

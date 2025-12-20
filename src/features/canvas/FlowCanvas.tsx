@@ -25,9 +25,18 @@ import {
   type OnSelectionChangeParams,
   type Viewport,
 } from "reactflow";
-import { useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
-import type { CanvasEdgeData, CanvasNodeData } from "../../entities/graph/types";
+import type {
+  CanvasEdgeData,
+  CanvasNodeData,
+} from "../../entities/graph/types";
 import { NODE_TYPES } from "./nodeTypes";
 
 export type Props = {
@@ -72,8 +81,6 @@ function FlowCanvasInner(props: Props) {
   const lastCommitRef = useRef<{ viewId: string; v: Viewport } | null>(null);
   const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
-
-  const nodeTypes = useMemo(() => NODE_TYPES, []);
 
   const rf = useReactFlow<CanvasNodeData, CanvasEdgeData>();
   const nodeTypes = useMemo(() => NODE_TYPES, []);
@@ -151,9 +158,18 @@ function FlowCanvasInner(props: Props) {
       if (!onCreateNoteNodeAt || evt.detail < 2) return;
 
       // Prefer modern API if available.
-      const anyRf = rf as any;
-      if (typeof anyRf.screenToFlowPosition === "function") {
-        const pos = anyRf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
+      type ScreenToFlowPosition = (pos: { x: number; y: number }) => {
+        x: number;
+        y: number;
+      };
+      const maybe = rf as unknown as {
+        screenToFlowPosition?: ScreenToFlowPosition;
+      };
+      if (typeof maybe.screenToFlowPosition === "function") {
+        const pos = maybe.screenToFlowPosition({
+          x: evt.clientX,
+          y: evt.clientY,
+        });
         onCreateNoteNodeAt(pos);
         return;
       }
@@ -195,7 +211,8 @@ function FlowCanvasInner(props: Props) {
     <ReactFlow
       nodes={nodes}
       edges={edges}
-      nodeTypes={NODE_TYPES}
+      // Keep a stable nodeTypes reference across renders / HMR.
+      nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={handleConnect}

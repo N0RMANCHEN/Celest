@@ -15,7 +15,7 @@ It is a **graph‑based workbench** that lets users:
 
 - Work with **real local projects** (files & folders)
 - Express **structure and thinking** on a canvas (graphs)
-- Organize **Markdown knowledge** as a branching *Skill / Knowledge Tree*
+- Organize **Markdown knowledge** as a branching _Skill / Knowledge Tree_
 - Persist everything **inside the project** (no hidden cloud state)
 
 AI is an **accelerator**, never the source of truth.
@@ -25,6 +25,7 @@ AI is an **accelerator**, never the source of truth.
 ## 2. Core Product Philosophy
 
 ### 2.1 Local‑First, Project‑Scoped
+
 - Every Celest workspace maps to a **real project folder**
 - All metadata lives in `/.nodeide/` under the project root
 - Users must be able to:
@@ -33,15 +34,18 @@ AI is an **accelerator**, never the source of truth.
   - Get **identical state** back
 
 ### 2.2 Graph Is the Source of Truth
+
 - Canvas graphs are **not visualizations** of something else
 - They are the **primary editing and reasoning surface**
 
 ### 2.3 Separation of Concerns (Non‑Negotiable)
+
 - **FS Index ≠ CodeGraph ≠ Knowledge Tree**
 - Never merge these models
 - Never let UI logic leak into core/domain logic
 
 ### 2.4 AI Never Owns State
+
 - AI does **not** have persistent internal state
 - AI outputs are always:
   - Suggestions
@@ -64,7 +68,7 @@ Celest serves three validated cognitive workflows:
 3. **Learning / Skill Progression**  
    Planned paths with progress tracking ("skill tree")
 
-The **MD Skill Tree** is the first *killer scenario*.
+The **MD Skill Tree** is the first _killer scenario_.
 
 ---
 
@@ -75,12 +79,15 @@ Celest uses a **Figma‑like Shell**.
 ### 4.1 Layout Zones
 
 - **Top Bar**
+
   - Home
   - Project Tabs
   - Panel Toggles
 
 - **Left Sidebar**
+
   - **Views / Pages** (VERY IMPORTANT)
+
     - Located **above** the file tree
     - Behaves like **Figma Pages**
     - Switches the active graph / mode
@@ -90,10 +97,12 @@ Celest uses a **Figma‑like Shell**.
     - Navigation only (not graph editing)
 
 - **Center**
+
   - **Canvas** (graph editor)
   - Source of truth for structure
 
 - **Right Sidebar**
+
   - **Inspector**
   - Monaco editor (MD / text / fields)
 
@@ -101,6 +110,7 @@ Celest uses a **Figma‑like Shell**.
   - Terminal (Phase 1 placeholder)
 
 All non‑canvas panels:
+
 - Can be hidden
 - Future‑proofed for resizing
 
@@ -114,11 +124,13 @@ Views are **graph presets**, not UI filters.
 - Similar to **Figma Pages**
 
 Examples:
+
 - Main
 - View2
 - Knowledge Tree
 
 Rules:
+
 - Views can switch which graph is active
 - Views are future‑extensible
 - Phase 1 ships with **2 fixed presets**
@@ -128,16 +140,19 @@ Rules:
 ## 6. Graph Models (Hard Boundary)
 
 ### 6.1 FS Index
+
 - Purpose: navigation
 - Mirrors file system
 - Never rendered as a canvas graph by default
 
 ### 6.2 CodeGraph
+
 - Purpose: structure, architecture, logic
 - Node‑based
 - Plugin‑driven node types
 
 ### 6.3 Knowledge Graph (MD Skill Tree)
+
 - Purpose: learning, research, synthesis
 - Implemented as a **Knowledge Subgraph**
 - Rendered using the same Canvas engine
@@ -179,10 +194,11 @@ Each knowledge node contains:
 ### 7.4 Storage Strategy (Phase 1)
 
 - **Structure & layout**
+
   - `/.nodeide/knowledge/<treeId>.json`
 
 - **Content**
-  - One tree = one Markdown file  
+  - One tree = one Markdown file
   - (Later upgradeable to one node = one file)
 
 ### 7.5 Key Principle
@@ -196,11 +212,13 @@ Equivalent to Git commits, not CPU memory.
 ## 8. AI Integration Rules
 
 ### 8.1 What AI May Do
+
 - Generate summaries
 - Suggest next branches
 - Compress long text into nodes
 
 ### 8.2 What AI Must NOT Do
+
 - Own or mutate saved state silently
 - Persist hidden reasoning chains
 - Bypass user review
@@ -273,6 +291,11 @@ If Celest is successful, users will say:
 
 ---
 
+## Contributing & AI Execution Rules
+
+All AI agents (Codex / GPT / others) MUST also follow `contributing_ai.md`.
+If there is any conflict, **AGENT.md overrides CONTRIBUTING_AI.md**.
+Reading order: `AGENT.md` → `contributing_ai.md`.
+
 **This file is authoritative.**  
 Any AI system contributing to Celest must align with it.
-

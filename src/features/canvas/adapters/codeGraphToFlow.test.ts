@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { codeGraphToFlow } from "./codeGraphToFlow";
 
+import type { CodeGraphModel } from "../../../entities/graph/types";
+
 describe("codeGraphToFlow", () => {
   it("maps node kinds and positions into ReactFlow view-model", () => {
-    const g = {
+    const g: CodeGraphModel = {
       version: 1,
       nodes: {
         n1: {
@@ -31,9 +33,9 @@ describe("codeGraphToFlow", () => {
           targetHandle: "in",
         },
       },
-    } as const;
+    };
 
-    const vm = codeGraphToFlow(g as any);
+    const vm = codeGraphToFlow(g);
 
     expect(vm.nodes).toHaveLength(2);
     const n1 = vm.nodes.find((n) => n.id === "n1");

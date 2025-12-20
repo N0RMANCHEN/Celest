@@ -36,7 +36,10 @@ function sanitizeHandleId(v: unknown): string | undefined {
   return s;
 }
 
-export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (set, get) => ({
+export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
+  set,
+  get
+) => ({
   selectAndFocusNode: (nodeId) => {
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => ({
@@ -115,8 +118,12 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (set
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
         let g = p.graph;
         for (const ch of changes) {
-          if (ch.type === "position" && (ch as any).position) {
-            const position = (ch as any).position as { x: number; y: number };
+          if (ch.type === "position") {
+            const posChange = ch as NodeChange & {
+              position?: { x: number; y: number };
+            };
+            if (!posChange.position) continue;
+            const position = posChange.position;
             g = updateNodePosition(g, ch.id, { x: position.x, y: position.y });
           } else if (ch.type === "remove") {
             g = removeNode(g, ch.id);

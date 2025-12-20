@@ -26,7 +26,10 @@ import {
 
 function isNotFoundError(e: unknown): boolean {
   // Browsers typically throw DOMException with name "NotFoundError".
-  return typeof e === "object" && e !== null && (e as any).name === "NotFoundError";
+  if (typeof e !== "object" || e === null) return false;
+  if (!("name" in e)) return false;
+  const name = (e as { name?: unknown }).name;
+  return typeof name === "string" && name === "NotFoundError";
 }
 
 async function ensureDir(
@@ -75,19 +78,25 @@ async function readJson<T>(
   }
 }
 
-function validateWorkspaceFile(v: any): v is WorkspaceFileV1 {
+function validateWorkspaceFile(v: unknown): v is WorkspaceFileV1 {
   if (!v || typeof v !== "object") return false;
-  if (v.version !== WORKSPACE_SCHEMA_VERSION) return false;
-  if (!v.views || !v.graphs || !v.meta) return false;
-  if (v.graphs.activeGraphId !== "main") return false;
-  if (!v.graphs.files || typeof v.graphs.files.main !== "string") return false;
+  const o = v as Record<string, unknown>;
+  if (o.version !== WORKSPACE_SCHEMA_VERSION) return false;
+  if (!o.views || !o.graphs || !o.meta) return false;
+
+  const graphs = o.graphs as Record<string, unknown>;
+  if (graphs.activeGraphId !== "main") return false;
+  const files = graphs.files as Record<string, unknown> | undefined;
+  if (!files || typeof files.main !== "string") return false;
+
   return true;
 }
 
-function validateGraphFile(v: any): v is GraphFileV1 {
+function validateGraphFile(v: unknown): v is GraphFileV1 {
   if (!v || typeof v !== "object") return false;
-  if (v.version !== GRAPH_SCHEMA_VERSION) return false;
-  if (!v.graph || typeof v.graph !== "object") return false;
+  const o = v as Record<string, unknown>;
+  if (o.version !== GRAPH_SCHEMA_VERSION) return false;
+  if (!o.graph || typeof o.graph !== "object") return false;
   return true;
 }
 
@@ -108,10 +117,12 @@ export async function loadWorkspaceFile(
   projectDir: FileSystemDirectoryHandle
 ): Promise<WorkspaceFileV1 | null> {
   const { nodeideDir } = await ensureNodeideDirs(projectDir);
-  const raw = await readJson<any>(nodeideDir, WORKSPACE_FILENAME);
+  const raw = await readJson<unknown>(nodeideDir, WORKSPACE_FILENAME);
   if (!raw) return null;
   if (!validateWorkspaceFile(raw)) {
-    console.warn(`[persistence] workspace.json has unexpected shape/version; ignoring`);
+    console.warn(
+      `[persistence] workspace.json has unexpected shape/version; ignoring`
+    );
     return null;
   }
   return raw;
@@ -126,7 +137,11 @@ export async function saveWorkspaceFile(
     ...file,
     meta: { ...file.meta, updatedAt: nowIso() },
   };
-  await writeText(nodeideDir, WORKSPACE_FILENAME, JSON.stringify(next, null, 2));
+  await writeText(
+    nodeideDir,
+    WORKSPACE_FILENAME,
+    JSON.stringify(next, null, 2)
+  );
 }
 
 export async function ensureWorkspaceFile(
@@ -162,14 +177,16 @@ export async function loadMainGraph(
     dir = await ensureDir(dir, p);
   }
 
-  const raw = await readJson<any>(dir, filename);
+  const raw = await readJson<unknown>(dir, filename);
   if (!raw) return null;
   if (!validateGraphFile(raw)) {
-    console.warn(`[persistence] graph file has unexpected shape/version; ignoring`);
+    console.warn(
+      `[persistence] graph file has unexpected shape/version; ignoring`
+    );
     return null;
   }
 
-  return { graph: raw.graph as CodeGraphModel, createdAt: raw.meta?.createdAt };
+  return { graph: raw.graph, createdAt: raw.meta?.createdAt };
 }
 
 export async function saveMainGraph(
@@ -190,8 +207,10 @@ export async function saveMainGraph(
   }
 
   // Preserve createdAt if present.
-  const existing = await readJson<any>(dir, filename);
-  const createdAt = validateGraphFile(existing) ? existing.meta?.createdAt : undefined;
+  const existing = await readJson<unknown>(dir, filename);
+  const createdAt = validateGraphFile(existing)
+    ? existing.meta?.createdAt
+    : undefined;
   const wrapped = wrapGraphFile(graph, createdAt);
 
   await writeText(dir, filename, JSON.stringify(wrapped, null, 2));

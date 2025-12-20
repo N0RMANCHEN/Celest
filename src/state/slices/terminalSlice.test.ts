@@ -3,9 +3,18 @@ import { createStore } from "zustand/vanilla";
 
 import { createTerminalSlice } from "./terminalSlice";
 
+import type { TerminalSlice } from "../types";
+import type { StateCreator } from "zustand";
+
 function makeStore() {
-  return createStore<any>((set, get, api) => ({
-    ...createTerminalSlice(set, get, api),
+  const slice = createTerminalSlice as unknown as StateCreator<
+    TerminalSlice,
+    [],
+    [],
+    TerminalSlice
+  >;
+  return createStore<TerminalSlice>((set, get, api) => ({
+    ...slice(set, get, api),
   }));
 }
 

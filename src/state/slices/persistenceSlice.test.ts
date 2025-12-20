@@ -3,6 +3,11 @@ import { createStore } from "zustand/vanilla";
 
 import { createTerminalSlice } from "./terminalSlice";
 
+import type { StateCreator } from "zustand";
+import type { CodeGraphModel } from "../../entities/graph/types";
+import type { PersistenceSlice, TerminalSlice } from "../types";
+import type { ViewState } from "../../features/project/openProject";
+
 vi.mock("../../core/persistence/loadSave", () => ({
   saveMainGraph: vi.fn(async () => {}),
   ensureWorkspaceFile: vi.fn(async () => ({
@@ -27,9 +32,9 @@ import {
 type StubProject = {
   id: string;
   name: string;
-  dirHandle: any;
-  graph: any;
-  views: any[];
+  dirHandle: FileSystemDirectoryHandle | ({} & Record<string, never>);
+  graph: CodeGraphModel;
+  views: ViewState[];
   activeViewId: string;
 };
 
@@ -53,10 +58,28 @@ async function makeStore() {
 
   const project = makeStubProject();
 
-  return createStore<any>((set, get, api) => ({
+  type TestState = {
+    getActiveProject: () => StubProject | null;
+  } & TerminalSlice &
+    PersistenceSlice;
+
+  const terminal = createTerminalSlice as unknown as StateCreator<
+    TestState,
+    [],
+    [],
+    TerminalSlice
+  >;
+  const persistence = createPersistenceSlice as unknown as StateCreator<
+    TestState,
+    [],
+    [],
+    PersistenceSlice
+  >;
+
+  return createStore<TestState>((set, get, api) => ({
     getActiveProject: () => project,
-    ...createTerminalSlice(set, get, api),
-    ...createPersistenceSlice(set, get, api),
+    ...terminal(set, get, api),
+    ...persistence(set, get, api),
   }));
 }
 
@@ -76,7 +99,9 @@ describe("persistenceSlice", () => {
 
   it("initProjectPersistence seeds lastSavedAt", async () => {
     const store = await makeStore();
-    store.getState().initProjectPersistence("p1", { lastSavedAt: "2023-12-31T00:00:00Z" });
+    store
+      .getState()
+      .initProjectPersistence("p1", { lastSavedAt: "2023-12-31T00:00:00Z" });
 
     const ui = store.getState().saveUiByProjectId.p1;
     expect(ui?.lastSavedAt).toBe("2023-12-31T00:00:00Z");
@@ -110,7 +135,7 @@ describe("persistenceSlice", () => {
   it("flushActiveProjectSave reports errors", async () => {
     const store = await makeStore();
     store.getState().initProjectPersistence("p1");
-    (saveMainGraph as any).mockImplementationOnce(async () => {
+    vi.mocked(saveMainGraph).mockImplementationOnce(async () => {
       throw new Error("boom");
     });
 

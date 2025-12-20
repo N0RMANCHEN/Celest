@@ -3,11 +3,24 @@ import { createStore } from "zustand/vanilla";
 
 import { createFsIndexSlice } from "./fsIndexSlice";
 
+import type { FsIndexSlice } from "../types";
+import type { StateCreator } from "zustand";
+
+type TestState = {
+  getActiveProject: () => { id: string } | null;
+} & FsIndexSlice;
+
 function makeStore() {
-  return createStore<any>((set, get, api) => ({
+  const slice = createFsIndexSlice as unknown as StateCreator<
+    TestState,
+    [],
+    [],
+    FsIndexSlice
+  >;
+  return createStore<TestState>((set, get, api) => ({
     // Minimal stubs required by fsIndexSlice
     getActiveProject: () => ({ id: "p1" }),
-    ...createFsIndexSlice(set, get, api),
+    ...slice(set, get, api),
   }));
 }
 
@@ -18,7 +31,13 @@ describe("fsIndexSlice", () => {
       version: 1,
       rootId: "root",
       nodes: {
-        root: { id: "root", kind: "dir", name: "Project", path: "/Project", children: [] },
+        root: {
+          id: "root",
+          kind: "dir",
+          name: "Project",
+          path: "/Project",
+          children: [],
+        },
       },
     });
     const expanded = store.getState().getActiveFsExpanded();
@@ -31,7 +50,13 @@ describe("fsIndexSlice", () => {
       version: 1,
       rootId: "root",
       nodes: {
-        root: { id: "root", kind: "dir", name: "Project", path: "/Project", children: [] },
+        root: {
+          id: "root",
+          kind: "dir",
+          name: "Project",
+          path: "/Project",
+          children: [],
+        },
       },
     });
 

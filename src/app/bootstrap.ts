@@ -8,15 +8,20 @@
 
 import { useAppStore } from "../state/store";
 
+declare global {
+  interface Window {
+    __celest_save_hotkey_bound?: boolean;
+  }
+}
+
 export function bootstrap() {
   // Do not await: boot should be sync and fast.
   void useAppStore.getState().hydrateRecents();
 
   // Step5B: global hotkey Cmd/Ctrl+S -> save current project
   // Guard against HMR / double registration.
-  const w = window as any;
-  if (!w.__celest_save_hotkey_bound) {
-    w.__celest_save_hotkey_bound = true;
+  if (!window.__celest_save_hotkey_bound) {
+    window.__celest_save_hotkey_bound = true;
     window.addEventListener("keydown", (e) => {
       const isMac = navigator.platform.toLowerCase().includes("mac");
       const mod = isMac ? e.metaKey : e.ctrlKey;

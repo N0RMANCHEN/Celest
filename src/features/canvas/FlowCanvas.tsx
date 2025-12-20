@@ -23,10 +23,10 @@ import {
   type OnSelectionChangeParams,
   type Viewport,
 } from "reactflow";
-import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
 
 import type { CanvasEdgeData, CanvasNodeData } from "../../entities/graph/types";
-import { getNodeTypes } from "./nodeTypes";
+import { NODE_TYPES } from "./nodeTypes";
 
 export type Props = {
   nodes: Node<CanvasNodeData>[];
@@ -67,7 +67,6 @@ function FlowCanvasInner(props: Props) {
     onCreateNoteNodeAt,
   } = props;
 
-  const nodeTypes = useMemo(() => getNodeTypes(), []);
   const lastCommitRef = useRef<{ viewId: string; v: Viewport } | null>(null);
   const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
@@ -191,7 +190,7 @@ function FlowCanvasInner(props: Props) {
     <ReactFlow<CanvasNodeData, CanvasEdgeData>
       nodes={nodes}
       edges={edges}
-      nodeTypes={nodeTypes}
+      nodeTypes={NODE_TYPES}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={handleConnect}

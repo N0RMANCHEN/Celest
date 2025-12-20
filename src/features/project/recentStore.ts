@@ -64,7 +64,8 @@ function openDb(): Promise<IDBDatabase> {
       }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("Failed to open IndexedDB"));
+    req.onerror = () =>
+      reject(req.error ?? new Error("Failed to open IndexedDB"));
   });
 }
 
@@ -78,7 +79,8 @@ async function withStore<T>(
     const store = tx.objectStore(STORE);
     const req = fn(store);
     req.onsuccess = () => resolve(req.result as T);
-    req.onerror = () => reject(req.error ?? new Error("IndexedDB request failed"));
+    req.onerror = () =>
+      reject(req.error ?? new Error("IndexedDB request failed"));
     tx.oncomplete = () => db.close();
     tx.onerror = () => {
       // best effort
@@ -152,7 +154,9 @@ export async function upsertRecent(
 
     // Trim (keep newest MAX_RECENTS)
     const again = await idbGetAll();
-    const sorted = again.slice().sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
+    const sorted = again
+      .slice()
+      .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
     const extra = sorted.slice(MAX_RECENTS);
     for (const r of extra) {
       await idbDelete(r.id);
@@ -220,12 +224,7 @@ export async function removeRecent(key: string): Promise<void> {
   }
 }
 
-type PermissionMode = "read" | "readwrite";
-type FsPermissionDescriptor = { mode: PermissionMode };
-type HandleWithPermissions = FileSystemDirectoryHandle & {
-  queryPermission?: (desc: FsPermissionDescriptor) => Promise<PermissionState>;
-  requestPermission?: (desc: FsPermissionDescriptor) => Promise<PermissionState>;
-};
+type FsPermissionDescriptor = FileSystemHandlePermissionDescriptor;
 
 /**
  * Best-effort permission helper for directory handles.
@@ -237,11 +236,10 @@ export async function ensureReadWritePermission(
   handle: FileSystemDirectoryHandle
 ): Promise<boolean> {
   try {
-    const h = handle as HandleWithPermissions;
     const opts: FsPermissionDescriptor = { mode: "readwrite" };
-    const q = await h.queryPermission?.(opts);
+    const q = await handle.queryPermission?.(opts);
     if (q === "granted") return true;
-    const r = await h.requestPermission?.(opts);
+    const r = await handle.requestPermission?.(opts);
     return r === "granted";
   } catch {
     // If permission APIs are missing, assume best effort.

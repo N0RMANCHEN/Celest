@@ -59,9 +59,7 @@ export async function scanFsMeta(
   ) {
     const entries: Array<[string, FileSystemHandle]> = [];
 
-    // TS lib types may lag. Cast to any to avoid friction.
-    const iter = (dir as unknown as { entries: () => AsyncIterable<[string, FileSystemHandle]> }).entries();
-    for await (const [name, handle] of iter) {
+    for await (const [name, handle] of dir.entries()) {
       entries.push([name, handle]);
     }
 

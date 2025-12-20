@@ -74,6 +74,19 @@ describe("persistenceSlice", () => {
     expect(ui.seq).toBe(1);
   });
 
+  it("initProjectPersistence seeds lastSavedAt", async () => {
+    const store = await makeStore();
+    store.getState().initProjectPersistence("p1", { lastSavedAt: "2023-12-31T00:00:00Z" });
+
+    const ui = store.getState().saveUiByProjectId.p1;
+    expect(ui?.lastSavedAt).toBe("2023-12-31T00:00:00Z");
+
+    // Subsequent dirty marks should keep the timestamp until a save completes.
+    store.getState().markActiveProjectDirty("graph");
+    const afterDirty = store.getState().saveUiByProjectId.p1;
+    expect(afterDirty?.lastSavedAt).toBe("2023-12-31T00:00:00Z");
+  });
+
   it("flushActiveProjectSave saves graph + workspace and clears dirty", async () => {
     const store = await makeStore();
     store.getState().initProjectPersistence("p1");

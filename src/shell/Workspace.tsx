@@ -1,20 +1,20 @@
 /**
  * shell/Workspace.tsx
  * ----------------
- * Phase 1 Step3A-C workbench.
+ * Phase 1 workbench.
  *
- * NOTE (Step4C):
+ * NOTE:
  * - Left Tree uses FsIndexSnapshot.
  * - Canvas uses CodeGraphModel (converted to ReactFlow view-model).
  */
 
 import FlowCanvas from "../features/canvas/FlowCanvas";
+import BottomToolbar from "../features/canvas/BottomToolbar";
 import InspectorPanel from "../features/inspector/InspectorPanel";
 import TerminalPanel from "../features/terminal/TerminalPanel";
 
 import { useWorkbenchModel } from "../state/hooks/useWorkbenchModel";
 
-import BottomToolbar from "./workbench/BottomToolbar";
 import LeftSidebar from "./workbench/LeftSidebar";
 
 export default function Workspace() {
@@ -41,7 +41,8 @@ export default function Workspace() {
 
       <div className="workbench__center">
         <div className="centerStack">
-          <div className="centerStack__canvas">
+          {/* IMPORTANT: make canvas container relative so the toolbar anchors to canvas */}
+          <div className="centerStack__canvas" style={{ position: "relative" }}>
             <FlowCanvas
               nodes={vm.canvasNodes}
               edges={vm.canvasEdges}
@@ -55,6 +56,9 @@ export default function Workspace() {
               onViewportChange={vm.updateActiveViewViewport}
               focusRequest={vm.focusRequest}
             />
+
+            {/* Floating toolbar stays within the canvas area */}
+            <BottomToolbar />
           </div>
 
           {vm.panels.terminal ? (
@@ -62,8 +66,6 @@ export default function Workspace() {
               <TerminalPanel />
             </div>
           ) : null}
-
-          <BottomToolbar />
         </div>
       </div>
 

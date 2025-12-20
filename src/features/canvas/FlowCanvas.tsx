@@ -23,13 +23,7 @@ import {
   type OnSelectionChangeParams,
   type Viewport,
 } from "reactflow";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type MouseEvent as ReactMouseEvent,
-} from "react";
+import { useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
 
 import type { CanvasEdgeData, CanvasNodeData } from "../../entities/graph/types";
 import { NODE_TYPES } from "./nodeTypes";
@@ -220,7 +214,12 @@ function FlowCanvasInner(props: Props) {
         return !isBlocked;
       }}
     >
-      <Background />
+      <Background
+        variant="dots"
+        gap={28}
+        size={1.6}
+        color="rgba(15,23,42,0.12)"
+      />
       <MiniMap />
       <Controls />
     </ReactFlow>

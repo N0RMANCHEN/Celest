@@ -14,6 +14,10 @@
  * Keyboard delete:
  * - Explicit Delete/Backspace removal using props-selected nodes/edges
  * - Disable ReactFlow built-in deleteKeyCode to avoid conflicts
+ *
+ * P1-1:
+ * - Props accept UI-engine-agnostic Canvas* event contracts.
+ * - This component translates ReactFlow events into Canvas* contracts.
  */
 
 import {
@@ -25,23 +29,30 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
-  type Connection,
+  type Connection as RFConnection,
   type Edge,
-  type EdgeChange,
+  type EdgeChange as RFEdgeChange,
   type EdgeTypes,
   type Node,
-  type NodeChange,
+  type NodeChange as RFNodeChange,
   type NodeTypes,
-  type OnNodeDrag,
   type OnSelectionChangeParams,
-  type Viewport,
+  type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+
+import type {
+  CanvasConnection,
+  CanvasEdgeChange,
+  CanvasNodeChange,
+  CanvasViewport,
+} from "./canvasEvents";
 
 import type {
   CanvasEdgeData,
@@ -52,14 +63,15 @@ import { getNodeTypes } from "./nodeTypes";
 export type Props = {
   nodes: Node<CanvasNodeData>[];
   edges: Edge<CanvasEdgeData>[];
-  onNodesChange: (changes: NodeChange[]) => void;
-  onEdgesChange: (changes: EdgeChange[]) => void;
-  onConnect: (conn: Connection) => void;
+
+  onNodesChange: (changes: CanvasNodeChange[]) => void;
+  onEdgesChange: (changes: CanvasEdgeChange[]) => void;
+  onConnect: (conn: CanvasConnection) => void;
   onSelectionChange: (ids: string[]) => void;
 
   activeViewId: string;
-  viewport: Viewport;
-  onViewportChange: (viewport: Viewport) => void;
+  viewport: CanvasViewport;
+  onViewportChange: (viewport: CanvasViewport) => void;
   focusRequest?: { nodeId: string; nonce: number } | null;
 
   onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void;
@@ -95,6 +107,39 @@ function isTypingTarget(t: EventTarget | null) {
   return false;
 }
 
+function toCanvasNodeChanges(changes: RFNodeChange[]): CanvasNodeChange[] {
+  const out: CanvasNodeChange[] = [];
+  for (const ch of changes) {
+    if (ch.type === "remove") {
+      out.push({ id: ch.id, type: "remove" });
+      continue;
+    }
+
+    if (ch.type === "position") {
+      // XYFlow uses `position` for the new node position.
+      const pos = (ch as unknown as { position?: { x: number; y: number } })
+        .position;
+      out.push({
+        id: ch.id,
+        type: "position",
+        ...(pos ? { position: pos } : {}),
+      });
+      continue;
+    }
+
+    // Ignore other change types for now (dimensions, select, etc.).
+  }
+  return out;
+}
+
+function toCanvasEdgeChanges(changes: RFEdgeChange[]): CanvasEdgeChange[] {
+  const out: CanvasEdgeChange[] = [];
+  for (const ch of changes) {
+    if (ch.type === "remove") out.push({ id: ch.id, type: "remove" });
+  }
+  return out;
+}
+
 function FlowCanvasInner(props: Props) {
   const {
     nodes,
@@ -110,14 +155,15 @@ function FlowCanvasInner(props: Props) {
     onCreateNoteNodeAt,
   } = props;
 
-  const lastCommitRef = useRef<{ viewId: string; v: Viewport } | null>(null);
-  const lastViewportRef = useRef<Viewport | null>(null);
+  const lastCommitRef = useRef<{ viewId: string; v: CanvasViewport } | null>(
+    null
+  );
+  const lastViewportRef = useRef<CanvasViewport | null>(null);
   const didFitRef = useRef(false);
 
-  // Pane click can sometimes fire after a node drag ends (mouseup on pane).
-  // If we clear selection there, it causes a visible "selected tint" flash.
-  // We ignore pane clicks that happen immediately after drag-stop.
-  const lastDragStopAtRef = useRef(0);
+  // When releasing a drag, ReactFlow may still dispatch a trailing pane click.
+  // We use this to avoid "drag -> selection flash -> clear" artifacts.
+  const lastDragStopAtRef = useRef<number>(0);
 
   // Controlled selection ids, updated from props.
   const selectedIdsRef = useRef<string[]>([]);
@@ -143,7 +189,8 @@ function FlowCanvasInner(props: Props) {
     }
 
     lastViewportRef.current = viewport;
-    rf.setViewport(viewport, { duration: 220 });
+    // CanvasViewport is structurally compatible with XYFlow Viewport.
+    rf.setViewport(viewport as RFViewport, { duration: 220 });
   }, [activeViewId, viewport, rf]);
 
   // Fit view once when nodes appear.
@@ -164,7 +211,7 @@ function FlowCanvasInner(props: Props) {
   }, [nodes.length, rf]);
 
   const commitViewportIfChanged = useCallback(
-    (viewId: string, v: Viewport) => {
+    (viewId: string, v: CanvasViewport) => {
       const last = lastCommitRef.current;
       if (
         last &&
@@ -182,16 +229,17 @@ function FlowCanvasInner(props: Props) {
   );
 
   const handleMoveEnd = useCallback(
-    (_: unknown, v: Viewport) => {
+    (_: unknown, v: RFViewport) => {
       commitViewportIfChanged(activeViewId, v);
     },
     [activeViewId, commitViewportIfChanged]
   );
 
   const handleConnect = useCallback(
-    (conn: Connection) => {
-      const cleaned: Connection = {
-        ...conn,
+    (conn: RFConnection) => {
+      const cleaned: CanvasConnection = {
+        source: conn.source ?? "",
+        target: conn.target ?? "",
         sourceHandle: sanitizeHandleId(conn.sourceHandle),
         targetHandle: sanitizeHandleId(conn.targetHandle),
       };
@@ -200,17 +248,41 @@ function FlowCanvasInner(props: Props) {
     [onConnect]
   );
 
+  const handleNodesChange = useCallback(
+    (changes: RFNodeChange[]) => {
+      const mapped = toCanvasNodeChanges(changes);
+      if (mapped.length > 0) onNodesChange(mapped);
+    },
+    [onNodesChange]
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: RFEdgeChange[]) => {
+      const mapped = toCanvasEdgeChanges(changes);
+      if (mapped.length > 0) onEdgesChange(mapped);
+    },
+    [onEdgesChange]
+  );
+
+  const handleNodeDragStart = useCallback(
+    (_: ReactMouseEvent, node: Node<CanvasNodeData>) => {
+      // Select on drag start so the selection tint + Inspector stay in sync during drag.
+      onSelectionChange([node.id]);
+    },
+    [onSelectionChange]
+  );
+
+  const handleNodeDragStop = useCallback(() => {
+    lastDragStopAtRef.current = Date.now();
+  }, []);
+
   // Pane click:
   // - single click clears selection
   // - double click creates note node (if enabled)
   const handlePaneClick = useCallback(
     (evt: ReactMouseEvent) => {
-      // Ignore the synthetic pane click that sometimes appears right after dragging a node.
-      const now = performance.now();
-      if (lastDragStopAtRef.current && now - lastDragStopAtRef.current < 80) {
-        lastDragStopAtRef.current = 0;
-        return;
-      }
+      const now = Date.now();
+      if (now - lastDragStopAtRef.current < 140) return;
 
       if (evt.detail >= 2 && onCreateNoteNodeAt) {
         const pos = rf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
@@ -222,34 +294,6 @@ function FlowCanvasInner(props: Props) {
     },
     [onCreateNoteNodeAt, onSelectionChange, rf]
   );
-
-  // Dragging a node should not clear selection on mouseup (pane click).
-  // Also, select the node immediately when drag starts (so it stays tinted while dragging).
-  const handleNodeDragStart = useCallback<OnNodeDrag<Node<CanvasNodeData>>>(
-    (evt, node) => {
-      // If the dragged node is already selected, keep current selection.
-      if (selectedIdsRef.current.includes(node.id)) return;
-
-      // If Shift is held, extend selection; otherwise select only this node.
-      if (evt.shiftKey) {
-        const next = new Set(selectedIdsRef.current);
-        next.add(node.id);
-        onSelectionChange(Array.from(next));
-        return;
-      }
-
-      onSelectionChange([node.id]);
-    },
-    [onSelectionChange]
-  );
-
-  const handleNodeDragStop = useCallback<
-    OnNodeDrag<Node<CanvasNodeData>>
-  >(() => {
-    // Some versions fire a pane click on mouseup after drag-stop.
-    // Record time so pane clicks right after drag-stop can be ignored.
-    lastDragStopAtRef.current = performance.now();
-  }, []);
 
   // Immediate click selection → update store now (no need to click empty space)
   const handleNodeClick = useCallback(
@@ -322,14 +366,10 @@ function FlowCanvasInner(props: Props) {
       e.preventDefault();
 
       if (edgeIds.length > 0) {
-        onEdgesChange(
-          edgeIds.map((id) => ({ id, type: "remove" } as EdgeChange))
-        );
+        onEdgesChange(edgeIds.map((id) => ({ id, type: "remove" })));
       }
       if (nodeIds.length > 0) {
-        onNodesChange(
-          nodeIds.map((id) => ({ id, type: "remove" } as NodeChange))
-        );
+        onNodesChange(nodeIds.map((id) => ({ id, type: "remove" })));
       }
     };
 
@@ -339,37 +379,44 @@ function FlowCanvasInner(props: Props) {
     };
   }, [edges, nodes, onEdgesChange, onNodesChange]);
 
+  // Memoize isValidConnection to avoid re-creating the function every render.
+  const isValidConnection = useMemo(() => {
+    return (edgeOrConn: RFConnection | Edge<CanvasEdgeData>) => {
+      const source = edgeOrConn.source ?? null;
+      const target = edgeOrConn.target ?? null;
+      const sNode = source ? rf.getNode(source) : null;
+      const tNode = target ? rf.getNode(target) : null;
+      const isBlocked =
+        sNode?.type === "groupNode" ||
+        tNode?.type === "groupNode" ||
+        sNode?.type === "frameNode" ||
+        tNode?.type === "frameNode";
+      return !isBlocked;
+    };
+  }, [rf]);
+
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
       nodeTypes={STABLE_NODE_TYPES}
       edgeTypes={STABLE_EDGE_TYPES}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
+      onNodesChange={handleNodesChange}
+      onEdgesChange={handleEdgesChange}
       onConnect={handleConnect}
       onMoveEnd={handleMoveEnd}
       onSelectionChange={handleSelectionChange}
       onPaneClick={handlePaneClick}
-      onNodeClick={handleNodeClick}
-      onEdgeClick={handleEdgeClick}
       onNodeDragStart={handleNodeDragStart}
       onNodeDragStop={handleNodeDragStop}
+      onNodeClick={handleNodeClick}
+      onEdgeClick={handleEdgeClick}
       connectionLineType={ConnectionLineType.SmoothStep}
       fitView={false}
       proOptions={{ hideAttribution: true }}
       // we manage deletion ourselves
       deleteKeyCode={null}
-      isValidConnection={(conn) => {
-        const sNode = conn.source ? rf.getNode(conn.source) : null;
-        const tNode = conn.target ? rf.getNode(conn.target) : null;
-        const isBlocked =
-          sNode?.type === "groupNode" ||
-          tNode?.type === "groupNode" ||
-          sNode?.type === "frameNode" ||
-          tNode?.type === "frameNode";
-        return !isBlocked;
-      }}
+      isValidConnection={isValidConnection}
     >
       <Background
         variant={BackgroundVariant.Dots}

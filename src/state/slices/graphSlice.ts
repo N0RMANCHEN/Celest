@@ -4,11 +4,20 @@
  * Step4C:
  * - Canvas edits CodeGraphModel (domain), not FSGraph.
  * - FS navigation is handled by fsIndexSlice.
+ *
+ * P1-1:
+ * - state slice must not depend on ReactFlow/@xyflow types.
+ * - Canvas UI layer translates engine events into Canvas* contracts.
  */
 
 import type { StateCreator } from "zustand";
-import type { Connection, EdgeChange, NodeChange } from "@xyflow/react";
 import { nanoid } from "nanoid";
+
+import type {
+  CanvasConnection,
+  CanvasEdgeChange,
+  CanvasNodeChange,
+} from "../../entities/canvas/canvasEvents";
 
 import type { AppState, GraphSlice } from "../types";
 import { mapActiveProject } from "../utils/projectUtils";
@@ -112,19 +121,18 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
     get().markActiveProjectDirty("graph");
   },
 
-  onNodesChange: (changes: NodeChange[]) => {
+  onNodesChange: (changes: CanvasNodeChange[]) => {
     let didChange = false;
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
         let g = p.graph;
         for (const ch of changes) {
           if (ch.type === "position") {
-            const posChange = ch as NodeChange & {
-              position?: { x: number; y: number };
-            };
-            if (!posChange.position) continue;
-            const position = posChange.position;
-            g = updateNodePosition(g, ch.id, { x: position.x, y: position.y });
+            if (!ch.position) continue;
+            g = updateNodePosition(g, ch.id, {
+              x: ch.position.x,
+              y: ch.position.y,
+            });
           } else if (ch.type === "remove") {
             g = removeNode(g, ch.id);
           }
@@ -138,7 +146,7 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
     if (didChange) get().markActiveProjectDirty("graph");
   },
 
-  onEdgesChange: (changes: EdgeChange[]) => {
+  onEdgesChange: (changes: CanvasEdgeChange[]) => {
     let didChange = false;
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
@@ -157,7 +165,7 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
     if (didChange) get().markActiveProjectDirty("graph");
   },
 
-  onConnect: (c: Connection) => {
+  onConnect: (c: CanvasConnection) => {
     let didChange = false;
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {

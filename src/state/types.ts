@@ -4,17 +4,16 @@
  * Centralized Zustand slice types for Phase 1.
  *
  * Notes:
- * - Phase 1 still uses FSGraph-based ProjectState (nodes/edges come from scanning the folder).
- * - Step4A adds FsIndexSnapshot (serializable) to decouple Left Tree navigation from Canvas.
  * - Keep slice boundaries explicit so later we can move stable domain types into `src/entities/*`.
+ * - IMPORTANT (P1-1): state must not depend on ReactFlow/@xyflow types.
  */
 
 import type {
-  Connection,
-  EdgeChange,
-  NodeChange,
-  Viewport,
-} from "@xyflow/react";
+  CanvasConnection,
+  CanvasEdgeChange,
+  CanvasNodeChange,
+  CanvasViewport,
+} from "../entities/canvas/canvasEvents";
 
 import type { FsIndexSnapshot } from "../entities/fsIndex/types";
 import type { ProjectState, ViewState } from "../features/project/openProject";
@@ -103,7 +102,7 @@ export type PersistenceSlice = {
 export type ViewSlice = {
   getActiveView: () => ViewState | null;
   setActiveView: (viewId: ViewState["id"]) => void;
-  updateActiveViewViewport: (vp: Viewport) => void;
+  updateActiveViewViewport: (vp: CanvasViewport) => void;
 };
 
 export type GraphSlice = {
@@ -116,9 +115,9 @@ export type GraphSlice = {
   updateNoteText: (nodeId: string, text: string) => void;
   updateFilePath: (nodeId: string, path: string) => void;
 
-  onNodesChange: (changes: NodeChange[]) => void;
-  onEdgesChange: (changes: EdgeChange[]) => void;
-  onConnect: (c: Connection) => void;
+  onNodesChange: (changes: CanvasNodeChange[]) => void;
+  onEdgesChange: (changes: CanvasEdgeChange[]) => void;
+  onConnect: (c: CanvasConnection) => void;
   onSelectionChange: (ids: string[]) => void;
 };
 
@@ -152,7 +151,6 @@ export type FsIndexSlice = {
  * Phase 1 Step3A-C does not wire editor into UI yet.
  * Keep the slice as a placeholder so other modules can depend on stable names.
  */
-// Placeholder slice: keep a stable name without restricting AppState keys.
 export type EditorSlice = {
   /**
    * Phase 1 Step4B:

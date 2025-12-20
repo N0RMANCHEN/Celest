@@ -5,12 +5,15 @@
  *
  * - Left Tree uses FsIndexSnapshot.
  * - Canvas uses CodeGraphModel (converted to ReactFlow view model).
+ *
+ * P1-1:
+ * - state layer must not depend on ReactFlow/@xyflow types.
  */
 
 import { useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import type { Viewport } from "@xyflow/react";
+import type { CanvasViewport } from "../../entities/canvas/canvasEvents";
 
 import { codeGraphToFlow } from "../../features/canvas/adapters/codeGraphToFlow";
 import type { Vec2 } from "../../entities/graph/types";
@@ -18,7 +21,7 @@ import type { FsMeta } from "../../entities/fsIndex/types";
 
 import { useAppStore } from "../store";
 
-const FALLBACK_VIEWPORT: Viewport = { x: 0, y: 0, zoom: 1 };
+const FALLBACK_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1 };
 const EMPTY_OBJ: Record<string, never> = Object.freeze({});
 
 export type FocusRequest = { nodeId: string; nonce: number };

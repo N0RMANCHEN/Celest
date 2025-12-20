@@ -11,7 +11,7 @@
 import { useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import type { Viewport } from "reactflow";
+import type { Viewport } from "@xyflow/react";
 import type { FsMeta } from "../../entities/fsIndex/types";
 
 import { codeGraphToFlow } from "../../features/canvas/adapters/codeGraphToFlow";

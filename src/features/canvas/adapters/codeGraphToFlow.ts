@@ -9,7 +9,7 @@
  * adapters + renderer, not the domain model.
  */
 
-import type { Edge, Node } from "reactflow";
+import type { Edge, Node } from "@xyflow/react";
 
 import type {
   CanvasEdgeData,
@@ -53,9 +53,10 @@ function sanitizeHandle(handle: unknown): string | undefined {
   return s;
 }
 
-export function codeGraphToFlow(
-  graph: CodeGraphModel
-): { nodes: Node<CanvasNodeData>[]; edges: Edge<CanvasEdgeData>[] } {
+export function codeGraphToFlow(graph: CodeGraphModel): {
+  nodes: Node<CanvasNodeData>[];
+  edges: Edge<CanvasEdgeData>[];
+} {
   const seenNodeIds = new Set<string>();
   const nodes: Node<CanvasNodeData>[] = [];
 

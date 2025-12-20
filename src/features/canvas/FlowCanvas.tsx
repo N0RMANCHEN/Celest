@@ -2,8 +2,7 @@
  * features/canvas/FlowCanvas.tsx
  * ----------------
  * ReactFlow wrapper:
- * - React Flow #002 hard fix: nodeTypes/edgeTypes are stable singletons (globalThis cache via typed cast).
- * - Sanitize edge handle ids (avoid null/"undefined"/"").
+ * - React Flow #002 hard fix: nodeTypes/edgeTypes are stable singletons.
  * - View presets: restore viewport per activeViewId; update viewport on move-end.
  */
 
@@ -25,7 +24,7 @@ import {
   type NodeTypes,
   type OnSelectionChangeParams,
   type Viewport,
-} from "reactflow";
+} from "@xyflow/react";
 import {
   useCallback,
   useEffect,
@@ -93,15 +92,17 @@ function FlowCanvasInner(props: Props) {
   const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
 
-  const rf = useReactFlow<CanvasNodeData, CanvasEdgeData>();
+  // ✅ v12：useReactFlow 的泛型要传 “NodeType/EdgeType”（整颗 Node/Edge），不是 data
+  const rf = useReactFlow<Node<CanvasNodeData>, Edge<CanvasEdgeData>>();
 
   // Restore viewport when switching views.
   useEffect(() => {
+    const last = lastViewportRef.current;
     if (
-      lastViewportRef.current &&
-      Math.abs(lastViewportRef.current.x - viewport.x) < 0.0001 &&
-      Math.abs(lastViewportRef.current.y - viewport.y) < 0.0001 &&
-      Math.abs(lastViewportRef.current.zoom - viewport.zoom) < 0.0001
+      last &&
+      Math.abs(last.x - viewport.x) < 0.0001 &&
+      Math.abs(last.y - viewport.y) < 0.0001 &&
+      Math.abs(last.zoom - viewport.zoom) < 0.0001
     ) {
       return;
     }
@@ -168,6 +169,7 @@ function FlowCanvasInner(props: Props) {
     (evt: ReactMouseEvent) => {
       if (!onCreateNoteNodeAt || evt.detail < 2) return;
 
+      // v12: screenToFlowPosition 可能存在；存在就用，否则 fallback
       type ScreenToFlowPosition = (pos: { x: number; y: number }) => {
         x: number;
         y: number;
@@ -235,11 +237,14 @@ function FlowCanvasInner(props: Props) {
       isValidConnection={(conn) => {
         const sNode = conn.source ? rf.getNode(conn.source) : null;
         const tNode = conn.target ? rf.getNode(conn.target) : null;
+
+        // 这里的 .type 是 Node 的字段（不是 data），现在类型正确就不会报错
         const isBlocked =
           sNode?.type === "groupNode" ||
           tNode?.type === "groupNode" ||
           sNode?.type === "frameNode" ||
           tNode?.type === "frameNode";
+
         return !isBlocked;
       }}
     >

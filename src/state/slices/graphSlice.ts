@@ -7,7 +7,7 @@
  */
 
 import type { StateCreator } from "zustand";
-import type { Connection, EdgeChange, NodeChange } from "reactflow";
+import type { Connection, EdgeChange, NodeChange } from "@xyflow/react";
 import { nanoid } from "nanoid";
 
 import type { AppState, GraphSlice } from "../types";

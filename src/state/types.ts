@@ -9,7 +9,12 @@
  * - Keep slice boundaries explicit so later we can move stable domain types into `src/entities/*`.
  */
 
-import type { Connection, EdgeChange, NodeChange, Viewport } from "reactflow";
+import type {
+  Connection,
+  EdgeChange,
+  NodeChange,
+  Viewport,
+} from "@xyflow/react";
 
 import type { FsIndexSnapshot } from "../entities/fsIndex/types";
 import type { ProjectState, ViewState } from "../features/project/openProject";
@@ -77,14 +82,19 @@ export type SaveUiState = {
 export type PersistenceSlice = {
   saveUiByProjectId: Record<string, SaveUiState>;
 
-  initProjectPersistence: (projectId: string, opts?: { lastSavedAt?: string }) => void;
+  initProjectPersistence: (
+    projectId: string,
+    opts?: { lastSavedAt?: string }
+  ) => void;
   removeProjectPersistence: (projectId: string) => void;
 
   /** Mark active project as dirty and schedule debounced autosave. */
   markActiveProjectDirty: (source: "graph" | "viewport" | "view") => void;
 
   /** Flush active project persistence immediately. */
-  flushActiveProjectSave: (opts: { reason: "manual" | "hotkey" | `autosave:${string}` }) => Promise<void>;
+  flushActiveProjectSave: (opts: {
+    reason: "manual" | "hotkey" | `autosave:${string}`;
+  }) => Promise<void>;
 
   /** Convenience getter for UI (TopTabs). */
   getActiveSaveUi: () => SaveUiState | null;
@@ -154,8 +164,7 @@ export type EditorSlice = {
   closeFile: () => void;
 };
 
-export type AppState =
-  ShellSlice &
+export type AppState = ShellSlice &
   ProjectSlice &
   ViewSlice &
   GraphSlice &

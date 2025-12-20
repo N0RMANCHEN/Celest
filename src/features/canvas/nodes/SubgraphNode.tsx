@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position } from "@xyflow/react";
 
 import { getNodeSpec } from "../../../entities/graph/registry";
 import type { CanvasNodeData } from "../../../entities/graph/types";
@@ -39,7 +39,9 @@ export default function SubgraphNode({ data }: Props) {
       <Handle type="source" position={Position.Right} id="output" />
 
       <div style={titleStyle}>{`${spec.icon} Subgraph — ${data.title}`}</div>
-      <div style={descStyle}>占位：稍后接入真实子图定义（{data.subtitle ?? "未指定"}）。</div>
+      <div style={descStyle}>
+        占位：稍后接入真实子图定义（{data.subtitle ?? "未指定"}）。
+      </div>
     </div>
   );
 }

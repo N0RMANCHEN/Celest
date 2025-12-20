@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position } from "@xyflow/react";
 
 import { getNodeSpec } from "../../../entities/graph/registry";
 import type { CanvasNodeData } from "../../../entities/graph/types";
@@ -55,7 +55,11 @@ export default function NoteNode({ data }: Props) {
 
   return (
     <div style={cardStyle}>
-      <Handle type="target" position={Position.Left} id={spec.ports[0]?.id ?? "in"} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={spec.ports[0]?.id ?? "in"}
+      />
 
       <div style={titleStyle}>📝 {data.title}</div>
       {data.subtitle ? <div style={subtitleStyle}>{data.subtitle}</div> : null}
@@ -68,7 +72,11 @@ export default function NoteNode({ data }: Props) {
         ))}
       </div>
 
-      <Handle type="source" position={Position.Right} id={spec.ports[1]?.id ?? "out"} />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id={spec.ports[1]?.id ?? "out"}
+      />
     </div>
   );
 }

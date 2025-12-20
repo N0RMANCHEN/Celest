@@ -8,7 +8,7 @@
  * - On every module eval (incl. HMR), refresh properties so hot reload still works.
  */
 
-import type { NodeTypes } from "reactflow";
+import type { NodeTypes } from "@xyflow/react";
 
 import NoteNode from "./nodes/NoteNode";
 import FileRefNode from "./nodes/FileRefNode";

@@ -152,7 +152,8 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (set
   onSelectionChange: (ids) => {
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
-        const next = Array.from(new Set(ids)).sort();
+        const safeIds = Array.isArray(ids) ? ids : [];
+        const next = Array.from(new Set(safeIds)).sort();
         if (arrayEq(p.selectedIds, next)) return p;
         return { ...p, selectedIds: next };
       }),

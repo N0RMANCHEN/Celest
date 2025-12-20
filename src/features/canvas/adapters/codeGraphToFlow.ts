@@ -1,12 +1,13 @@
 /**
  * features/canvas/adapters/codeGraphToFlow.ts
  * ----------------
- * Step4C:
  * Convert CodeGraphModel (domain) -> ReactFlow nodes/edges (view model).
  *
- * This file is the boundary between the stable graph model and the
- * ReactFlow renderer. Later, if we replace ReactFlow, we only replace
- * adapters + renderer, not the domain model.
+ * IMPORTANT:
+ * - This is the boundary between domain model and ReactFlow renderer.
+ * - We also project selection state (selectedIds) onto nodes/edges for:
+ *   - visible selection styling
+ *   - reliable keyboard deletion in controlled mode
  */
 
 import type { Edge, Node } from "@xyflow/react";
@@ -53,10 +54,12 @@ function sanitizeHandle(handle: unknown): string | undefined {
   return s;
 }
 
-export function codeGraphToFlow(graph: CodeGraphModel): {
-  nodes: Node<CanvasNodeData>[];
-  edges: Edge<CanvasEdgeData>[];
-} {
+export function codeGraphToFlow(
+  graph: CodeGraphModel,
+  selectedIds: string[] = []
+): { nodes: Node<CanvasNodeData>[]; edges: Edge<CanvasEdgeData>[] } {
+  const selected = new Set(selectedIds);
+
   const seenNodeIds = new Set<string>();
   const nodes: Node<CanvasNodeData>[] = [];
 
@@ -71,6 +74,7 @@ export function codeGraphToFlow(graph: CodeGraphModel): {
       type: mapNodeType(n.kind),
       position: { x: position.x ?? 0, y: position.y ?? 0 },
       data: mapNodeData(n),
+      selected: selected.has(id),
     });
   }
 
@@ -95,6 +99,7 @@ export function codeGraphToFlow(graph: CodeGraphModel): {
       ...(targetHandle ? { targetHandle } : {}),
       type: "smoothstep",
       data: { edgeKind: "flow" },
+      selected: selected.has(id),
     });
   }
 

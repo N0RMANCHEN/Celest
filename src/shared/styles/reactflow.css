@@ -1,11 +1,10 @@
 /**
  * reactflow.css
  * ----------------
- * 用途：
- *  - ReactFlow 的 OKX-ish 皮肤（Controls / MiniMap / 背景 / 选择框）
- *
- * 对外接口：
- *  - ReactFlow 内置 class 覆盖：.react-flow__*
+ * ReactFlow skin:
+ * - Controls / MiniMap / selection box
+ * - Selected highlight (card tint, no outline)
+ * - Cursor behavior: default arrow in canvas (Figma-like)
  */
 
 .react-flow {
@@ -29,6 +28,7 @@
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   color: var(--text);
+  cursor: pointer;
 }
 
 .react-flow__controls button:hover {
@@ -46,12 +46,75 @@
   box-shadow: none;
 }
 
-/* selection box（框选）更 OKX */
+/* selection box（框选） */
 .react-flow__selection {
   background: rgba(43, 92, 255, 0.08);
   border: 1px solid rgba(43, 92, 255, 0.35);
 }
 
+/* =========================
+   Cursor (Figma-ish)
+   - Canvas: default arrow
+   - Avoid "grab/grabbing" hand cursor
+   ========================= */
+.react-flow__pane {
+  cursor: default !important;
+}
+
+.react-flow__pane:active {
+  cursor: default !important;
+}
+
+/* Nodes should NOT force grab */
+.react-flow__node {
+  cursor: default !important;
+}
+
+/* Handles: indicate connect */
+.react-flow__handle {
+  cursor: crosshair;
+}
+
+/* Edges: keep default */
+.react-flow__edge,
+.react-flow__edge path {
+  cursor: default !important;
+}
+
+/* =========================
+   Selected highlight
+   - No outline
+   - Tint the card + slightly stronger shadow
+   - IMPORTANT: cover both class + aria-selected (timing differs between versions)
+   ========================= */
+
+/* smooth transition so it feels instant but not jumpy */
+.react-flow__node > :first-child {
+  transition: box-shadow 120ms ease, background-image 120ms ease,
+    filter 120ms ease;
+}
+
+/* when selected, add a blue tint overlay via background-image (won't fight inline background) */
+.react-flow__node.selected > :first-child,
+.react-flow__node[aria-selected="true"] > :first-child,
+.react-flow__node[data-selected="true"] > :first-child {
+  background-image: linear-gradient(
+    0deg,
+    rgba(43, 92, 255, 0.12),
+    rgba(43, 92, 255, 0.12)
+  ) !important;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16) !important;
+  filter: saturate(1.02) brightness(1.01);
+}
+
+/* Selected edges */
+.react-flow__edge.selected path,
+.react-flow__edge[aria-selected="true"] path {
+  stroke: rgba(43, 92, 255, 0.75);
+  stroke-width: 2.5;
+}
+
+/* attribution 隐藏 */
 .react-flow__attribution {
   display: none;
 }

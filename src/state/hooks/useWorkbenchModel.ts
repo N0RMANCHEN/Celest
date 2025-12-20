@@ -3,7 +3,6 @@
  * ----------------
  * Build a stable "view-model" for Workbench UI.
  *
- * Step4C:
  * - Left Tree uses FsIndexSnapshot.
  * - Canvas uses CodeGraphModel (converted to ReactFlow view model).
  */
@@ -12,10 +11,10 @@ import { useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import type { Viewport } from "@xyflow/react";
-import type { FsMeta } from "../../entities/fsIndex/types";
 
 import { codeGraphToFlow } from "../../features/canvas/adapters/codeGraphToFlow";
 import type { Vec2 } from "../../entities/graph/types";
+import type { FsMeta } from "../../entities/fsIndex/types";
 
 import { useAppStore } from "../store";
 
@@ -114,8 +113,10 @@ export function useWorkbenchModel() {
   const canvasVM = useMemo(() => {
     const graph = project?.graph;
     if (!graph) return { nodes: [], edges: [] };
-    return codeGraphToFlow(graph);
-  }, [project?.graph]);
+
+    // ✅ IMPORTANT: project selection is projected back onto ReactFlow nodes/edges
+    return codeGraphToFlow(graph, project?.selectedIds ?? []);
+  }, [project?.graph, project?.selectedIds]);
 
   const handleCreateNote = useCallback(
     (pos: Vec2) => {

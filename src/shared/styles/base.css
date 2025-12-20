@@ -5,9 +5,9 @@
  *  - Reset / 基础排版
  *  - 基础组件：button/card/文本辅助类
  *
- * 对外接口（CSS 类）：
- *  - .btn .btn-primary .btn-ghost .btn-sm
- *  - .card .muted
+ * Cursor 原则（产品要求）：
+ *  - 默认永远是箭头（default），即便是可点击元素也不变“小手”
+ *  - 可输入区域保持浏览器原生 I-beam（input/textarea/contenteditable）
  */
 
 * {
@@ -36,6 +36,18 @@ body {
   color: var(--muted);
 }
 
+/* ✅ Global cursor policy: no pointer hand anywhere */
+button,
+a,
+[role="button"] {
+  cursor: default;
+}
+
+/* Some components used inline cursor:pointer; force override */
+.bottomToolbar button {
+  cursor: default !important;
+}
+
 /* ---- Buttons (OKX-ish: 紧凑、扁平、线框) ---- */
 .btn {
   appearance: none;
@@ -49,7 +61,9 @@ body {
 
   font-size: 13px;
   line-height: 32px;
-  cursor: pointer;
+
+  /* product requirement: no hand cursor */
+  cursor: default;
 
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
@@ -61,7 +75,7 @@ body {
 
 .btn:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
+  cursor: default;
 }
 
 .btn-primary {

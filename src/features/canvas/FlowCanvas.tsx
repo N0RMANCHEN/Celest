@@ -2,8 +2,18 @@
  * features/canvas/FlowCanvas.tsx
  * ----------------
  * ReactFlow wrapper:
- * - React Flow #002 hard fix: nodeTypes/edgeTypes are stable singletons.
- * - View presets: restore viewport per activeViewId; update viewport on move-end.
+ * - nodeTypes/edgeTypes stable singletons
+ * - sanitize edge handle ids
+ * - view presets restore/commit viewport
+ *
+ * Selection model:
+ * - Store is source of truth for selection (project.selectedIds)
+ * - We project selection onto nodes/edges in adapter (selected: true)
+ * - Clicking node/edge updates store immediately (Inspector + tint instant)
+ *
+ * Keyboard delete:
+ * - Explicit Delete/Backspace removal using props-selected nodes/edges
+ * - Disable ReactFlow built-in deleteKeyCode to avoid conflicts
  */
 
 import {
@@ -60,7 +70,7 @@ type EdgeTypesCache = {
 
 const g = globalThis as typeof globalThis & EdgeTypesCache;
 
-// ---- React Flow #002: stable singletons (module scope) ----
+// stable singletons (module scope)
 const STABLE_NODE_TYPES: NodeTypes = getNodeTypes();
 const STABLE_EDGE_TYPES: EdgeTypes =
   g.__CELEST_EDGE_TYPES__ ?? (g.__CELEST_EDGE_TYPES__ = {} as EdgeTypes);
@@ -71,6 +81,17 @@ function sanitizeHandleId(handle: unknown): string | null {
   if (!s) return null;
   if (s === "undefined" || s === "null") return null;
   return s;
+}
+
+function isTypingTarget(t: EventTarget | null) {
+  if (!t || !(t instanceof HTMLElement)) return false;
+  const tag = t.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (t.isContentEditable) return true;
+  if (typeof t.closest === "function") {
+    if (t.closest(".monaco-editor")) return true;
+  }
+  return false;
 }
 
 function FlowCanvasInner(props: Props) {
@@ -92,7 +113,15 @@ function FlowCanvasInner(props: Props) {
   const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
 
-  // ✅ v12：useReactFlow 的泛型要传 “NodeType/EdgeType”（整颗 Node/Edge），不是 data
+  // Controlled selection ids, updated from props.
+  const selectedIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    selectedIdsRef.current = [
+      ...nodes.filter((n) => n.selected).map((n) => n.id),
+      ...edges.filter((e) => e.selected).map((e) => e.id),
+    ];
+  }, [nodes, edges]);
+
   const rf = useReactFlow<Node<CanvasNodeData>, Edge<CanvasEdgeData>>();
 
   // Restore viewport when switching views.
@@ -165,38 +194,54 @@ function FlowCanvasInner(props: Props) {
     [onConnect]
   );
 
+  // Pane click:
+  // - single click clears selection
+  // - double click creates note node (if enabled)
   const handlePaneClick = useCallback(
     (evt: ReactMouseEvent) => {
-      if (!onCreateNoteNodeAt || evt.detail < 2) return;
-
-      // v12: screenToFlowPosition 可能存在；存在就用，否则 fallback
-      type ScreenToFlowPosition = (pos: { x: number; y: number }) => {
-        x: number;
-        y: number;
-      };
-      const maybe = rf as unknown as {
-        screenToFlowPosition?: ScreenToFlowPosition;
-      };
-
-      if (typeof maybe.screenToFlowPosition === "function") {
-        const pos = maybe.screenToFlowPosition({
-          x: evt.clientX,
-          y: evt.clientY,
-        });
+      if (evt.detail >= 2 && onCreateNoteNodeAt) {
+        const pos = rf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
         onCreateNoteNodeAt(pos);
         return;
       }
 
-      const v = rf.getViewport();
-      const pos = {
-        x: (evt.clientX - v.x) / v.zoom,
-        y: (evt.clientY - v.y) / v.zoom,
-      };
-      onCreateNoteNodeAt(pos);
+      onSelectionChange([]);
     },
-    [onCreateNoteNodeAt, rf]
+    [onCreateNoteNodeAt, onSelectionChange, rf]
   );
 
+  // Immediate click selection → update store now (no need to click empty space)
+  const handleNodeClick = useCallback(
+    (evt: ReactMouseEvent, node: Node<CanvasNodeData>) => {
+      if (evt.shiftKey) {
+        const current = new Set(selectedIdsRef.current);
+        if (current.has(node.id)) current.delete(node.id);
+        else current.add(node.id);
+        onSelectionChange(Array.from(current));
+        return;
+      }
+
+      onSelectionChange([node.id]);
+    },
+    [onSelectionChange]
+  );
+
+  const handleEdgeClick = useCallback(
+    (evt: ReactMouseEvent, edge: Edge<CanvasEdgeData>) => {
+      if (evt.shiftKey) {
+        const current = new Set(selectedIdsRef.current);
+        if (current.has(edge.id)) current.delete(edge.id);
+        else current.add(edge.id);
+        onSelectionChange(Array.from(current));
+        return;
+      }
+
+      onSelectionChange([edge.id]);
+    },
+    [onSelectionChange]
+  );
+
+  // Keep ReactFlow's selection change for box-select etc.
   const handleSelectionChange = useCallback(
     (sel: OnSelectionChangeParams) => {
       const nodeIds = sel?.nodes?.map((n) => n.id) ?? [];
@@ -219,6 +264,40 @@ function FlowCanvasInner(props: Props) {
     }
   }, [focusRequest, rf]);
 
+  // Keyboard delete (controlled selection)
+  useEffect(() => {
+    const opts: AddEventListenerOptions = { capture: true };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Backspace" && e.key !== "Delete") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+
+      const nodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
+      const edgeIds = edges.filter((ed) => ed.selected).map((ed) => ed.id);
+
+      if (nodeIds.length === 0 && edgeIds.length === 0) return;
+
+      e.preventDefault();
+
+      if (edgeIds.length > 0) {
+        onEdgesChange(
+          edgeIds.map((id) => ({ id, type: "remove" } as EdgeChange))
+        );
+      }
+      if (nodeIds.length > 0) {
+        onNodesChange(
+          nodeIds.map((id) => ({ id, type: "remove" } as NodeChange))
+        );
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown, opts);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, opts);
+    };
+  }, [edges, nodes, onEdgesChange, onNodesChange]);
+
   return (
     <ReactFlow
       nodes={nodes}
@@ -231,20 +310,21 @@ function FlowCanvasInner(props: Props) {
       onMoveEnd={handleMoveEnd}
       onSelectionChange={handleSelectionChange}
       onPaneClick={handlePaneClick}
+      onNodeClick={handleNodeClick}
+      onEdgeClick={handleEdgeClick}
       connectionLineType={ConnectionLineType.SmoothStep}
       fitView={false}
       proOptions={{ hideAttribution: true }}
+      // we manage deletion ourselves
+      deleteKeyCode={null}
       isValidConnection={(conn) => {
         const sNode = conn.source ? rf.getNode(conn.source) : null;
         const tNode = conn.target ? rf.getNode(conn.target) : null;
-
-        // 这里的 .type 是 Node 的字段（不是 data），现在类型正确就不会报错
         const isBlocked =
           sNode?.type === "groupNode" ||
           tNode?.type === "groupNode" ||
           sNode?.type === "frameNode" ||
           tNode?.type === "frameNode";
-
         return !isBlocked;
       }}
     >

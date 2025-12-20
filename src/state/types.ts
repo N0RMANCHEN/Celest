@@ -92,7 +92,7 @@ export type PersistenceSlice = {
 
 export type ViewSlice = {
   getActiveView: () => ViewState | null;
-  setActiveView: (viewId: string) => void;
+  setActiveView: (viewId: ViewState["id"]) => void;
   updateActiveViewViewport: (vp: Viewport) => void;
 };
 

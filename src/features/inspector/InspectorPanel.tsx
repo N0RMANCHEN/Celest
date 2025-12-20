@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { useMemo } from "react";
 
 import type { NodeKindSpec } from "../../entities/graph/registry";
@@ -94,7 +94,7 @@ function SaveStatus({ ui }: { ui: SaveUiState | null }) {
 
 function NodeInspector(
   props: Props & { node: CodeGraphNode; spec: NodeKindSpec }
-): JSX.Element {
+): ReactElement {
   const { node, spec } = props;
 
   const titleInputId = useMemo(() => `title-${node.id}`, [node.id]);

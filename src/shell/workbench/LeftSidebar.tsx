@@ -18,7 +18,7 @@ type Props = {
   onToggleExpanded: (dirId: string) => void;
   onSelect: (nodeId: string) => void;
   onOpenFile: (path: string) => void;
-  onSwitchView: (viewId: string) => void;
+  onSwitchView: (viewId: ViewState["id"]) => void;
 };
 
 export default function LeftSidebar(props: Props) {

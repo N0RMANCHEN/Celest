@@ -10,6 +10,8 @@
 
 import {
   Background,
+  BackgroundVariant,
+  ConnectionLineType,
   Controls,
   MiniMap,
   ReactFlow,
@@ -44,11 +46,11 @@ export type Props = {
   onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void;
 };
 
-function sanitizeHandleId(handle: unknown): string | undefined {
-  if (handle === null || handle === undefined) return undefined;
+function sanitizeHandleId(handle: unknown): string | null {
+  if (handle === null || handle === undefined) return null;
   const s = String(handle).trim();
-  if (!s) return undefined;
-  if (s === "undefined" || s === "null") return undefined;
+  if (!s) return null;
+  if (s === "undefined" || s === "null") return null;
   return s;
 }
 
@@ -190,7 +192,7 @@ function FlowCanvasInner(props: Props) {
   }, [focusRequest, rf]);
 
   return (
-    <ReactFlow<CanvasNodeData, CanvasEdgeData>
+    <ReactFlow
       nodes={nodes}
       edges={edges}
       nodeTypes={NODE_TYPES}
@@ -200,7 +202,7 @@ function FlowCanvasInner(props: Props) {
       onMoveEnd={handleMoveEnd}
       onSelectionChange={handleSelectionChange}
       onPaneClick={handlePaneClick}
-      connectionLineType="smoothstep"
+      connectionLineType={ConnectionLineType.SmoothStep}
       fitView={false}
       proOptions={{ hideAttribution: true }}
       isValidConnection={(conn) => {
@@ -216,7 +218,7 @@ function FlowCanvasInner(props: Props) {
       }}
     >
       <Background
-        variant="dots"
+        variant={BackgroundVariant.Dots}
         gap={28}
         size={1.6}
         color="rgba(15,23,42,0.12)"

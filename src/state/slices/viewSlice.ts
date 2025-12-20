@@ -8,6 +8,7 @@
 
 import type { StateCreator } from "zustand";
 import type { AppState, ViewSlice } from "../types";
+import type { ViewState } from "../../features/project/openProject";
 
 import { mapActiveProject } from "../utils/projectUtils";
 
@@ -21,7 +22,7 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (
     return p.views.find((v) => v.id === p.activeViewId) ?? null;
   },
 
-  setActiveView: (viewId) => {
+  setActiveView: (viewId: ViewState["id"]) => {
     let didChange = false;
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {

@@ -142,150 +142,88 @@ Legacy（归档，不要求可运行）：
 
 ---
 
-## Roadmap（执行版）
+## Roadmap（执行版 / 2025-12-20）
 
 > 原则：严格遵守 `AGENT.md` 与 `contributing_ai.md`
 >
 > - 一次只改一个文件（或一个最小变更集合），交付可复制粘贴的完整文件
-> - 不删除旧代码：旧实现只移动到 `src/_legacy`（保留历史）
+> - 不删除旧代码：旧实现只移动到 `src/_legacy/`（保留历史）
 > - Phase 1 只做 BrowserAdapter；持久化固定写入项目根目录 `/.nodeide/`
 > - Canvas 通过 adapter 隔离 React Flow 数据结构，避免业务绑死实现细节
 
----
+### P1（“真正像产品” + 对齐你期望的文件/节点语义 + 分层洁净）
 
-### P0（跑通 + 清零硬依赖/硬错误）
+**P1 目标**
 
-**目标**
+- 交互闭环更完整（创建/选中/删除/编辑/保存/重开）
+- “文件树 ↔ Canvas 节点”建立明确的、可控的映射机制（但不破坏 FS Index ≠ CodeGraph 的边界）
+- 代码分层更干净，为后续 Subgraph / Knowledge Tree 做基座
 
-- 任何人 clone 后 `npm ci && npm run dev` 必须稳定跑起来
-- `npm run build` 必须通过
-- UI 基本壳逻辑正确（面板开关真实生效）
-- 不再依赖 `src/_legacy` 才能编译（清零编译期依赖）
+#### P1-Task-1：节点删除（Delete UX 闭环）
 
-**验收标准（Definition of Done）**
+- 交付：选中节点后可通过 Delete/Backspace 删除（并同步删除相关 edges）
+- 同时提供一个显式入口：TopBar / Inspector 里的 “Delete Node” 按钮（避免只靠快捷键）
 
-- ✅ `npm ci && npm run dev`：可启动，无 missing module、无 runtime crash
-- ✅ `npm run build`：构建通过
-- ✅ 基础闭环：打开文件夹 → 生成/写入 `/.nodeide/` → 重开项目状态可恢复
-- ✅ Shell 面板开关真实生效：Left / Inspector / Terminal 可隐藏/显示且布局不崩
-- ✅ FS 扫描打开常见前端项目目录不应卡死/长时间无响应
-- ✅ TS strict 环境下不需要用 `any` 糊 File System Access API 类型
+#### P1-Task-2：文件树与节点的“对齐策略”落地（你提出的：每个文件=一个 Node）
 
-**执行顺序（更稳）**
+> 注意：保持 FS Index ≠ CodeGraph 的硬边界，但允许“显式导入/映射”
 
-1. **清零 `_legacy` 的“编译期依赖”**
+- 交付（最小可用）：
+  - 在左侧文件树对文件提供动作：**Add to Canvas** → 创建 `fileRef` 节点（path 指向该文件）
+  - 对文件夹提供动作：**Add Folder as Frame** → 创建 `frame` 节点（容器语义）
+  - Group 仍为用户手动创建（UI-only）
+- 约束：
+  - 默认不自动把整个项目“全量生成节点”（避免性能灾难）
+  - 允许“对某个 folder 显式生成一层节点”的模式（可做增量）
 
-   - 修复工作区引用不存在 legacy 组件文件（如 LeftSidebar 的 import）
-   - 交付：构建不再因为 missing module 失败；`src/_legacy` 仅存档（不被 import）
+#### P1-Task-3：FS Index id 稳定化（path-based id）
 
-2. **TopTabs 的 panel toggles 真正驱动 Workspace 布局显示/隐藏**
+- 交付：同一路径重复打开项目，FS 条目 id 不变
+- 修复：展开状态/选中状态不再每次丢失
 
-   - 现状：toggle 写入 store，但 Workspace 未消费 → “假开关”
-   - 交付：左栏/右栏/底栏可隐藏/显示，布局不会崩
+#### P1-Task-4：Inspector 根据扩展名自动选择 Monaco language
 
-3. **React Flow StrictMode 下 nodeTypes/edgeTypes 警告处理**
+- 交付：.ts/.json/.md 等语言正确，不再全部当 markdown
 
-   - 工程侧兜底：确保 nodeTypes/edgeTypes 引用稳定（组件外常量或 useMemo 且依赖稳定）
-   - 同时列为 P0：升级 React Flow/@xyflow/react（最小适配，不改构建工具）
-   - 交付：全仓库仅一个稳定 nodeTypes/edgeTypes 来源，不再出现 React Flow #002 告警
+#### P1-Task-5：文件内容编辑闭环（右侧 Inspector 真正编辑真实文件）
 
-4. **File System Access API 的 TS 类型补齐**
+- 交付（最小可用）：
+  - 在 FS Tree 选中一个文件：Inspector 读取文件内容并可保存回文件
+  - 明确策略：Phase 1 优先支持 `.md`（其余文本文件可读写但先不保证语法特性）
 
-   - 交付：TS strict 下不需要 any 去糊 `showDirectoryPicker` / handles / entries
+#### P1-Task-6：ProjectState / ViewState 归位（entities 层）
 
-5. **FS 扫描默认忽略目录**
+- 交付：把核心类型收敛到 `entities/project/types.ts`
+- 清理：features/state 中零散占位 types 收敛
 
-   - 默认 ignore：`node_modules`、`.git`、`dist`、`build`、`.next`、`.cache` 等
-   - 交付：打开常见前端项目目录不应卡死/长时间无响应
+#### P1-Task-7：BottomToolbar（正式实现 + SplitPane 可拖拽调整）
 
-6. **能力兜底：不支持 File System Access API 的提示**
-   - 交付：在不支持环境（如部分 Safari）能提示原因与替代方案，而不是直接报错/白屏
-
----
-
-### P1（高收益 UI + 分层洁净 + `_legacy` 引用清零）
-
-**目标**
-
-- 壳体验更像产品（底部工具条/分隔布局回归）
-- 分层更干净：entities 承担核心类型与纯逻辑
-- `_legacy` 逐步可删除（import 引用清零）
-
-**验收标准**
-
-- ✅ BottomToolbar + SplitPane 成为正式模块（不再 import `_legacy`）
-- ✅ 项目状态/视图状态的核心类型收敛到 entities 层
-- ✅ 全仓 `ripgrep "_legacy"`：只剩注释/文档，不再出现在 import 中
-- ✅ FS Index id 稳定（同一路径多次打开 id 不变）
-- ✅ Monaco 根据扩展名自动选择 language（ts/json 不再当 markdown）
-
-**执行顺序（建议拆步，便于回滚）**
-
-1. **迁出 SplitPane（最小改动）**
-
-   - 策略：原样搬迁 + 补类型/补样式变量，不顺手大改逻辑
-   - 交付：SplitPane 不再依赖 `_legacy`
-
-2. **迁出 BottomToolbar（最小改动）**
-
-   - 同上
-   - 交付：BottomToolbar 不再依赖 `_legacy`
-
-3. **把 ProjectState / ViewState 收敛到 `entities/project/types.ts`**
-
-   - 交付：features/slices 只引用，不再散落占位 types
-
-4. **清理 `_legacy` 的“运行期依赖”**
-
-   - 替换剩余所有 `import from "src/_legacy/..."` 为新路径
-   - 交付：import 中 `_legacy` 清零
-
-5. **FS Index id 稳定化（path-based id）**
-
-   - 解决：展开状态丢失/选中丢失/引用不稳定
-   - 交付：同一路径重复打开项目，id 稳定，左侧树体验可靠
-
-6. **Inspector 的 language mapping**
-   - 按扩展名选择 Monaco language（.md/.ts/.json/...）
-   - 交付：打开 ts/json 不再当 markdown
-
-> 建议：在 P1 末尾交付一份 `docs/architecture-checklist.md`（见 P2 的 checklist 项），作为后续迭代护栏。
+- 交付：BottomToolbar 回归（非 legacy），SplitPane 支持拖拽调整 panel 尺寸
+- Canvas 永远优先占满剩余空间
 
 ---
 
-### P2（对齐长期架构：插件化节点 / Subgraph / Knowledge Tree / 架构检查）
+### P2（对齐长期架构：Subgraph / Knowledge Tree / 插件化节点注册）
 
-**目标**
+**P2 目标**
 
-- 把 Phase 1 的可扩展方向补齐关键占位，避免未来大返工
-- 建立“架构健康度 checklist”，每次改动可对照
+- 做好“未来一定要用”的结构占位，避免后期大返工
 
-**验收护栏（必须持续成立）**
+#### P2-Task-1：Subgraph（definition/instance + IO ports + schema version）
 
-- ✅ FS Index / CodeGraph / Knowledge Tree 分离不被破坏（类型与持久化文件独立）
-- ✅ Canvas 仍隔离 React Flow 数据结构（通过 adapter）
-- ✅ Zustand slice 边界清晰；序列化数据来自 entities/core，而不是 UI 临时结构
+- 交付：能创建 SubgraphDefinition（哪怕不可用），序列化/反序列化不破
 
-**内容**
+#### P2-Task-2：Knowledge Tree（MD Skill Tree）最小落地
 
-1. **Subgraph：数据结构占位完善 + 最小序列化闭环**
+- 交付：从 md 入口 “Open as Skill Tree” 生成最小节点结构（todo/doing/done + summary）
 
-   - definition/instance、IO ports、schema 版本化（import/export）
-   - 交付：可创建 SubgraphDefinition（哪怕不可用），序列化/反序列化不破
+#### P2-Task-3：节点类型 plugin registry 强化
 
-2. **Knowledge Tree（MD Skill Tree）最小落地**
+- 交付：新增 node type 不需要改一堆核心文件（UI + ports/spec + validate + compile/codegen + aiHints）
 
-   - `.nodeide/knowledge/*.json` + md 内容策略（Phase1 可“一树一 md”）
-   - 交付：能从 md 入口 “Open as Skill Tree”，生成最小节点结构（todo/doing/done + summary）
+#### P2-Task-4：架构健康度 checklist
 
-3. **节点类型 plugin registry 强化**
-
-   - UI + ports/spec + validate + compile/codegen + aiHints 结构更明确
-   - 交付：新增一个 node type 不需要改一堆核心文件
-
-4. **产品级架构检查清单**
-   - 输出：`docs/architecture-checklist.md`
-   - 交付：给出可勾选 checklist（FS Index / CodeGraph 分离、adapter 隔离、slice 边界、序列化纯净等）
+- 交付：`docs/architecture-checklist.md`（FS Index / CodeGraph 分离、adapter 隔离、slice 边界、序列化纯净等）
 
 ## License
 

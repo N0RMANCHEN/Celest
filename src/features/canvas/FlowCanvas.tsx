@@ -198,7 +198,7 @@ function FlowCanvasInner(props: Props) {
     <ReactFlow<CanvasNodeData, CanvasEdgeData>
       nodes={nodes}
       edges={edges}
-      nodeTypes={nodeTypes}
+      nodeTypes={NODE_TYPES}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={handleConnect}

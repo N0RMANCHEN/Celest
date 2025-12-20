@@ -54,10 +54,7 @@ import type {
   CanvasViewport,
 } from "./canvasEvents";
 
-import type {
-  CanvasEdgeData,
-  CanvasNodeData,
-} from "../../entities/graph/types";
+import type { CanvasEdgeData, CanvasNodeData } from "./types";
 import { getNodeTypes } from "./nodeTypes";
 
 export type Props = {

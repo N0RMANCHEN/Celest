@@ -12,10 +12,8 @@
 
 import type { Edge, Node } from "@xyflow/react";
 
+import type { CanvasEdgeData, CanvasNodeData, CanvasNodeType } from "../types";
 import type {
-  CanvasEdgeData,
-  CanvasNodeData,
-  CanvasNodeType,
   CodeGraphModel,
   CodeGraphNode,
 } from "../../../entities/graph/types";

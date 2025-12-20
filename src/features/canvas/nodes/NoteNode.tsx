@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { Handle, Position } from "@xyflow/react";
 
 import { getNodeSpec } from "../../../entities/graph/registry";
-import type { CanvasNodeData } from "../../../entities/graph/types";
+import type { CanvasNodeData } from "../types";
 
 type Props = {
   data: CanvasNodeData;

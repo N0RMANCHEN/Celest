@@ -97,9 +97,10 @@ export function useWorkbenchModel() {
   }, [focusNodeId, focusNonce]);
 
   const canvasVM = useMemo(() => {
-    if (!project) return { nodes: [], edges: [] };
-    return codeGraphToFlow(project.graph);
-  }, [project]);
+    const graph = project?.graph;
+    if (!graph) return { nodes: [], edges: [] };
+    return codeGraphToFlow(graph);
+  }, [project?.graph]);
 
   const handleCreateNote = useCallback(
     (pos: Vec2) => {

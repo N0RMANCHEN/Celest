@@ -42,25 +42,56 @@ function mapNodeData(n: CodeGraphNode): CanvasNodeData {
   }
 }
 
+function sanitizeHandle(handle: unknown): string | undefined {
+  if (handle === null || handle === undefined) return undefined;
+  const s = String(handle).trim();
+  if (!s || s === "undefined" || s === "null") return undefined;
+  return s;
+}
+
 export function codeGraphToFlow(
   graph: CodeGraphModel
 ): { nodes: Node<CanvasNodeData>[]; edges: Edge<CanvasEdgeData>[] } {
-  const nodes: Node<CanvasNodeData>[] = Object.values(graph.nodes).map((n) => ({
-    id: n.id,
-    type: mapNodeType(n.kind),
-    position: { x: n.position.x, y: n.position.y },
-    data: mapNodeData(n),
-  }));
+  const seenNodeIds = new Set<string>();
+  const nodes: Node<CanvasNodeData>[] = [];
 
-  const edges: Edge<CanvasEdgeData>[] = Object.values(graph.edges).map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    ...(e.sourceHandle ? { sourceHandle: e.sourceHandle } : {}),
-    ...(e.targetHandle ? { targetHandle: e.targetHandle } : {}),
-    type: "smoothstep",
-    data: { edgeKind: "flow" },
-  }));
+  for (const [key, n] of Object.entries(graph.nodes)) {
+    const id = key || n.id;
+    if (!id || seenNodeIds.has(id)) continue;
+    seenNodeIds.add(id);
+
+    const position = n.position ?? { x: 0, y: 0 };
+    nodes.push({
+      id,
+      type: mapNodeType(n.kind),
+      position: { x: position.x ?? 0, y: position.y ?? 0 },
+      data: mapNodeData(n),
+    });
+  }
+
+  const seenEdgeIds = new Set<string>();
+  const edges: Edge<CanvasEdgeData>[] = [];
+
+  for (const [key, e] of Object.entries(graph.edges)) {
+    const id = key || e.id;
+    if (!id || seenEdgeIds.has(id)) continue;
+    if (!e.source || !e.target) continue;
+
+    seenEdgeIds.add(id);
+
+    const sourceHandle = sanitizeHandle(e.sourceHandle);
+    const targetHandle = sanitizeHandle(e.targetHandle);
+
+    edges.push({
+      id,
+      source: e.source,
+      target: e.target,
+      ...(sourceHandle ? { sourceHandle } : {}),
+      ...(targetHandle ? { targetHandle } : {}),
+      type: "smoothstep",
+      data: { edgeKind: "flow" },
+    });
+  }
 
   return { nodes, edges };
 }

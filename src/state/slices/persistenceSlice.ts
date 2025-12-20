@@ -37,12 +37,12 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function defaultUi(): SaveUiState {
+function defaultUi(opts?: { lastSavedAt?: string }): SaveUiState {
   return {
     dirty: false,
     status: "idle",
     seq: 0,
-    lastSavedAt: undefined,
+    lastSavedAt: opts?.lastSavedAt,
     lastError: undefined,
   };
 }
@@ -55,11 +55,14 @@ export const createPersistenceSlice: StateCreator<
 > = (set, get) => ({
   saveUiByProjectId: {},
 
-  initProjectPersistence: (projectId) => {
+  initProjectPersistence: (projectId, opts) => {
     set((s) => {
       if (s.saveUiByProjectId[projectId]) return {};
       return {
-        saveUiByProjectId: { ...s.saveUiByProjectId, [projectId]: defaultUi() },
+        saveUiByProjectId: {
+          ...s.saveUiByProjectId,
+          [projectId]: defaultUi({ lastSavedAt: opts?.lastSavedAt }),
+        },
       };
     });
   },

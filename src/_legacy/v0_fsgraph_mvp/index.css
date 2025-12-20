@@ -1,0 +1,15 @@
+/**
+ * index.css
+ * ----------------
+ * 用途：
+ *  - 全局样式入口：按顺序引入 tokens/base/shell/layout/reactflow
+ *
+ * 对外接口：
+ *  - 无（全局样式）
+ */
+
+@import "./styles/tokens.css";
+@import "./styles/base.css";
+@import "./styles/shell.css";
+@import "./styles/layout.css";
+@import "./styles/reactflow.css";

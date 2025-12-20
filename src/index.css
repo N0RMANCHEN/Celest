@@ -1,0 +1,12 @@
+/**
+ * index.css
+ * ----------------
+ * 全局样式入口：按顺序引入 tokens/base/shell/layout/reactflow
+ */
+
+@import "./shared/styles/tokens.css";
+@import "./shared/styles/base.css";
+@import "./shared/styles/shell.css";
+@import "./shared/styles/layout.css";
+@import "./shared/styles/reactflow.css";
+@import "./shared/styles/terminal.css";

@@ -1,0 +1,464 @@
+/* shell.css
+ * ----------------
+ * 用途：
+ *  - Figma-like 壳布局（Top tabs / left sidebar / center canvas / right inspector / bottom terminal）
+ *  - OKX-ish 视觉策略：边框克制、hover 克制、圆角适中、阴影最少
+ *
+ * 对外接口（CSS 类）：
+ *  - .shell-root .top-tabs .workbench .home .leftSidebar .bottomToolbar .terminal 等
+ */
+
+.shell-root {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+}
+
+/* ================= Top Tabs ================= */
+.top-tabs {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.top-tabs__iconbtn {
+  height: 30px;
+  width: 34px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.top-tabs__iconbtn:hover {
+  background: rgba(17, 24, 39, 0.04);
+  border-color: rgba(17, 24, 39, 0.06);
+}
+.top-tabs__iconbtn.is-on {
+  background: rgba(17, 24, 39, 0.06);
+  border-color: rgba(17, 24, 39, 0.08);
+}
+
+.top-tabs__strip {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.top-tabs__tab {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  max-width: 260px;
+}
+.top-tabs__tab:hover {
+  background: rgba(17, 24, 39, 0.03);
+  border-color: rgba(17, 24, 39, 0.06);
+}
+.top-tabs__tab.is-active {
+  background: rgba(17, 24, 39, 0.06);
+  border-color: rgba(17, 24, 39, 0.1);
+}
+
+.top-tabs__tabMain {
+  height: 30px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0 8px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text);
+}
+.top-tabs__tabIcon {
+  opacity: 0.55;
+}
+.top-tabs__tabText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.top-tabs__dirtyDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.38);
+  flex: 0 0 auto;
+}
+
+.top-tabs__tabClose {
+  height: 30px;
+  width: 30px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  color: var(--muted);
+}
+.top-tabs__tabClose:hover {
+  background: rgba(17, 24, 39, 0.05);
+  color: var(--text);
+}
+
+.top-tabs__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.top-tabs__sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* ================= Main ================= */
+.shell-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+}
+
+/* ================= Home ================= */
+.home {
+  max-width: 920px;
+  margin: 18px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.home__card {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.home__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+}
+.home__desc {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.home__sectionTitle {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.home__empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+.home__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.home__item {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+.home__item:hover {
+  border-color: rgba(17, 24, 39, 0.14);
+}
+.home__itemName {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--text);
+}
+.home__itemSub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ================= Workbench ================= */
+.workbench {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px 1fr 360px;
+  gap: 12px;
+}
+
+.workbench__left,
+.workbench__right,
+.workbench__center {
+  min-height: 0;
+  min-width: 0;
+}
+
+/* left + right panels */
+.workbench__left,
+.workbench__right {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* center stack (canvas + terminal + floating toolbar) */
+.centerStack {
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.centerStack__canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: #fff;
+}
+.centerStack__terminal {
+  flex: 0 0 220px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+
+/* canvas host must have width/height */
+.canvasHost {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ================= Left Sidebar ================= */
+.leftSidebar {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.leftSidebar__header {
+  padding: 12px 12px 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.leftSidebar__projectName {
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leftSidebar__section {
+  padding: 10px 10px 12px 10px;
+}
+.leftSidebar__section--grow {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.leftSidebar__sectionTitle {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+/* Views */
+.views {
+  display: flex;
+  gap: 8px;
+}
+.views__item {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+}
+.views__item:hover {
+  border-color: rgba(17, 24, 39, 0.14);
+}
+.views__item.is-active {
+  background: rgba(17, 24, 39, 0.06);
+  border-color: rgba(17, 24, 39, 0.14);
+}
+
+/* Tree */
+.tree__empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+.treeNode {
+  font-size: 12px;
+}
+.treeNode__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+}
+.treeNode__twisty {
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+.treeNode__twisty:hover {
+  background: rgba(17, 24, 39, 0.04);
+  border-color: rgba(17, 24, 39, 0.06);
+}
+.treeNode__twisty--blank {
+  display: inline-block;
+  width: 22px;
+}
+.treeNode__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  height: 24px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+.treeNode__label:hover {
+  background: rgba(17, 24, 39, 0.03);
+  border-color: rgba(17, 24, 39, 0.05);
+}
+.treeNode__label.is-selected {
+  background: rgba(17, 24, 39, 0.06);
+  border-color: rgba(17, 24, 39, 0.12);
+}
+.treeNode__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.treeNode__children {
+  padding-left: 20px;
+}
+
+/* ================= Bottom Toolbar (floating) ================= */
+.bottomToolbar {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bt__btn {
+  height: 30px;
+  width: 34px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.bt__btn:hover {
+  background: rgba(17, 24, 39, 0.04);
+  border-color: rgba(17, 24, 39, 0.06);
+}
+.bt__sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+/* ================= Terminal ================= */
+.terminal {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.terminal__head {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 900;
+  border-bottom: 1px solid var(--border);
+}
+.terminal__body {
+  flex: 1 1 auto;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  color: var(--text);
+  overflow: auto;
+}
+.terminal__line {
+  color: var(--muted);
+}
+
+/* ================= OKX-ish Buttons ================= */
+.okx-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.okx-btn:hover {
+  border-color: rgba(17, 24, 39, 0.14);
+}
+.okx-btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.okx-btn--primary:hover {
+  filter: brightness(0.98);
+}

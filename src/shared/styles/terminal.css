@@ -1,0 +1,98 @@
+/**
+ * terminal.css
+ * ----------------
+ * Phase 1 Step5B:
+ * - Minimal terminal log UI styling.
+ */
+
+.terminal {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.terminal__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal__title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+.terminal__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal__btn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.03);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.terminal__btn:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.terminal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.terminal__empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.terminal__line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 2px 0;
+}
+
+.terminal__ts {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.terminal__lvl {
+  flex: 0 0 auto;
+  opacity: 0.65;
+  min-width: 48px;
+}
+
+.terminal__msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Level accents: keep subtle (no strong colors in Phase 1) */
+.terminal__line--warn .terminal__lvl {
+  opacity: 0.8;
+}
+.terminal__line--error .terminal__lvl {
+  opacity: 0.9;
+}

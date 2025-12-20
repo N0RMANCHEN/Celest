@@ -1,0 +1,57 @@
+/**
+ * reactflow.css
+ * ----------------
+ * 用途：
+ *  - ReactFlow 的 OKX-ish 皮肤（Controls / MiniMap / 背景 / 选择框）
+ *
+ * 对外接口：
+ *  - ReactFlow 内置 class 覆盖：.react-flow__*
+ */
+
+.react-flow {
+  background: transparent;
+}
+
+.react-flow__background {
+  background: transparent;
+}
+
+/* Controls / MiniMap 更线框、更克制 */
+.react-flow__controls {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.react-flow__controls button {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.react-flow__controls button:hover {
+  background: #f7f9ff;
+}
+
+.react-flow__controls button:last-child {
+  border-bottom: 0;
+}
+
+.react-flow__minimap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+/* selection box（框选）更 OKX */
+.react-flow__selection {
+  background: rgba(43, 92, 255, 0.08);
+  border: 1px solid rgba(43, 92, 255, 0.35);
+}
+
+.react-flow__attribution {
+  display: none;
+}

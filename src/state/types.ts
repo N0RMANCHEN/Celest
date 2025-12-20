@@ -77,7 +77,7 @@ export type SaveUiState = {
 export type PersistenceSlice = {
   saveUiByProjectId: Record<string, SaveUiState>;
 
-  initProjectPersistence: (projectId: string) => void;
+  initProjectPersistence: (projectId: string, opts?: { lastSavedAt?: string }) => void;
   removeProjectPersistence: (projectId: string) => void;
 
   /** Mark active project as dirty and schedule debounced autosave. */

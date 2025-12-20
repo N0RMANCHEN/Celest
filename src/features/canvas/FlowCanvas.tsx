@@ -23,7 +23,13 @@ import {
   type OnSelectionChangeParams,
   type Viewport,
 } from "reactflow";
-import { useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
 import type { CanvasEdgeData, CanvasNodeData } from "../../entities/graph/types";
 import { NODE_TYPES } from "./nodeTypes";
@@ -74,6 +80,7 @@ function FlowCanvasInner(props: Props) {
   const nodeTypes = useMemo(() => NODE_TYPES, []);
 
   const rf = useReactFlow<CanvasNodeData, CanvasEdgeData>();
+  const nodeTypes = useMemo(() => NODE_TYPES, []);
 
   // Restore viewport when switching views.
   useEffect(() => {

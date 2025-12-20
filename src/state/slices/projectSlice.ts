@@ -85,7 +85,9 @@ export const createProjectSlice: StateCreator<AppState, [], [], ProjectSlice> = 
     if (fsIndex) get().setFsIndexSnapshot(project.id, fsIndex);
 
     // Step5B: initialize persistence UI state for this project.
-    get().initProjectPersistence(project.id);
+    get().initProjectPersistence(project.id, {
+      lastSavedAt: project.workspaceMeta.updatedAt,
+    });
   },
 
   reopenRecent: async (key) => {
@@ -105,7 +107,9 @@ export const createProjectSlice: StateCreator<AppState, [], [], ProjectSlice> = 
     if (fsIndex) get().setFsIndexSnapshot(project.id, fsIndex);
 
     // Step5B: initialize persistence UI state for this project.
-    get().initProjectPersistence(project.id);
+    get().initProjectPersistence(project.id, {
+      lastSavedAt: project.workspaceMeta.updatedAt,
+    });
   },
 
   saveActiveProject: async () => {

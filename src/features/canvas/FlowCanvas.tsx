@@ -20,12 +20,19 @@ import {
   type EdgeChange,
   type Node,
   type NodeChange,
+  type OnSelectionChangeParams,
   type Viewport,
 } from "reactflow";
-import { useCallback, useEffect, useMemo, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
 import type { CanvasEdgeData, CanvasNodeData } from "../../entities/graph/types";
-import { getNodeTypes } from "./nodeTypes";
+import { NODE_TYPES } from "./nodeTypes";
 
 export type Props = {
   nodes: Node<CanvasNodeData>[];
@@ -33,11 +40,12 @@ export type Props = {
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (conn: Connection) => void;
-  onSelectionChange: (sel: { nodes: Node[]; edges: Edge[] }) => void;
+  onSelectionChange: (ids: string[]) => void;
 
   activeViewId: string;
-  views: Array<{ id: string; viewport: Viewport }>; // fixed 2 in Phase 1
-  onViewportCommit: (viewId: string, viewport: Viewport) => void;
+  viewport: Viewport;
+  onViewportChange: (viewport: Viewport) => void;
+  focusRequest?: { nodeId: string; nonce: number } | null;
 
   onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void;
 };
@@ -59,23 +67,33 @@ function FlowCanvasInner(props: Props) {
     onConnect,
     onSelectionChange,
     activeViewId,
-    views,
-    onViewportCommit,
+    viewport,
+    onViewportChange,
+    focusRequest,
     onCreateNoteNodeAt,
   } = props;
 
-  const nodeTypes = useMemo(() => getNodeTypes(), []);
   const lastCommitRef = useRef<{ viewId: string; v: Viewport } | null>(null);
+  const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
 
   const rf = useReactFlow<CanvasNodeData, CanvasEdgeData>();
+  const nodeTypes = useMemo(() => NODE_TYPES, []);
 
   // Restore viewport when switching views.
   useEffect(() => {
-    const v = views.find((vv) => vv.id === activeViewId)?.viewport;
-    if (!v) return;
-    rf.setViewport(v, { duration: 220 });
-  }, [activeViewId, views, rf]);
+    if (
+      lastViewportRef.current &&
+      Math.abs(lastViewportRef.current.x - viewport.x) < 0.0001 &&
+      Math.abs(lastViewportRef.current.y - viewport.y) < 0.0001 &&
+      Math.abs(lastViewportRef.current.zoom - viewport.zoom) < 0.0001
+    ) {
+      return;
+    }
+
+    lastViewportRef.current = viewport;
+    rf.setViewport(viewport, { duration: 220 });
+  }, [activeViewId, viewport, rf]);
 
   // Fit view once when nodes appear.
   useEffect(() => {
@@ -106,9 +124,9 @@ function FlowCanvasInner(props: Props) {
         return;
       }
       lastCommitRef.current = { viewId, v };
-      onViewportCommit(viewId, v);
+      onViewportChange(v);
     },
-    [onViewportCommit]
+    [onViewportChange]
   );
 
   const handleMoveEnd = useCallback(
@@ -130,9 +148,9 @@ function FlowCanvasInner(props: Props) {
     [onConnect]
   );
 
-  const handlePaneDoubleClick = useCallback(
+  const handlePaneClick = useCallback(
     (evt: ReactMouseEvent) => {
-      if (!onCreateNoteNodeAt) return;
+      if (!onCreateNoteNodeAt || evt.detail < 2) return;
 
       // Prefer modern API if available.
       const anyRf = rf as any;
@@ -153,6 +171,28 @@ function FlowCanvasInner(props: Props) {
     [onCreateNoteNodeAt, rf]
   );
 
+  const handleSelectionChange = useCallback(
+    (sel: OnSelectionChangeParams) => {
+      const nodeIds = sel?.nodes?.map((n) => n.id) ?? [];
+      const edgeIds = sel?.edges?.map((e) => e.id) ?? [];
+      onSelectionChange([...nodeIds, ...edgeIds]);
+    },
+    [onSelectionChange]
+  );
+
+  // Optional: focus a node when requested by the store.
+  useEffect(() => {
+    if (!focusRequest) return;
+    const node = rf.getNode(focusRequest.nodeId);
+    if (!node) return;
+
+    try {
+      rf.fitView({ nodes: [node], padding: 0.2, duration: 220 });
+    } catch {
+      // ignore focus errors
+    }
+  }, [focusRequest, rf]);
+
   return (
     <ReactFlow<CanvasNodeData, CanvasEdgeData>
       nodes={nodes}
@@ -162,8 +202,8 @@ function FlowCanvasInner(props: Props) {
       onEdgesChange={onEdgesChange}
       onConnect={handleConnect}
       onMoveEnd={handleMoveEnd}
-      onSelectionChange={onSelectionChange}
-      onPaneDoubleClick={handlePaneDoubleClick}
+      onSelectionChange={handleSelectionChange}
+      onPaneClick={handlePaneClick}
       connectionLineType="smoothstep"
       fitView={false}
       proOptions={{ hideAttribution: true }}
@@ -179,7 +219,12 @@ function FlowCanvasInner(props: Props) {
         return !isBlocked;
       }}
     >
-      <Background />
+      <Background
+        variant="dots"
+        gap={28}
+        size={1.6}
+        color="rgba(15,23,42,0.12)"
+      />
       <MiniMap />
       <Controls />
     </ReactFlow>

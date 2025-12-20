@@ -13,11 +13,13 @@ import type { NodeTypes } from "reactflow";
 import NoteNode from "./nodes/NoteNode";
 import FileRefNode from "./nodes/FileRefNode";
 import GroupNode from "./nodes/GroupNode";
+import SubgraphNode from "./nodes/SubgraphNode";
 
 export const NODE_TYPES: NodeTypes = {
   noteNode: NoteNode,
   fileRefNode: FileRefNode,
   groupNode: GroupNode,
+  subgraphNode: SubgraphNode,
 };
 
 /**

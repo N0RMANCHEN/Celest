@@ -3,9 +3,9 @@
  * ----------------
  * ReactFlow nodeTypes registry (Canvas renderer).
  *
- * Step4C:
- * - Canvas now renders CodeGraph nodes, not FSGraph nodes.
- * - FS navigation lives in the left tree (FsIndexSnapshot).
+ * React Flow #002 hard fix:
+ * - Keep ONE stable NodeTypes object on globalThis (via typed cast).
+ * - On every module eval (incl. HMR), refresh properties so hot reload still works.
  */
 
 import type { NodeTypes } from "reactflow";
@@ -15,19 +15,25 @@ import FileRefNode from "./nodes/FileRefNode";
 import GroupNode from "./nodes/GroupNode";
 import SubgraphNode from "./nodes/SubgraphNode";
 
-export const NODE_TYPES: NodeTypes = {
-  noteNode: NoteNode,
-  fileRefNode: FileRefNode,
-  groupNode: GroupNode,
-  subgraphNode: SubgraphNode,
+type NodeTypesCache = {
+  __CELEST_NODE_TYPES__?: NodeTypes;
 };
 
-/**
- * Keep a stable accessor for nodeTypes.
- *
- * Some parts of the codebase call `getNodeTypes()` to avoid accidental
- * re-creation across renders / HMR.
- */
+const g = globalThis as typeof globalThis & NodeTypesCache;
+
+// Stable identity across HMR + re-mounts.
+const stable: NodeTypes =
+  g.__CELEST_NODE_TYPES__ ?? (g.__CELEST_NODE_TYPES__ = {} as NodeTypes);
+
+// Refresh values each time the module is evaluated.
+const mutable = stable as unknown as Record<string, unknown>;
+mutable.noteNode = NoteNode;
+mutable.fileRefNode = FileRefNode;
+mutable.groupNode = GroupNode;
+mutable.subgraphNode = SubgraphNode;
+
+export const NODE_TYPES: NodeTypes = stable;
+
 export function getNodeTypes(): NodeTypes {
   return NODE_TYPES;
 }

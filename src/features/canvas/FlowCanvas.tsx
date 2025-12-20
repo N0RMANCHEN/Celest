@@ -2,10 +2,9 @@
  * features/canvas/FlowCanvas.tsx
  * ----------------
  * ReactFlow wrapper:
- * - Stable nodeTypes reference across HMR.
+ * - React Flow #002 hard fix: nodeTypes/edgeTypes are stable singletons (globalThis cache via typed cast).
  * - Sanitize edge handle ids (avoid null/"undefined"/"").
  * - View presets: restore viewport per activeViewId; update viewport on move-end.
- * - Step4C: Canvas renders CodeGraph view-model.
  */
 
 import {
@@ -20,15 +19,16 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type EdgeTypes,
   type Node,
   type NodeChange,
+  type NodeTypes,
   type OnSelectionChangeParams,
   type Viewport,
 } from "reactflow";
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   type MouseEvent as ReactMouseEvent,
 } from "react";
@@ -37,7 +37,7 @@ import type {
   CanvasEdgeData,
   CanvasNodeData,
 } from "../../entities/graph/types";
-import { NODE_TYPES } from "./nodeTypes";
+import { getNodeTypes } from "./nodeTypes";
 
 export type Props = {
   nodes: Node<CanvasNodeData>[];
@@ -54,6 +54,17 @@ export type Props = {
 
   onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void;
 };
+
+type EdgeTypesCache = {
+  __CELEST_EDGE_TYPES__?: EdgeTypes;
+};
+
+const g = globalThis as typeof globalThis & EdgeTypesCache;
+
+// ---- React Flow #002: stable singletons (module scope) ----
+const STABLE_NODE_TYPES: NodeTypes = getNodeTypes();
+const STABLE_EDGE_TYPES: EdgeTypes =
+  g.__CELEST_EDGE_TYPES__ ?? (g.__CELEST_EDGE_TYPES__ = {} as EdgeTypes);
 
 function sanitizeHandleId(handle: unknown): string | null {
   if (handle === null || handle === undefined) return null;
@@ -83,7 +94,6 @@ function FlowCanvasInner(props: Props) {
   const didFitRef = useRef(false);
 
   const rf = useReactFlow<CanvasNodeData, CanvasEdgeData>();
-  const nodeTypes = useMemo(() => NODE_TYPES, []);
 
   // Restore viewport when switching views.
   useEffect(() => {
@@ -105,7 +115,7 @@ function FlowCanvasInner(props: Props) {
     if (didFitRef.current) return;
     if (nodes.length === 0) return;
     didFitRef.current = true;
-    // Small delay to ensure DOM is ready.
+
     const t = window.setTimeout(() => {
       try {
         rf.fitView({ padding: 0.2, duration: 250 });
@@ -113,6 +123,7 @@ function FlowCanvasInner(props: Props) {
         // ignore
       }
     }, 30);
+
     return () => window.clearTimeout(t);
   }, [nodes.length, rf]);
 
@@ -157,7 +168,6 @@ function FlowCanvasInner(props: Props) {
     (evt: ReactMouseEvent) => {
       if (!onCreateNoteNodeAt || evt.detail < 2) return;
 
-      // Prefer modern API if available.
       type ScreenToFlowPosition = (pos: { x: number; y: number }) => {
         x: number;
         y: number;
@@ -165,6 +175,7 @@ function FlowCanvasInner(props: Props) {
       const maybe = rf as unknown as {
         screenToFlowPosition?: ScreenToFlowPosition;
       };
+
       if (typeof maybe.screenToFlowPosition === "function") {
         const pos = maybe.screenToFlowPosition({
           x: evt.clientX,
@@ -174,7 +185,6 @@ function FlowCanvasInner(props: Props) {
         return;
       }
 
-      // Fallback: approximate by using current viewport.
       const v = rf.getViewport();
       const pos = {
         x: (evt.clientX - v.x) / v.zoom,
@@ -203,7 +213,7 @@ function FlowCanvasInner(props: Props) {
     try {
       rf.fitView({ nodes: [node], padding: 0.2, duration: 220 });
     } catch {
-      // ignore focus errors
+      // ignore
     }
   }, [focusRequest, rf]);
 
@@ -211,8 +221,8 @@ function FlowCanvasInner(props: Props) {
     <ReactFlow
       nodes={nodes}
       edges={edges}
-      // Keep a stable nodeTypes reference across renders / HMR.
-      nodeTypes={nodeTypes}
+      nodeTypes={STABLE_NODE_TYPES}
+      edgeTypes={STABLE_EDGE_TYPES}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={handleConnect}
@@ -223,7 +233,6 @@ function FlowCanvasInner(props: Props) {
       fitView={false}
       proOptions={{ hideAttribution: true }}
       isValidConnection={(conn) => {
-        // Prevent wiring to non-wirable node types.
         const sNode = conn.source ? rf.getNode(conn.source) : null;
         const tNode = conn.target ? rf.getNode(conn.target) : null;
         const isBlocked =
@@ -247,7 +256,6 @@ function FlowCanvasInner(props: Props) {
 }
 
 export default function FlowCanvas(props: Props) {
-  // Keep wrapper so layout styles can target the .react-flow container.
   return (
     <div className="reactflow-wrap" style={{ height: "100%", width: "100%" }}>
       <ReactFlowProvider>

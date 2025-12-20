@@ -77,6 +77,8 @@ function FlowCanvasInner(props: Props) {
   const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
 
+  const nodeTypes = useMemo(() => NODE_TYPES, []);
+
   const rf = useReactFlow<CanvasNodeData, CanvasEdgeData>();
   const nodeTypes = useMemo(() => NODE_TYPES, []);
 
@@ -197,7 +199,7 @@ function FlowCanvasInner(props: Props) {
     <ReactFlow<CanvasNodeData, CanvasEdgeData>
       nodes={nodes}
       edges={edges}
-      nodeTypes={nodeTypes}
+      nodeTypes={NODE_TYPES}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={handleConnect}

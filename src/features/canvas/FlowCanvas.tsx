@@ -23,13 +23,7 @@ import {
   type OnSelectionChangeParams,
   type Viewport,
 } from "reactflow";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type MouseEvent as ReactMouseEvent,
-} from "react";
+import { useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
 
 import type { CanvasEdgeData, CanvasNodeData } from "../../entities/graph/types";
 import { NODE_TYPES } from "./nodeTypes";

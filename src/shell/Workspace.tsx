@@ -11,10 +11,10 @@
 import FlowCanvas from "../features/canvas/FlowCanvas";
 import InspectorPanel from "../features/inspector/InspectorPanel";
 import TerminalPanel from "../features/terminal/TerminalPanel";
-import BottomToolbar from "../_legacy/v0_fsgraph_mvp/layout/BottomToolbar";
 
 import { useWorkbenchModel } from "../state/hooks/useWorkbenchModel";
 
+import BottomToolbar from "./workbench/BottomToolbar";
 import LeftSidebar from "./workbench/LeftSidebar";
 
 export default function Workspace() {

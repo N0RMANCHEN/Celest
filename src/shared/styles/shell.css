@@ -205,18 +205,45 @@
 }
 
 /* ================= Workbench ================= */
+/*
+  关键：Canvas 必须优先铺满可用空间。
+  - Left / Right：固定宽度（后续可做拖拽调整）
+  - Center：flex:1 自动吃满剩余空间
+  - 当 Left/Right 被隐藏（React 不渲染）时，Center 会自然铺满，不再留下 grid 空列
+*/
 .workbench {
   height: 100%;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 280px 1fr 360px;
+  min-width: 0;
+
+  /* 固定宽度（后续可被拖拽逻辑更新） */
+  --wb-left-width: 280px;
+  --wb-right-width: 360px;
+
+  display: flex;
   gap: 12px;
+  align-items: stretch;
 }
 
 .workbench__left,
 .workbench__right,
 .workbench__center {
   min-height: 0;
+  min-width: 0;
+}
+
+.workbench__left {
+  flex: 0 0 var(--wb-left-width);
+  width: var(--wb-left-width);
+}
+
+.workbench__right {
+  flex: 0 0 var(--wb-right-width);
+  width: var(--wb-right-width);
+}
+
+.workbench__center {
+  flex: 1 1 auto;
   min-width: 0;
 }
 

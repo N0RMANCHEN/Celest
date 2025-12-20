@@ -12,7 +12,7 @@ import { useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import type { Viewport } from "reactflow";
-import type { FsMeta as LegacyFsMeta } from "../../_legacy/v0_fsgraph_mvp/services/fsGraph";
+import type { FsMeta } from "../../entities/fsIndex/types";
 
 import { codeGraphToFlow } from "../../features/canvas/adapters/codeGraphToFlow";
 import type { Vec2 } from "../../entities/graph/types";
@@ -83,7 +83,7 @@ export function useWorkbenchModel() {
     return fsSelectedIdByProjectId[project.id] ?? null;
   }, [fsSelectedIdByProjectId, project]);
 
-  const selectedInfo: LegacyFsMeta | null = useMemo(() => {
+  const selectedInfo: FsMeta | null = useMemo(() => {
     const fsNode = fsIndex && fsSelectedId ? fsIndex.nodes[fsSelectedId] : null;
     if (!fsNode) return null;
     return {
@@ -97,7 +97,9 @@ export function useWorkbenchModel() {
 
   const selectedGraphNode = useMemo(() => {
     if (!project) return null;
-    const firstSelected = project.selectedIds.find((id) => project.graph.nodes[id]);
+    const firstSelected = project.selectedIds.find(
+      (id) => project.graph.nodes[id]
+    );
     return firstSelected ? project.graph.nodes[firstSelected] ?? null : null;
   }, [project]);
 

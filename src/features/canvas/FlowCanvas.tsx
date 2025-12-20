@@ -73,7 +73,10 @@ function FlowCanvasInner(props: Props) {
   const lastViewportRef = useRef<Viewport | null>(null);
   const didFitRef = useRef(false);
 
+  const nodeTypes = useMemo(() => NODE_TYPES, []);
+
   const rf = useReactFlow<CanvasNodeData, CanvasEdgeData>();
+  const nodeTypes = useMemo(() => NODE_TYPES, []);
 
   // Restore viewport when switching views.
   useEffect(() => {

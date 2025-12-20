@@ -16,7 +16,7 @@ import type {
 } from "../entities/canvas/canvasEvents";
 
 import type { FsIndexSnapshot } from "../entities/fsIndex/types";
-import type { ProjectState, ViewState } from "../features/project/openProject";
+import type { ProjectState, ViewState } from "../entities/project/types";
 import type { RecentItem } from "../features/project/recentStore";
 
 export type Panels = {

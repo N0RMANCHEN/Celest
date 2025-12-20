@@ -10,8 +10,8 @@
  */
 
 import type { StorageAdapter } from "./storage/types";
-import type { ProjectState } from "./openProject";
 import { buildProjectFromDirectoryHandle } from "./openProject";
+import type { ProjectState } from "../../entities/project/types";
 import {
   getRecentHandle,
   listRecents,
@@ -40,7 +40,8 @@ export async function openProjectFolderUsecase(
     if (picked.kind === "cancel") return { kind: "cancel" };
 
     const ok = await adapter.ensureReadWritePermission(picked.handle);
-    if (!ok) return { kind: "error", message: "未获得文件夹读写权限，无法打开项目。" };
+    if (!ok)
+      return { kind: "error", message: "未获得文件夹读写权限，无法打开项目。" };
 
     const recentKey = await upsertRecent(picked.handle, "Local folder");
 
@@ -76,15 +77,22 @@ export async function reopenRecentUsecase(
     if (!dir) {
       return {
         kind: "error",
-        message: "找不到该 Recent 项目（可能已被清理或浏览器不再保存 handle）。",
+        message:
+          "找不到该 Recent 项目（可能已被清理或浏览器不再保存 handle）。",
       };
     }
 
     const ok = await adapter.ensureReadWritePermission(dir);
-    if (!ok) return { kind: "error", message: "未获得文件夹读写权限，无法重新打开项目。" };
+    if (!ok)
+      return {
+        kind: "error",
+        message: "未获得文件夹读写权限，无法重新打开项目。",
+      };
 
     await touchRecent(key, dir);
-    const project = await buildProjectFromDirectoryHandle(dir, { fixedId: key });
+    const project = await buildProjectFromDirectoryHandle(dir, {
+      fixedId: key,
+    });
     const fsIndex = buildFsIndexSnapshot(project.meta, project.rootDirId);
 
     const recents = await listRecents();

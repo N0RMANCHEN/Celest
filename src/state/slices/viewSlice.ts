@@ -8,7 +8,7 @@
 
 import type { StateCreator } from "zustand";
 import type { AppState, ViewSlice } from "../types";
-import type { ViewState } from "../../features/project/openProject";
+import type { ViewState } from "../../entities/project/types";
 
 import { mapActiveProject } from "../utils/projectUtils";
 

@@ -6,7 +6,7 @@ import { createTerminalSlice } from "./terminalSlice";
 import type { StateCreator } from "zustand";
 import type { CodeGraphModel } from "../../entities/graph/types";
 import type { PersistenceSlice, TerminalSlice } from "../types";
-import type { ViewState } from "../../features/project/openProject";
+import type { ViewState } from "../../entities/project/types";
 
 vi.mock("../../core/persistence/loadSave", () => ({
   saveMainGraph: vi.fn(async () => {}),

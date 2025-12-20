@@ -4,7 +4,7 @@
  * Small pure helpers for reading/updating the active project.
  */
 
-import type { ProjectState } from "../../features/project/openProject";
+import type { ProjectState } from "../../entities/project/types";
 
 export function findActiveProject(
   projects: ProjectState[],

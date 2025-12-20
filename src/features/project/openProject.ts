@@ -11,9 +11,10 @@
 import { nanoid } from "nanoid";
 
 import { scanFsMeta } from "../fsIndex/scanFsMeta";
-import type { FsMeta } from "../../entities/fsIndex/types";
 import type { CodeGraphModel, Vec2 } from "../../entities/graph/types";
 import { createEmptyCodeGraph, upsertNode } from "../../entities/graph/ops";
+
+import type { ProjectState, ViewState } from "../../entities/project/types";
 
 import {
   ensureWorkspaceFile,
@@ -21,42 +22,9 @@ import {
   saveMainGraph,
 } from "../../core/persistence/loadSave";
 
-export type ViewState = {
-  id: "main" | "view2";
-  name: string;
-  viewport: { x: number; y: number; zoom: number };
-};
-
-export type ProjectState = {
-  id: string;
-  name: string;
-  workspaceMeta: { createdAt: string; updatedAt: string };
-
-  // Runtime only (not serializable)
-  dirHandle: FileSystemDirectoryHandle;
-  handles: Record<string, FileSystemHandle>;
-
-  // FS runtime meta (used for FsIndexSnapshot + file open)
-  rootDirId: string;
-  meta: Record<string, FsMeta>;
-
-  // Step4C: Canvas model (CodeGraph)
-  graph: CodeGraphModel;
-
-  // Selection / focus (canvas)
-  selectedIds: string[];
-  focusNodeId?: string;
-  focusNonce: number;
-
-  // Views (fixed 2)
-  activeViewId: "main" | "view2";
-  views: ViewState[];
-
-  // Legacy fields kept only when needed; do not rely on them.
-  treeExpanded: Record<string, boolean>;
-};
-
-function viewsFromWorkspace(ws: Awaited<ReturnType<typeof ensureWorkspaceFile>>): ViewState[] {
+function viewsFromWorkspace(
+  ws: Awaited<ReturnType<typeof ensureWorkspaceFile>>
+): ViewState[] {
   return [
     { id: "main", name: "Main", viewport: ws.views.viewports.main },
     { id: "view2", name: "View 2", viewport: ws.views.viewports.view2 },

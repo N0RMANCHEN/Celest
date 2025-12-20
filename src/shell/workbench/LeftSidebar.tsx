@@ -7,8 +7,11 @@
  * - File tree (driven by FsIndexSnapshot)
  */
 
-import type { ProjectState, ViewState } from "../../features/project/openProject";
-import type { FsIndexNode, FsIndexSnapshot } from "../../entities/fsIndex/types";
+import type { ProjectState, ViewState } from "../../entities/project/types";
+import type {
+  FsIndexNode,
+  FsIndexSnapshot,
+} from "../../entities/fsIndex/types";
 
 type Props = {
   project: ProjectState;
@@ -87,7 +90,7 @@ function TreeNode(props: {
   if (!node) return null;
 
   const isDir = node.kind === "dir";
-  const isOpen = isDir ? (props.expanded[node.id] ?? false) : false;
+  const isOpen = isDir ? props.expanded[node.id] ?? false : false;
   const isSelected = props.selectedId === node.id;
 
   return (

@@ -1,6 +1,10 @@
-import Editor from "@monaco-editor/react";
-import type { editor } from "monaco-editor";
+import CodeMirror from "@uiw/react-codemirror";
+import { markdown } from "@codemirror/lang-markdown";
+import { EditorView } from "@codemirror/view";
 import type { CSSProperties } from "react";
+import type { Extension } from "@codemirror/state";
+
+const ACCENT_COLOR = "#24414E";
 
 const wrapperStyle: CSSProperties = {
   border: "none",
@@ -11,40 +15,61 @@ const wrapperStyle: CSSProperties = {
   display: "flex",
 };
 
-const DEFAULT_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  fontSize: 13,
-  fontFamily:
-    '"MiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-  fontWeight: "400",
-  lineHeight: 20,
-  wordWrap: "on",
-  lineNumbers: "off",
-  smoothScrolling: true,
-  tabSize: 2,
-  padding: { top: 6, bottom: 10 },
-  automaticLayout: true,
-  glyphMargin: false,
-  renderLineHighlight: "none",
-  renderLineHighlightOnlyWhenFocus: true,
-  guides: { indentation: false },
-  lineDecorationsWidth: 0,
-  renderWhitespace: "none",
-  matchBrackets: "never",
-  selectionHighlight: false,
-  occurrencesHighlight: "off",
-  scrollbar: {
-    vertical: "hidden",
-    horizontal: "hidden",
-    useShadows: false,
-    alwaysConsumeMouseWheel: false,
-    verticalScrollbarSize: 0,
-    horizontalScrollbarSize: 0,
-  },
-};
-
-const ACCENT_COLOR = "#24414E";
+const editorExtensions: Extension[] = [
+  markdown(),
+  EditorView.lineWrapping,
+  EditorView.theme(
+    {
+      "&": {
+        color: ACCENT_COLOR,
+        backgroundColor: "#f5f5f5",
+        fontFamily:
+          '"MiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        fontSize: "13px",
+        lineHeight: "20px",
+      },
+      ".cm-scroller": {
+        overflow: "auto",
+        overscrollBehavior: "contain",
+        scrollbarGutter: "stable",
+      },
+      ".cm-content": {
+        padding: "6px 0 10px 0",
+        fontWeight: 400,
+        fontFamily:
+          '"MiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      },
+      ".cm-line": {
+        paddingLeft: "0px",
+        paddingRight: "0px",
+        color: ACCENT_COLOR,
+        fontFamily:
+          '"MiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      },
+      ".cm-selectionBackground": {
+        backgroundColor: "rgba(36, 65, 78, 0.08)",
+      },
+      ".cm-selectionMatch": {
+        backgroundColor: "transparent",
+        outline: "none",
+      },
+      ".cm-activeLine": {
+        backgroundColor: "transparent",
+      },
+      ".cm-matchingBracket, .cm-nonmatchingBracket": {
+        backgroundColor: "transparent",
+        outline: "none",
+      },
+      ".cm-cursor": {
+        borderLeft: "1px solid " + ACCENT_COLOR,
+      },
+      ".cm-gutters": {
+        display: "none",
+      },
+    },
+    { dark: false }
+  ),
+];
 
 type Props = {
   value: string;
@@ -55,7 +80,6 @@ type Props = {
 
 export default function MonacoEditor({
   value,
-  language = "markdown",
   height = 220,
   onChange,
 }: Props) {
@@ -63,48 +87,35 @@ export default function MonacoEditor({
     <div style={{ ...wrapperStyle, height }}>
       <style>
         {`
-        .monaco-editor,
-        .monaco-editor .margin,
-        .monaco-editor .mtk1,
-        .monaco-editor .mtk2,
-        .monaco-editor .mtk3,
-        .monaco-editor .mtk4,
-        .monaco-editor .mtk5,
-        .monaco-editor .mtk6,
-        .monaco-editor .mtk7,
-        .monaco-editor .mtk8,
-        .monaco-editor .mtk9 {
-          color: ${ACCENT_COLOR};
+        .cm-scroller::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+          background: transparent;
         }
-        .monaco-editor .view-line > span {
-          color: ${ACCENT_COLOR};
+        .cm-scroller::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: 6px;
         }
-        /* 柔和的选区效果，避免深灰大片 */
-        .monaco-editor .selected-text {
-          background: rgba(36, 65, 78, 0.08) !important;
+        .cm-scroller::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.91);
         }
-        .monaco-editor .view-lines span::selection {
-          background: rgba(36, 65, 78, 0.08) !important;
-          color: ${ACCENT_COLOR};
-        }
-        .monaco-editor .selectionHighlight {
-          background: transparent !important;
-        }
-        /* 去掉括号匹配的方框 */
-        .monaco-editor .bracket-match {
-          background: transparent !important;
-          border: none !important;
+        .cm-scroller {
+          scrollbar-width: thin;
         }
         `}
       </style>
-      <Editor
-        height="100%"
-        width="100%"
-        defaultLanguage={language}
+      <CodeMirror
         value={value}
-        onChange={(next) => onChange(next ?? "")}
-        options={DEFAULT_OPTIONS}
-        theme="vs"
+        height="100%"
+        extensions={editorExtensions}
+        basicSetup={{
+          lineNumbers: false,
+          highlightActiveLine: false,
+          foldGutter: false,
+          bracketMatching: false,
+          autocompletion: false,
+        }}
+        onChange={(next) => onChange(next)}
       />
     </div>
   );

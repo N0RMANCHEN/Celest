@@ -20,6 +20,8 @@
 /* ================= Top Tabs ================= */
 .top-tabs {
   height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -29,7 +31,7 @@
 }
 
 .top-tabs__iconbtn {
-  height: 28px;
+  height: 32px;
   width: 32px;
   border-radius: var(--radius-sm);
   border: none;
@@ -58,12 +60,14 @@
 }
 
 .top-tabs__tab {
-  height: 28px;
+  height: 32px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
+  min-width: 120px;
   max-width: 260px;
   transition: background 0.12s ease;
 }
@@ -75,7 +79,9 @@
 }
 
 .top-tabs__tabMain {
-  height: 28px;
+  height: 32px;
+  line-height: 32px;
+  min-height: 32px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -107,8 +113,10 @@
 }
 
 .top-tabs__tabClose {
-  height: 28px;
-  width: 28px;
+  height: 32px;
+  width: 32px;
+  line-height: 32px;
+  min-height: 32px;
   border: 0;
   background: transparent;
   cursor: pointer;

@@ -30,11 +30,13 @@ const cardStyle: CSSProperties = {
   willChange: "transform", // Performance hint for GPU acceleration
 };
 
+const SELECT_COLOR = "#B8C0C3";
+
 const selectedCardStyle: CSSProperties = {
   ...cardStyle,
   background: "var(--panel)",
-  border: "2px solid var(--accent)",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.16), 0 0 0 2px var(--accent)",
+  border: "0.7px solid " + SELECT_COLOR,
+  boxShadow: "0 6px 20px rgba(0,0,0,0.16), 0 0 0 0.7px " + SELECT_COLOR,
   cursor: "grab",
 };
 

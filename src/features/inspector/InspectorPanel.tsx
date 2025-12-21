@@ -17,19 +17,25 @@ type Props = {
   onChangeFilePath: (nodeId: string, path: string) => void;
 };
 
-const sectionStyle: CSSProperties = {
-  display: "grid",
-  gap: 12,
-  padding: 16,
-  background: "var(--panel)",
-};
-
 const nodeShellStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 12,
   height: "100%",
-  padding: "12px 12px",
+  flex: 1,
+  minHeight: 0,
+  padding: "12px 16px 12px 11px",
+  background: "var(--panel)",
+};
+
+const sectionStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  height: "100%",
+  flex: 1,
+  minHeight: 0,
+  padding: "12px 16px 12px 11px",
   background: "var(--panel)",
 };
 
@@ -171,8 +177,9 @@ function NodeInspector(
                 flex: 1,
                 minHeight: 320,
                 display: "flex",
-                paddingLeft: 0,
-                marginLeft: -4,
+                paddingLeft: 11,
+                paddingRight: 4,
+                marginLeft: 0,
               }}
             >
           <MonacoEditor

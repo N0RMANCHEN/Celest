@@ -10,7 +10,6 @@ import { getNodeSpec } from "../../../entities/graph/registry";
 
 type Props = {
   node: CanvasNodeType;
-  viewport: { x: number; y: number; zoom: number };
   onNodeClick: (nodeId: string, shiftKey: boolean) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
   onNodeMouseDown?: (nodeId: string, e: React.MouseEvent) => void;
@@ -100,7 +99,6 @@ const handleRightStyle: CSSProperties = {
 
 export function CanvasNode({
   node,
-  viewport,
   onNodeClick,
   onNodeDoubleClick,
   onNodeMouseDown,
@@ -108,10 +106,9 @@ export function CanvasNode({
 }: Props) {
   const spec = getNodeSpec(node.data.kind);
   const size = getNodeSize(node.id) || { width: 180, height: 100 };
-  const screenPos = {
-    x: node.position.x * viewport.zoom + viewport.x,
-    y: node.position.y * viewport.zoom + viewport.y,
-  };
+  
+  // No viewport transform needed here - parent <g> already has transform
+  // Use canvas coordinates directly
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -151,8 +148,8 @@ export function CanvasNode({
 
   return (
     <foreignObject
-      x={screenPos.x}
-      y={screenPos.y}
+      x={node.position.x}
+      y={node.position.y}
       width={size.width}
       height={size.height}
       style={{ overflow: "visible" }}

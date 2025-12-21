@@ -8,7 +8,6 @@
 type Props = {
   start: { x: number; y: number };
   end: { x: number; y: number };
-  viewport: { x: number; y: number; zoom: number };
 };
 
 const boxStyle: React.CSSProperties = {

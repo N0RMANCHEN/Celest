@@ -13,7 +13,6 @@ type Props = {
   targetPos: { x: number; y: number };
   sourceHandlePos?: { x: number; y: number };
   targetHandlePos?: { x: number; y: number };
-  viewport: { x: number; y: number; zoom: number };
   onEdgeClick?: (edgeId: string, shiftKey: boolean) => void;
 };
 
@@ -39,23 +38,18 @@ export function CanvasEdge({
   targetPos,
   sourceHandlePos,
   targetHandlePos,
-  viewport,
   onEdgeClick,
 }: Props) {
-  // Apply viewport transform to positions
-  const applyViewport = (pos: { x: number; y: number }) => ({
-    x: pos.x * viewport.zoom + viewport.x,
-    y: pos.y * viewport.zoom + viewport.y,
-  });
-
-  const screenSource = applyViewport(sourceHandlePos || sourcePos);
-  const screenTarget = applyViewport(targetHandlePos || targetPos);
+  // No viewport transform needed here - parent <g> already has transform
+  // Use canvas coordinates directly
+  const canvasSource = sourceHandlePos || sourcePos;
+  const canvasTarget = targetHandlePos || targetPos;
 
   const path = calculateBezierPath(
-    screenSource,
-    screenTarget,
-    sourceHandlePos ? screenSource : undefined,
-    targetHandlePos ? screenTarget : undefined
+    canvasSource,
+    canvasTarget,
+    sourceHandlePos,
+    targetHandlePos
   );
 
   const handleClick = (e: React.MouseEvent) => {

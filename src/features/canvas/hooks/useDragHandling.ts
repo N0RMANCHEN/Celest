@@ -22,6 +22,7 @@ import type { CanvasNodeChange } from "../canvasEvents";
 import type { CanvasNodeData } from "../types";
 
 export function useDragHandling(
+  nodes: Node<CanvasNodeData>[],
   onNodesChange: (changes: CanvasNodeChange[]) => void,
   onSelectionChange: (ids: string[]) => void
 ) {
@@ -38,6 +39,10 @@ export function useDragHandling(
   // when only positions changed (positions are handled internally by ReactFlow via onNodesChange).
   const handleNodesChangeDuringDrag = useCallback(
     (changes: RFNodeChange[]) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDragHandling.ts:40',message:'Nodes change during drag',data:{changesCount:changes.length,changeTypes:changes.map(c=>c.type),draggedNodeIds:Array.from(draggedNodeIdsRef.current),propsNodesCount:nodes.length,propsNodesRef:Object.prototype.toString.call(nodes)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+
       // Track dragged nodes
       const positionUpdates: CanvasNodeChange[] = [];
       
@@ -53,6 +58,9 @@ export function useDragHandling(
             });
           }
         } else if (ch.type === "remove") {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDragHandling.ts:56',message:'Remove during drag',data:{nodeId:ch.id,draggedNodeIds:Array.from(draggedNodeIdsRef.current)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           // Remove operations should still go through immediately
           onNodesChange([{ id: ch.id, type: "remove" }]);
         }
@@ -62,23 +70,83 @@ export function useDragHandling(
       // The selector's content-based caching will keep array references stable
       // by checking content equality first (even if cache key changes due to position).
       if (positionUpdates.length > 0) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDragHandling.ts:65',message:'Calling onNodesChange during drag',data:{positionUpdatesCount:positionUpdates.length,nodeIds:positionUpdates.map(u=>u.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         onNodesChange(positionUpdates);
       }
     },
-    [onNodesChange]
+    [onNodesChange, nodes]
   );
 
   // Handle node drag start
   const handleNodeDragStart = useCallback(
     (_: ReactMouseEvent, node: Node<CanvasNodeData>) => {
-      // Select on drag start so the selection tint + Inspector stay in sync during drag
-      onSelectionChange([node.id]);
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDragHandling.ts:74',message:'Drag start',data:{nodeId:node.id,propsNodesCount:nodes.length,propsNodeIds:nodes.map(n=>n.id),propsNodesRef:Object.prototype.toString.call(nodes)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+
+      // CRITICAL: Verify node exists in props.nodes before allowing drag
+      // This prevents dragging deleted nodes and triggering React Flow error #015
+      const existsInProps = nodes.some((n) => n.id === node.id);
+      if (!existsInProps) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDragHandling.ts:79',message:'Node not in props.nodes',data:{nodeId:node.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        console.error(
+          "[useDragHandling] Node not found in props.nodes, canceling drag:",
+          node.id
+        );
+        // Cancel drag by not proceeding with drag setup
+        return;
+      }
+
+      // Verify node exists in ReactFlow internal state
+      const rfNode = rf.getNode(node.id);
+      if (!rfNode) {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDragHandling.ts:90',message:'Node not in ReactFlow state',data:{nodeId:node.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        console.error(
+          "[useDragHandling] Node not found in ReactFlow state, canceling drag:",
+          node.id
+        );
+        return;
+      }
+
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useDragHandling.ts:97',message:'Drag start validated',data:{nodeId:node.id,rfNodeExists:!!rfNode,rfNodesCount:rf.getNodes().length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+
+      // CRITICAL: Preserve all currently selected nodes when dragging starts
+      // This ensures:
+      // 1. Visual selection state is maintained during multi-node drag
+      // 2. Dragging does NOT cancel selection (requirement #5)
+      // 3. All selected nodes move together
+      const currentlySelected = nodes.filter((n) => n.selected).map((n) => n.id);
+      const edges = rf.getEdges();
+      const currentlySelectedEdges = edges.filter((e) => e.selected).map((e) => e.id);
+      const allSelectedIds = [...currentlySelected, ...currentlySelectedEdges];
+      
+      // If the dragged node is not already selected, add it to selection
+      // This handles the case where user starts dragging an unselected node
+      if (!currentlySelected.includes(node.id)) {
+        allSelectedIds.push(node.id);
+      }
+      
+      // Update selection to include all nodes that should be dragged together
+      // This preserves selection state during drag (requirement #5)
+      onSelectionChange(allSelectedIds);
 
       // Store initial positions for potential cancel (ESC key)
+      // Include all selected nodes, not just the one being dragged
       const currentNodes = rf.getNodes();
       dragStartPositionsRef.current.clear();
+      const allSelectedNodeIds = new Set(currentlySelected);
+      allSelectedNodeIds.add(node.id); // Ensure the dragged node is included
+      
       for (const n of currentNodes) {
-        if (draggedNodeIdsRef.current.has(n.id) || n.id === node.id) {
+        if (allSelectedNodeIds.has(n.id)) {
           dragStartPositionsRef.current.set(n.id, { ...n.position });
         }
       }
@@ -86,9 +154,12 @@ export function useDragHandling(
       // Mark as dragging
       setIsDragging(true);
       draggedNodeIdsRef.current.clear();
-      draggedNodeIdsRef.current.add(node.id);
+      // Track all selected nodes for dragging, not just the one being dragged
+      for (const nodeId of allSelectedNodeIds) {
+        draggedNodeIdsRef.current.add(nodeId);
+      }
     },
-    [rf, onSelectionChange]
+    [rf, nodes, onSelectionChange]
   );
 
   // Handle node drag stop

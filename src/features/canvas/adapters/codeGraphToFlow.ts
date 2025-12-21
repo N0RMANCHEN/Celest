@@ -16,6 +16,7 @@ import type { CanvasEdgeData, CanvasNodeData, CanvasNodeType } from "../types";
 import type {
   CodeGraphModel,
   CodeGraphNode,
+  Vec2,
 } from "../../../entities/graph/types";
 
 function mapNodeType(kind: CodeGraphNode["kind"]): CanvasNodeType {
@@ -52,6 +53,27 @@ function sanitizeHandle(handle: unknown): string | undefined {
   return s;
 }
 
+/**
+ * Create a placeholder node when conversion fails.
+ * This prevents nodes from disappearing and causing React Flow errors.
+ */
+function createPlaceholderNode(
+  nodeId: string,
+  position: Vec2 = { x: 0, y: 0 }
+): Node<CanvasNodeData> {
+  return {
+    id: nodeId,
+    type: "noteNode",
+    position,
+    data: {
+      kind: "note",
+      title: `[Placeholder: ${nodeId}]`,
+      subtitle: "Node conversion failed, placeholder created",
+    },
+    selected: false,
+  };
+}
+
 export function codeGraphToFlow(
   graph: CodeGraphModel,
   selectedIds: string[] = []
@@ -69,17 +91,30 @@ export function codeGraphToFlow(
     const n = graph.nodes[key];
     if (!n) {
       // Log missing node for debugging
-      console.warn('[codeGraphToFlow] Node key exists in graph.nodes but node is null/undefined:', key);
+      console.warn(
+        "[codeGraphToFlow] Node key exists in graph.nodes but node is null/undefined:",
+        key
+      );
+      // CRITICAL: Create placeholder node instead of skipping
+      // This prevents nodes from disappearing and causing React Flow error #015
+      const placeholder = createPlaceholderNode(key);
+      nodes.push(placeholder);
+      seenNodeIds.add(key);
       continue;
     }
     
     const id = key || n.id;
     if (!id) {
-      console.warn('[codeGraphToFlow] Node has no valid ID:', { key, node: n });
+      console.warn("[codeGraphToFlow] Node has no valid ID:", { key, node: n });
+      // Create placeholder with key as ID
+      const placeholder = createPlaceholderNode(key, n.position ?? { x: 0, y: 0 });
+      nodes.push(placeholder);
+      seenNodeIds.add(key);
       continue;
     }
     if (seenNodeIds.has(id)) {
-      console.warn('[codeGraphToFlow] Duplicate node ID detected:', id);
+      console.warn("[codeGraphToFlow] Duplicate node ID detected:", id);
+      // Skip duplicate but don't create placeholder (already exists)
       continue;
     }
     seenNodeIds.add(id);

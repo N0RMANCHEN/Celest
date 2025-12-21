@@ -50,6 +50,8 @@
 .react-flow__selection {
   background: rgba(43, 92, 255, 0.08);
   border: 1px solid rgba(43, 92, 255, 0.35);
+  /* ReactFlow automatically removes the selection box element when selection ends.
+     This ensures it only appears during active selection. */
 }
 
 /* =========================

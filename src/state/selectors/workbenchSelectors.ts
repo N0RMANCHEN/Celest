@@ -226,16 +226,97 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   // CRITICAL: Verify all graph nodes are included in the result
   // This prevents nodes from disappearing due to conversion errors
   const graphNodeIds = new Set(Object.keys(graph.nodes));
-  const vmNodeIds = new Set(vm.nodes.map(n => n.id));
-  const missingNodeIds = Array.from(graphNodeIds).filter(id => !vmNodeIds.has(id));
-  
+  const vmNodeIds = new Set(vm.nodes.map((n) => n.id));
+  const missingNodeIds = Array.from(graphNodeIds).filter(
+    (id) => !vmNodeIds.has(id)
+  );
+
   if (missingNodeIds.length > 0) {
     // Log missing nodes for debugging
-    console.warn('[selectCanvasViewModel] Missing nodes in conversion:', missingNodeIds);
-    // Force cache invalidation and return fresh result
+    console.warn(
+      "[selectCanvasViewModel] Missing nodes in conversion:",
+      missingNodeIds
+    );
+    // CRITICAL: Attempt recovery by re-converting missing nodes
+    // This handles cases where nodes were skipped during initial conversion
+    const recoveredNodes: ReturnType<typeof codeGraphToFlow>["nodes"] = [];
+    for (const missingId of missingNodeIds) {
+      const node = graph.nodes[missingId];
+      if (node) {
+        // Try to convert the missing node
+        try {
+          const position = node.position ?? { x: 0, y: 0 };
+          const selected = selectedIds.includes(missingId);
+          recoveredNodes.push({
+            id: missingId,
+            type:
+              node.kind === "fileRef"
+                ? "fileRefNode"
+                : node.kind === "group"
+                  ? "groupNode"
+                  : node.kind === "subgraphInstance"
+                    ? "subgraphNode"
+                    : "noteNode",
+            position: { x: position.x ?? 0, y: position.y ?? 0 },
+            data:
+              node.kind === "fileRef"
+                ? { kind: node.kind, title: node.title, subtitle: node.path }
+                : node.kind === "note"
+                  ? { kind: node.kind, title: node.title, subtitle: node.text }
+                  : node.kind === "subgraphInstance"
+                    ? {
+                        kind: node.kind,
+                        title: node.title,
+                        subtitle: `uses: ${node.defId}`,
+                      }
+                    : { kind: node.kind, title: node.title },
+            selected,
+          });
+        } catch (e) {
+          // If recovery fails, create placeholder
+          console.warn(
+            "[selectCanvasViewModel] Failed to recover node, creating placeholder:",
+            missingId,
+            e
+          );
+          recoveredNodes.push({
+            id: missingId,
+            type: "noteNode",
+            position: node.position ?? { x: 0, y: 0 },
+            data: {
+              kind: "note",
+              title: `[Placeholder: ${missingId}]`,
+              subtitle: "Node recovery failed, placeholder created",
+            },
+            selected: false,
+          });
+        }
+      } else {
+        // Node is null/undefined, create placeholder
+        console.warn(
+          "[selectCanvasViewModel] Node is null/undefined, creating placeholder:",
+          missingId
+        );
+        recoveredNodes.push({
+          id: missingId,
+          type: "noteNode",
+          position: { x: 0, y: 0 },
+          data: {
+            kind: "note",
+            title: `[Placeholder: ${missingId}]`,
+            subtitle: "Node is null, placeholder created",
+          },
+          selected: false,
+        });
+      }
+    }
+
+    // Merge recovered nodes with existing nodes
+    const allNodes = [...vm.nodes, ...recoveredNodes];
+    // Force cache invalidation and return result with recovered nodes
     cachedCanvasVM = {
       cacheKey,
-      nodes: vm.nodes,
+      nodes: allNodes,
       edges: vm.edges,
     };
     return cachedCanvasVM;
@@ -249,10 +330,16 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   // 
   // However, we still need to return a new array when positions actually change
   // so ReactFlow can see the updates. The key is: if content is identical, return cached.
-  if (
-    nodesEqual(cachedCanvasVM.nodes, vm.nodes) &&
-    edgesEqual(cachedCanvasVM.edges, vm.edges)
-  ) {
+  const contentEqual = nodesEqual(cachedCanvasVM.nodes, vm.nodes) &&
+    edgesEqual(cachedCanvasVM.edges, vm.edges);
+  
+  // #region agent log
+  if (typeof window !== 'undefined') {
+    fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workbenchSelectors.ts:252',message:'Cache check',data:{contentEqual,cacheKeyChanged:cacheKey!==cachedCanvasVM.cacheKey,vmNodesCount:vm.nodes.length,cachedNodesCount:cachedCanvasVM.nodes.length,vmNodesRef:Object.prototype.toString.call(vm.nodes),cachedNodesRef:Object.prototype.toString.call(cachedCanvasVM.nodes),nodeIds:vm.nodes.map(n=>n.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+  }
+  // #endregion
+
+  if (contentEqual) {
     // Content is identical, return cached to maintain reference stability
     // Update cache key for next comparison
     cachedCanvasVM.cacheKey = cacheKey;

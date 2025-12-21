@@ -25,6 +25,13 @@
  *   - useSelectionHandling: Selection logic with de-duplication
  *   - useViewportHandling: Viewport restoration and changes
  *   - useKeyboardHandling: Keyboard shortcuts
+ *   - usePanHandling: Figma-like panning (touchpad two-finger, middle button)
+ * 
+ * Interaction model (Figma-like):
+ * - Left click: Selection and box selection (not panning)
+ * - Space + left drag: Pan canvas
+ * - Middle button drag: Pan canvas
+ * - Touchpad two-finger drag: Pan canvas
  */
 
 import {
@@ -64,6 +71,7 @@ import { useDragHandling } from "./hooks/useDragHandling";
 import { useSelectionHandling } from "./hooks/useSelectionHandling";
 import { useViewportHandling } from "./hooks/useViewportHandling";
 import { useKeyboardHandling } from "./hooks/useKeyboardHandling";
+import { usePanHandling } from "./hooks/usePanHandling";
 
 export type Props = {
   nodes: Node<CanvasNodeData>[];
@@ -159,7 +167,7 @@ function FlowCanvasInner(props: Props) {
     handleNodeDragStop,
     cancelDrag,
     lastDragStopAt,
-  } = useDragHandling(onNodesChange, onSelectionChange);
+  } = useDragHandling(nodes, onNodesChange, onSelectionChange);
 
   // Selection handling with de-duplication
   const {
@@ -167,6 +175,7 @@ function FlowCanvasInner(props: Props) {
     handleNodeClick,
     handleEdgeClick,
     emitSelection,
+    handleBoxSelectionStart,
   } = useSelectionHandling(nodes, edges, onSelectionChange);
 
   // Viewport handling
@@ -186,6 +195,72 @@ function FlowCanvasInner(props: Props) {
     onNodesChange,
     onEdgesChange
   );
+
+  // Pan handling (Figma-like: touchpad two-finger, middle button)
+  usePanHandling();
+
+  // Handle box selection and ensure selection box disappears (Figma-like behavior)
+  useEffect(() => {
+    let isBoxSelecting = false;
+    
+    const handleMouseDown = (e: Event) => {
+      // Detect if this is a box selection start (clicking on pane, not on node/edge)
+      const target = e.target as HTMLElement;
+      const isOnPane = target?.closest?.(".react-flow__pane");
+      const isOnNode = target?.closest?.(".react-flow__node");
+      const isOnEdge = target?.closest?.(".react-flow__edge");
+      
+      if (isOnPane && !isOnNode && !isOnEdge) {
+        isBoxSelecting = true;
+        // CRITICAL: Clear previous selection when box selection starts (Figma behavior)
+        handleBoxSelectionStart();
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isBoxSelecting) {
+        // Box selection ended - ensure selection box is removed
+        const removeSelectionBox = () => {
+          const selectionBox = document.querySelector(".react-flow__selection") as HTMLElement;
+          if (selectionBox) {
+            selectionBox.remove();
+          }
+        };
+
+        // Remove immediately and in next frame to ensure it's gone
+        removeSelectionBox();
+        requestAnimationFrame(() => {
+          removeSelectionBox();
+          // Final check after a short delay
+          setTimeout(removeSelectionBox, 16);
+        });
+      }
+      isBoxSelecting = false;
+    };
+
+    // Listen on the ReactFlow pane element for reliable detection
+    const setupListeners = () => {
+      const paneElement = document.querySelector(".react-flow__pane");
+      if (paneElement) {
+        paneElement.addEventListener("mousedown", handleMouseDown, true);
+        document.addEventListener("mouseup", handleMouseUp, true);
+        return () => {
+          paneElement.removeEventListener("mousedown", handleMouseDown, true);
+          document.removeEventListener("mouseup", handleMouseUp, true);
+        };
+      }
+      return () => {};
+    };
+
+    // Setup with a small delay to ensure pane element exists
+    const timeoutId = setTimeout(() => {
+      setupListeners();
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [handleBoxSelectionStart]);
 
   // Handle node changes when NOT dragging (immediate store update)
   const handleNodesChangeNormal = useCallback(
@@ -229,21 +304,28 @@ function FlowCanvasInner(props: Props) {
     [onConnect]
   );
 
-  // Pane click:
-  // - single click clears selection
-  // - double click creates note node (if enabled)
+  // Pane click handler
+  // - Double click creates note node (REQUIREMENT #1)
+  // - Single click on blank area clears selection (Figma behavior)
+  // Note: This only fires when clicking on the pane (not on nodes/edges)
   const handlePaneClick = useCallback(
     (evt: ReactMouseEvent) => {
       const now = Date.now();
-      // Use ref.current directly - refs are stable and don't need to be in deps
+      // Prevent clearing selection immediately after drag ends
       if (now - lastDragStopAt.current < 140) return;
 
+      // REQUIREMENT #1: Double click creates note node
+      // CRITICAL: Check detail >= 2 for double click, and ensure onCreateNoteNodeAt is available
       if (evt.detail >= 2 && onCreateNoteNodeAt) {
+        evt.preventDefault();
+        evt.stopPropagation();
         const pos = rf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
         onCreateNoteNodeAt(pos);
         return;
       }
 
+      // Single click on blank area: clear all selections (Figma behavior)
+      // CRITICAL: Handle immediately, no setTimeout - this ensures reliable clearing
       emitSelection([]);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,6 +364,13 @@ function FlowCanvasInner(props: Props) {
   // CRITICAL: Always use props.nodes/props.edges to maintain reference stability.
   // During drag, we don't update store, so selector doesn't recalculate,
   // keeping array references stable (fixing React Flow error #015).
+  
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FlowCanvas.tsx:285',message:'ReactFlow render',data:{nodesCount:nodes.length,nodeIds:nodes.map(n=>n.id),nodesRef:Object.prototype.toString.call(nodes),edgesCount:edges.length,isDragging},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  }, [nodes, edges, isDragging]);
+  // #endregion
+
   return (
     <ReactFlow
       nodes={nodes}
@@ -308,6 +397,10 @@ function FlowCanvasInner(props: Props) {
       nodesDraggable={true}
       nodesConnectable={true}
       elementsSelectable={true}
+      // Figma-like interaction: left click for selection, not panning
+      panOnDrag={false}
+      selectionOnDrag={true}
+      panActivationKeyCode="Space"
       // Performance: Only update on drag end for viewport
       onlyRenderVisibleElements={false}
     >

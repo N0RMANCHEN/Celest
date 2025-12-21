@@ -2,6 +2,13 @@
  * features/canvas/hooks/useSelectionHandling.ts
  * ----------------
  * Handles selection logic with de-duplication to prevent ReactFlow StoreUpdater feedback loops.
+ * 
+ * Figma-like selection behavior:
+ * - Click node: immediately select (clear others)
+ * - Shift+click node: toggle in selection
+ * - Box selection start: clear previous selection immediately
+ * - Box selection: nodes that intersect with box are selected
+ * - Box selection end: selection box disappears
  */
 
 import { useCallback, useEffect, useRef } from "react";
@@ -35,6 +42,8 @@ export function useSelectionHandling(
 ) {
   const selectedIdsRef = useRef<string[]>([]);
   const isInitialMountRef = useRef(true);
+  const isBoxSelectingRef = useRef(false);
+  const boxSelectStartTimeRef = useRef<number>(0);
 
   // Update selectedIdsRef from props
   useEffect(() => {
@@ -68,10 +77,18 @@ export function useSelectionHandling(
     [onSelectionChange]
   );
 
+  // Handle box selection start - clear previous selection immediately (Figma behavior)
+  const handleBoxSelectionStart = useCallback(() => {
+    isBoxSelectingRef.current = true;
+    boxSelectStartTimeRef.current = Date.now();
+    // CRITICAL: Clear previous selection when box selection starts (Figma behavior)
+    emitSelection([]);
+  }, [emitSelection]);
+
   // Handle ReactFlow's selection change (box-select etc.)
-  // IMPORTANT: de-dupe to avoid StoreUpdater feedback loop.
-  // Also protect against ReactFlow initializing with empty selection
-  // when we're restoring from persisted state.
+  // This is called:
+  // 1. During box selection (while dragging) - nodes/edges that intersect with selection box
+  // 2. When box selection ends (mouseup) - final selection state
   const handleSelectionChange = useCallback(
     (sel: OnSelectionChangeParams) => {
       const nodeIds = sel?.nodes?.map((n) => n.id) ?? [];
@@ -91,38 +108,70 @@ export function useSelectionHandling(
         }
       }
 
+      // Detect box selection: if we're box selecting or multiple items selected
+      const isBoxSelection = isBoxSelectingRef.current || next.length > 1;
+
+      // Update box selection state
+      if (isBoxSelection && next.length > 0) {
+        // Box selection is active and has results
+        isBoxSelectingRef.current = true;
+      } else if (next.length === 0 && isBoxSelectingRef.current) {
+        // Box selection ended with no selection
+        isBoxSelectingRef.current = false;
+      } else if (!isBoxSelectingRef.current) {
+        // Not a box selection, just a click
+        isBoxSelectingRef.current = false;
+      }
+
+      // ReactFlow's box selection automatically handles intersection:
+      // - Nodes/edges that partially or fully intersect with selection box are included
       emitSelection(next);
     },
     [emitSelection, nodes, edges]
   );
 
-  // Handle node click
+  // Handle node click - Figma behavior: immediate selection, no delay
   const handleNodeClick = useCallback(
     (evt: ReactMouseEvent, node: Node<CanvasNodeData>) => {
+      evt.stopPropagation();
+      
+      // CRITICAL: Handle immediately, no setTimeout - this fixes click selection issues
       if (evt.shiftKey) {
+        // Shift+click: toggle selection (multi-select mode)
         const current = new Set(selectedIdsRef.current);
-        if (current.has(node.id)) current.delete(node.id);
-        else current.add(node.id);
+        if (current.has(node.id)) {
+          current.delete(node.id);
+        } else {
+          current.add(node.id);
+        }
         emitSelection(Array.from(current));
         return;
       }
 
+      // Normal click: select only this node (clear all other selections)
       emitSelection([node.id]);
     },
     [emitSelection]
   );
 
-  // Handle edge click
+  // Handle edge click - same as node click
   const handleEdgeClick = useCallback(
     (evt: ReactMouseEvent, edge: Edge<CanvasEdgeData>) => {
+      evt.stopPropagation();
+      
       if (evt.shiftKey) {
+        // Shift+click: toggle selection (multi-select mode)
         const current = new Set(selectedIdsRef.current);
-        if (current.has(edge.id)) current.delete(edge.id);
-        else current.add(edge.id);
+        if (current.has(edge.id)) {
+          current.delete(edge.id);
+        } else {
+          current.add(edge.id);
+        }
         emitSelection(Array.from(current));
         return;
       }
 
+      // Normal click: select only this edge (clear all other selections)
       emitSelection([edge.id]);
     },
     [emitSelection]
@@ -133,6 +182,7 @@ export function useSelectionHandling(
     handleNodeClick,
     handleEdgeClick,
     emitSelection,
+    handleBoxSelectionStart,
+    isBoxSelecting: isBoxSelectingRef,
   };
 }
-

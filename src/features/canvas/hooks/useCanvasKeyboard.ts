@@ -25,6 +25,16 @@ export function useCanvasKeyboard(
 ) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTypingElement =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.getAttribute("contenteditable") === "true" ||
+          target.getAttribute("role") === "textbox");
+
+      if (isTypingElement) return;
+
       // Delete/Backspace: remove selected nodes/edges
       if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.size > 0) {
         e.preventDefault();

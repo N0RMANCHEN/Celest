@@ -24,6 +24,24 @@ const sectionStyle: CSSProperties = {
   background: "var(--panel)",
 };
 
+const nodeShellStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  height: "100%",
+  padding: "12px 12px",
+  background: "var(--panel)",
+};
+
+const contentStyle: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  overflow: "hidden",
+};
+
 function Header({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div style={{ display: "grid", gap: 2 }}>
@@ -96,11 +114,33 @@ function NodeInspector(
   const { node, spec } = props;
 
   const titleInputId = useMemo(() => `title-${node.id}`, [node.id]);
+  const isNote = node.kind === "note";
 
   return (
-    <div style={sectionStyle}>
+    <div style={nodeShellStyle}>
+      {isNote ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+          <input
+            id={titleInputId}
+            className="input"
+            value={node.title}
+            onChange={(e) => props.onChangeTitle(node.id, e.target.value)}
+            placeholder="无标题"
+            style={{
+              border: "none",
+              background: "transparent",
+              textAlign: "left",
+              fontSize: 18,
+              padding: "4px 0 4px 11px",
+              fontWeight: 700,
+              color: "var(--text)",
+            }}
+          />
+        </div>
+      ) : (
+        <>
       <Header title={`${spec.icon} ${spec.label}`} subtitle={node.id} />
-
+          <div style={{ display: "grid", gap: 6 }}>
       <label htmlFor={titleInputId} className="muted" style={{ fontSize: 11 }}>
         Title
       </label>
@@ -111,20 +151,37 @@ function NodeInspector(
         onChange={(e) => props.onChangeTitle(node.id, e.target.value)}
         placeholder="Title"
       />
-
-      <PortList spec={spec} />
-
-      {node.kind === "note" ? (
-        <div style={{ display: "grid", gap: 6 }}>
-          <div className="muted" style={{ fontSize: 11 }}>
-            Markdown
           </div>
+        </>
+      )}
+
+      <div style={contentStyle}>
+        {node.kind === "note" ? (
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                flex: 1,
+                minHeight: 320,
+                display: "flex",
+                paddingLeft: 0,
+                marginLeft: -4,
+              }}
+            >
           <MonacoEditor
             value={node.text}
             onChange={(v) => props.onChangeNoteText(node.id, v)}
             language="markdown"
-            height={240}
+                height="100%"
           />
+            </div>
         </div>
       ) : null}
 
@@ -147,8 +204,23 @@ function NodeInspector(
           子图占位：稍后支持选择子图定义并映射端口。
         </div>
       ) : null}
+      </div>
 
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: "8px 12px 0",
+          borderTop: "1px solid var(--border)",
+        }}
+      >
+        <div style={{ minHeight: 28 }}>
+          <PortList spec={spec} />
+        </div>
       <SaveStatus ui={props.saveUi} />
+      </div>
     </div>
   );
 }

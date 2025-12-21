@@ -2,7 +2,7 @@
  * ----------------
  * 用途：
  *  - Figma-like 壳布局（Top tabs / left sidebar / center canvas / right inspector / bottom terminal）
- *  - OKX-ish 视觉策略：边框克制、hover 克制、圆角适中、阴影最少
+ *  - Cursor 风格：扁平化、细分割线、无圆角、无阴影
  *
  * 对外接口（CSS 类）：
  *  - .shell-root .top-tabs .workbench .home .leftSidebar .bottomToolbar .terminal 等
@@ -22,31 +22,30 @@
   height: 44px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 10px;
+  gap: 8px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
 
 .top-tabs__iconbtn {
-  height: 30px;
-  width: 34px;
-  border-radius: 10px;
-  border: 1px solid transparent;
+  height: 28px;
+  width: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
   background: transparent;
   color: var(--text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 .top-tabs__iconbtn:hover {
-  background: rgba(17, 24, 39, 0.04);
-  border-color: rgba(17, 24, 39, 0.06);
+  background: var(--bg-hover);
 }
 .top-tabs__iconbtn.is-on {
-  background: rgba(17, 24, 39, 0.06);
-  border-color: rgba(17, 24, 39, 0.08);
+  background: var(--bg-active);
 }
 
 .top-tabs__strip {
@@ -54,34 +53,33 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   overflow: hidden;
 }
 
 .top-tabs__tab {
-  height: 30px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
-  border-radius: 10px;
-  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  border: none;
   background: transparent;
   max-width: 260px;
+  transition: background 0.12s ease;
 }
 .top-tabs__tab:hover {
-  background: rgba(17, 24, 39, 0.03);
-  border-color: rgba(17, 24, 39, 0.06);
+  background: var(--bg-hover);
 }
 .top-tabs__tab.is-active {
-  background: rgba(17, 24, 39, 0.06);
-  border-color: rgba(17, 24, 39, 0.1);
+  background: var(--bg-active);
 }
 
 .top-tabs__tabMain {
-  height: 30px;
+  height: 28px;
   border: 0;
   background: transparent;
   cursor: pointer;
-  padding: 0 8px 0 10px;
+  padding: 0 8px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -89,7 +87,7 @@
   color: var(--text);
 }
 .top-tabs__tabIcon {
-  opacity: 0.55;
+  opacity: 0.5;
 }
 .top-tabs__tabText {
   min-width: 0;
@@ -97,39 +95,40 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .top-tabs__dirtyDot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.38);
+  background: var(--text-secondary);
   flex: 0 0 auto;
 }
 
 .top-tabs__tabClose {
-  height: 30px;
-  width: 30px;
+  height: 28px;
+  width: 28px;
   border: 0;
   background: transparent;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
+  transition: background 0.12s ease, color 0.12s ease;
 }
 .top-tabs__tabClose:hover {
-  background: rgba(17, 24, 39, 0.05);
+  background: var(--bg-hover);
   color: var(--text);
 }
 
 .top-tabs__right {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 .top-tabs__sep {
   width: 1px;
-  height: 18px;
+  height: 16px;
   background: var(--border);
   margin: 0 4px;
 }
@@ -138,40 +137,43 @@
 .shell-main {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 12px;
+  padding: 0;
 }
 
 /* ================= Home ================= */
 .home {
   max-width: 920px;
-  margin: 18px auto;
+  margin: 24px auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  padding: 0 24px;
 }
 .home__card {
   border: 1px solid var(--border);
   background: var(--panel);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 20px;
 }
 .home__title {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--text);
 }
 .home__desc {
   margin-top: 8px;
-  color: var(--muted);
+  color: var(--text-secondary);
   font-size: 13px;
-  line-height: 1.5;
-  margin-bottom: 14px;
+  line-height: 1.6;
+  margin-bottom: 16px;
 }
 .home__sectionTitle {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .home__empty {
   color: var(--muted);
@@ -186,104 +188,48 @@
   text-align: left;
   border: 1px solid var(--border);
   background: var(--panel);
-  border-radius: 14px;
-  padding: 12px 14px;
+  border-radius: var(--radius);
+  padding: 12px 16px;
   cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
 .home__item:hover {
-  border-color: rgba(17, 24, 39, 0.14);
+  border-color: var(--divider-hover);
+  background: var(--bg-hover);
 }
 .home__itemName {
-  font-weight: 800;
+  font-weight: 600;
   font-size: 13px;
   color: var(--text);
 }
 .home__itemSub {
   margin-top: 4px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 
 /* ================= Workbench ================= */
-/*
-  关键：Canvas 必须优先铺满可用空间。
-  - Left / Right：固定宽度（后续可做拖拽调整）
-  - Center：flex:1 自动吃满剩余空间
-  - 当 Left/Right 被隐藏（React 不渲染）时，Center 会自然铺满，不再留下 grid 空列
-*/
 .workbench {
   height: 100%;
   min-height: 0;
   min-width: 0;
-
-  /* 固定宽度（后续可被拖拽逻辑更新） */
-  --wb-left-width: 280px;
-  --wb-right-width: 360px;
-
   display: flex;
-  gap: 12px;
-  align-items: stretch;
-}
-
-.workbench__left,
-.workbench__right,
-.workbench__center {
-  min-height: 0;
-  min-width: 0;
-}
-
-.workbench__left {
-  flex: 0 0 var(--wb-left-width);
-  width: var(--wb-left-width);
-}
-
-.workbench__right {
-  flex: 0 0 var(--wb-right-width);
-  width: var(--wb-right-width);
 }
 
 .workbench__center {
   flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* left + right panels */
-.workbench__left,
-.workbench__right {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-/* center stack (canvas + terminal + floating toolbar) */
-.centerStack {
-  height: 100%;
   min-height: 0;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: var(--radius);
-  overflow: hidden;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  position: relative;
-}
-.centerStack__canvas {
-  flex: 1 1 auto;
-  min-height: 0;
-  background: #fff;
-}
-.centerStack__terminal {
-  flex: 0 0 220px;
-  border-top: 1px solid var(--border);
-  background: #fff;
+  background: var(--panel);
 }
 
-/* canvas host must have width/height */
-.canvasHost {
-  width: 100%;
-  height: 100%;
+.workbench__canvas {
+  flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
+  background: #fff;
 }
 
 /* ================= Left Sidebar ================= */
@@ -292,20 +238,22 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  background: var(--panel);
 }
 .leftSidebar__header {
-  padding: 12px 12px 10px 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
 .leftSidebar__projectName {
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text);
 }
 .leftSidebar__section {
-  padding: 10px 10px 12px 10px;
+  padding: 12px 12px;
 }
 .leftSidebar__section--grow {
   flex: 1 1 auto;
@@ -314,31 +262,36 @@
 }
 .leftSidebar__sectionTitle {
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--muted);
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Views */
 .views {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 .views__item {
   border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 12px;
-  padding: 6px 10px;
+  background: var(--panel);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
   cursor: pointer;
   font-size: 12px;
   color: var(--text);
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 .views__item:hover {
-  border-color: rgba(17, 24, 39, 0.14);
+  background: var(--bg-hover);
+  border-color: var(--divider-hover);
 }
 .views__item.is-active {
-  background: rgba(17, 24, 39, 0.06);
-  border-color: rgba(17, 24, 39, 0.14);
+  background: var(--bg-selected);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Tree */
@@ -352,47 +305,47 @@
 .treeNode__row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 26px;
+  gap: 4px;
+  height: 28px;
 }
 .treeNode__twisty {
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
-  border: 1px solid transparent;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: none;
   background: transparent;
   cursor: pointer;
   color: var(--muted);
+  transition: background 0.12s ease;
 }
 .treeNode__twisty:hover {
-  background: rgba(17, 24, 39, 0.04);
-  border-color: rgba(17, 24, 39, 0.06);
+  background: var(--bg-hover);
 }
 .treeNode__twisty--blank {
   display: inline-block;
-  width: 22px;
+  width: 20px;
 }
 .treeNode__label {
   flex: 1 1 auto;
   min-width: 0;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   height: 24px;
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   text-align: left;
+  transition: background 0.12s ease;
 }
 .treeNode__label:hover {
-  background: rgba(17, 24, 39, 0.03);
-  border-color: rgba(17, 24, 39, 0.05);
+  background: var(--bg-hover);
 }
 .treeNode__label.is-selected {
-  background: rgba(17, 24, 39, 0.06);
-  border-color: rgba(17, 24, 39, 0.12);
+  background: var(--bg-selected);
+  color: var(--accent);
 }
 .treeNode__text {
   min-width: 0;
@@ -401,39 +354,40 @@
   white-space: nowrap;
 }
 .treeNode__children {
-  padding-left: 20px;
+  padding-left: 16px;
 }
 
 /* ================= Bottom Toolbar (floating) ================= */
 .bottomToolbar {
   position: absolute;
   left: 16px;
-  bottom: 14px;
-  height: 40px;
-  padding: 0 10px;
-  border-radius: 14px;
+  bottom: 16px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .bt__btn {
-  height: 30px;
-  width: 34px;
-  border-radius: 10px;
-  border: 1px solid transparent;
+  height: 28px;
+  width: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
   background: transparent;
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 .bt__btn:hover {
-  background: rgba(17, 24, 39, 0.04);
-  border-color: rgba(17, 24, 39, 0.06);
+  background: var(--bg-hover);
 }
 .bt__sep {
   width: 1px;
-  height: 18px;
+  height: 16px;
   background: var(--border);
   margin: 0 2px;
 }
@@ -443,43 +397,94 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--panel);
 }
-.terminal__head {
-  height: 34px;
+.terminal__header {
+  height: 36px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 12px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   border-bottom: 1px solid var(--border);
+}
+.terminal__title {
+  color: var(--text);
+}
+.terminal__actions {
+  display: flex;
+  gap: 4px;
+}
+.terminal__btn {
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.terminal__btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 .terminal__body {
   flex: 1 1 auto;
-  padding: 10px 12px;
+  padding: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
   color: var(--text);
   overflow: auto;
 }
-.terminal__line {
+.terminal__empty {
   color: var(--muted);
+  font-size: 12px;
+}
+.terminal__line {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.terminal__ts {
+  color: var(--muted);
+  margin-right: 8px;
+}
+.terminal__lvl {
+  font-weight: 600;
+  margin-right: 8px;
+}
+.terminal__line--info .terminal__lvl {
+  color: var(--accent);
+}
+.terminal__line--error .terminal__lvl {
+  color: #ef4444;
+}
+.terminal__line--warn .terminal__lvl {
+  color: #f59e0b;
+}
+.terminal__msg {
+  color: var(--text);
 }
 
-/* ================= OKX-ish Buttons ================= */
+/* ================= Buttons ================= */
 .okx-btn {
   appearance: none;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--panel);
   color: var(--text);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 .okx-btn:hover {
-  border-color: rgba(17, 24, 39, 0.14);
+  background: var(--bg-hover);
+  border-color: var(--divider-hover);
 }
 .okx-btn--primary {
   background: var(--primary);
@@ -487,5 +492,6 @@
   color: #fff;
 }
 .okx-btn--primary:hover {
-  filter: brightness(0.98);
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }

@@ -76,7 +76,7 @@ export function Canvas(props: Props) {
   } | null>(null);
   const isBoxSelectingRef = useRef(false);
   
-  // Drag state
+  // Drag state with performance optimization
   const [isDragging, setIsDragging] = useState(false);
   const dragStateRef = useRef<{
     draggedNodeIds: Set<string>;
@@ -84,13 +84,46 @@ export function Canvas(props: Props) {
     dragStartMouse: { x: number; y: number };
   } | null>(null);
   
+  // Local node positions for performance (avoid frequent store updates during drag)
+  const localNodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const dragAnimationFrameRef = useRef<number | null>(null);
+  
   // Pan state
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{ x: number; y: number; viewport: CanvasViewport } | null>(null);
   
+  // Local viewport for performance (avoid frequent updates during pan)
+  const localViewportRef = useRef<CanvasViewport>(viewport);
+  const panAnimationFrameRef = useRef<number | null>(null);
+  
   // Space key state (for Space + drag panning)
   const spaceKeyPressedRef = useRef(false);
   
+  // Sync viewport to local ref
+  useEffect(() => {
+    localViewportRef.current = viewport;
+  }, [viewport]);
+  
+  // Sync node positions to local ref
+  useEffect(() => {
+    const newPositions = new Map<string, { x: number; y: number }>();
+    for (const node of nodes) {
+      newPositions.set(node.id, { ...node.position });
+    }
+    localNodePositionsRef.current = newPositions;
+  }, [nodes]);
+  
+  // Cleanup animation frames on unmount
+  useEffect(() => {
+    return () => {
+      if (dragAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(dragAnimationFrameRef.current);
+      }
+      if (panAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(panAnimationFrameRef.current);
+      }
+    };
+  }, []);
   
   // Update selectedIds from props (when selection changes externally)
   // Use useMemo to derive selection from props instead of useEffect + setState
@@ -178,7 +211,7 @@ export function Canvas(props: Props) {
       if (rect) {
         const canvasPos = screenToCanvas(
           { x: e.clientX - rect.left, y: e.clientY - rect.top },
-          viewport
+          localViewportRef.current
         );
         onCreateNoteNodeAt(canvasPos);
       }
@@ -196,7 +229,7 @@ export function Canvas(props: Props) {
       selectedIdsRef.current = newSelection;
       onSelectionChange([]);
     }
-  }, [onCreateNoteNodeAt, viewport, onSelectionChange]);
+  }, [onCreateNoteNodeAt, onSelectionChange]);
 
   // Track Space key for panning
   useEffect(() => {
@@ -229,9 +262,45 @@ export function Canvas(props: Props) {
     };
   }, [isPanning]);
 
-  // Handle touchpad two-finger panning (must use native event listener, not React onWheel)
+  // Handle wheel events (zoom + pan)
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
+      // Detect pinch zoom (Ctrl/Cmd + wheel or trackpad pinch)
+      const isPinchZoom = e.ctrlKey || e.metaKey;
+      
+      if (isPinchZoom) {
+        // Zoom in/out
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return false;
+        
+        // Mouse position relative to canvas
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Calculate zoom factor
+        const zoomDelta = -e.deltaY * 0.01; // Inverted for natural feel
+        const zoomFactor = Math.pow(1.1, zoomDelta);
+        const currentViewport = localViewportRef.current;
+        const newZoom = Math.max(0.1, Math.min(5, currentViewport.zoom * zoomFactor));
+        
+        // Zoom towards mouse position (Figma behavior)
+        const scale = newZoom / currentViewport.zoom;
+        const newViewport: CanvasViewport = {
+          x: mouseX - (mouseX - currentViewport.x) * scale,
+          y: mouseY - (mouseY - currentViewport.y) * scale,
+          zoom: newZoom,
+        };
+        
+        localViewportRef.current = newViewport;
+        onViewportChange(newViewport);
+        
+        return false;
+      }
+      
       // Handle touchpad two-finger panning
       // Touchpad panning typically has:
       // - Non-zero deltaX or deltaY
@@ -248,20 +317,21 @@ export function Canvas(props: Props) {
 
       if (isTwoFingerPan) {
         // CRITICAL: Prevent default browser scrolling behavior AND navigation gestures
-        // Use all available methods to ensure browser doesn't scroll or navigate
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         
         // Pan canvas with touchpad gesture
-        const zoom = viewport.zoom;
-        onViewportChange({
-          x: viewport.x - e.deltaX / zoom,
-          y: viewport.y - e.deltaY / zoom,
-          zoom: zoom,
-        });
+        const currentViewport = localViewportRef.current;
+        const newViewport: CanvasViewport = {
+          x: currentViewport.x - e.deltaX,
+          y: currentViewport.y - e.deltaY,
+          zoom: currentViewport.zoom,
+        };
         
-        // Return false as additional safeguard
+        localViewportRef.current = newViewport;
+        onViewportChange(newViewport);
+        
         return false;
       }
       
@@ -273,7 +343,6 @@ export function Canvas(props: Props) {
         e.stopPropagation();
       }
     };
-
 
     // Use non-passive listener to allow preventDefault
     // Use capture phase to intercept early, before other handlers
@@ -289,7 +358,7 @@ export function Canvas(props: Props) {
         element.removeEventListener("wheel", handleWheel, { capture: true });
       };
     }
-  }, [viewport, onViewportChange]);
+  }, [onViewportChange]);
 
   // Handle mouse down (start box selection or drag)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -314,7 +383,7 @@ export function Canvas(props: Props) {
       panStartRef.current = {
         x: e.clientX,
         y: e.clientY,
-        viewport: { ...viewport },
+        viewport: { ...localViewportRef.current },
       };
       e.preventDefault();
       e.stopPropagation();
@@ -327,7 +396,7 @@ export function Canvas(props: Props) {
       if (rect) {
         const canvasPos = screenToCanvas(
           { x: e.clientX - rect.left, y: e.clientY - rect.top },
-          viewport
+          localViewportRef.current
         );
         
         // Clear previous selection when box selection starts (Figma behavior)
@@ -340,32 +409,144 @@ export function Canvas(props: Props) {
         setBoxSelection({ start: canvasPos, end: canvasPos });
       }
     }
-  }, [viewport, onSelectionChange]);
+  }, [onSelectionChange]);
 
-  // Global mouse move handler (for drag and box selection)
+  // Global mouse move handler (for drag and box selection) - Optimized with RAF
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (isPanning && panStartRef.current) {
-        // Pan canvas
+        // Pan canvas - use RAF for smooth updates
         e.preventDefault();
-        const deltaX = e.clientX - panStartRef.current.x;
-        const deltaY = e.clientY - panStartRef.current.y;
-        onViewportChange({
-          x: panStartRef.current.viewport.x + deltaX,
-          y: panStartRef.current.viewport.y + deltaY,
-          zoom: panStartRef.current.viewport.zoom,
+        
+        if (panAnimationFrameRef.current !== null) {
+          cancelAnimationFrame(panAnimationFrameRef.current);
+        }
+        
+        panAnimationFrameRef.current = requestAnimationFrame(() => {
+          if (!panStartRef.current) return;
+          
+          const deltaX = e.clientX - panStartRef.current.x;
+          const deltaY = e.clientY - panStartRef.current.y;
+          const newViewport = {
+            x: panStartRef.current.viewport.x + deltaX,
+            y: panStartRef.current.viewport.y + deltaY,
+            zoom: panStartRef.current.viewport.zoom,
+          };
+          
+          // Update local ref immediately for rendering
+          localViewportRef.current = newViewport;
+          onViewportChange(newViewport);
+          panAnimationFrameRef.current = null;
         });
         return;
       }
 
       if (isDragging && dragStateRef.current) {
-        // Drag nodes
+        // Drag nodes - use RAF and local state for smooth updates
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
+          if (dragAnimationFrameRef.current !== null) {
+            cancelAnimationFrame(dragAnimationFrameRef.current);
+          }
+          
           const currentMouse = screenToCanvas(
             { x: e.clientX - rect.left, y: e.clientY - rect.top },
-            viewport
+            localViewportRef.current
           );
+          
+          dragAnimationFrameRef.current = requestAnimationFrame(() => {
+            if (!dragStateRef.current) return;
+            
+            const delta = {
+              x: currentMouse.x - dragStateRef.current.dragStartMouse.x,
+              y: currentMouse.y - dragStateRef.current.dragStartMouse.y,
+            };
+            
+            const newPositions = updateDragPositions(
+              dragStateRef.current.draggedNodeIds,
+              dragStateRef.current.dragStartPositions,
+              delta
+            );
+            
+            // Update local positions immediately
+            for (const [nodeId, pos] of newPositions) {
+              localNodePositionsRef.current.set(nodeId, pos);
+            }
+            
+            // Emit position changes to store (batched by RAF)
+            const changes: CanvasNodeChange[] = [];
+            for (const [nodeId, pos] of newPositions) {
+              changes.push({ id: nodeId, type: "position", position: pos });
+            }
+            onNodesChange(changes);
+            dragAnimationFrameRef.current = null;
+          });
+        }
+        return;
+      }
+
+      if (isBoxSelectingRef.current && boxSelection) {
+        // Update box selection
+        const rect = svgRef.current?.getBoundingClientRect();
+        if (rect) {
+          const canvasPos = screenToCanvas(
+            { x: e.clientX - rect.left, y: e.clientY - rect.top },
+            localViewportRef.current
+          );
+          setBoxSelection({ ...boxSelection, end: canvasPos });
+        }
+      }
+    };
+
+    if (isPanning || isDragging || isBoxSelectingRef.current) {
+      window.addEventListener("mousemove", handleGlobalMouseMove);
+      return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
+    }
+  }, [isPanning, isDragging, boxSelection, onViewportChange, onNodesChange]);
+
+  // Handle mouse move (update box selection, drag, or pan) - Optimized with RAF
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPanning && panStartRef.current) {
+      // Pan canvas - use RAF for smooth updates
+      if (panAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(panAnimationFrameRef.current);
+      }
+      
+      panAnimationFrameRef.current = requestAnimationFrame(() => {
+        if (!panStartRef.current) return;
+        
+        const deltaX = e.clientX - panStartRef.current.x;
+        const deltaY = e.clientY - panStartRef.current.y;
+        const newViewport = {
+          x: panStartRef.current.viewport.x + deltaX,
+          y: panStartRef.current.viewport.y + deltaY,
+          zoom: panStartRef.current.viewport.zoom,
+        };
+        
+        // Update local ref immediately for rendering
+        localViewportRef.current = newViewport;
+        onViewportChange(newViewport);
+        panAnimationFrameRef.current = null;
+      });
+      return;
+    }
+
+    if (isDragging && dragStateRef.current) {
+      // Drag nodes - use RAF and local state for smooth updates
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (rect) {
+        if (dragAnimationFrameRef.current !== null) {
+          cancelAnimationFrame(dragAnimationFrameRef.current);
+        }
+        
+        const currentMouse = screenToCanvas(
+          { x: e.clientX - rect.left, y: e.clientY - rect.top },
+          localViewportRef.current
+        );
+        
+        dragAnimationFrameRef.current = requestAnimationFrame(() => {
+          if (!dragStateRef.current) return;
+          
           const delta = {
             x: currentMouse.x - dragStateRef.current.dragStartMouse.x,
             y: currentMouse.y - dragStateRef.current.dragStartMouse.y,
@@ -377,74 +558,19 @@ export function Canvas(props: Props) {
             delta
           );
           
-          // Emit position changes
+          // Update local positions immediately
+          for (const [nodeId, pos] of newPositions) {
+            localNodePositionsRef.current.set(nodeId, pos);
+          }
+          
+          // Emit position changes to store (batched by RAF)
           const changes: CanvasNodeChange[] = [];
           for (const [nodeId, pos] of newPositions) {
             changes.push({ id: nodeId, type: "position", position: pos });
           }
           onNodesChange(changes);
-        }
-        return;
-      }
-
-      if (isBoxSelectingRef.current && boxSelection) {
-        // Update box selection
-        const rect = svgRef.current?.getBoundingClientRect();
-        if (rect) {
-          const canvasPos = screenToCanvas(
-            { x: e.clientX - rect.left, y: e.clientY - rect.top },
-            viewport
-          );
-          setBoxSelection({ ...boxSelection, end: canvasPos });
-        }
-      }
-    };
-
-    if (isPanning || isDragging || isBoxSelectingRef.current) {
-      window.addEventListener("mousemove", handleGlobalMouseMove);
-      return () => window.removeEventListener("mousemove", handleGlobalMouseMove);
-    }
-  }, [isPanning, isDragging, boxSelection, viewport, onViewportChange, onNodesChange]);
-
-  // Handle mouse move (update box selection, drag, or pan)
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning && panStartRef.current) {
-      // Pan canvas
-      const deltaX = e.clientX - panStartRef.current.x;
-      const deltaY = e.clientY - panStartRef.current.y;
-      onViewportChange({
-        x: panStartRef.current.viewport.x + deltaX,
-        y: panStartRef.current.viewport.y + deltaY,
-        zoom: panStartRef.current.viewport.zoom,
-      });
-      return;
-    }
-
-    if (isDragging && dragStateRef.current) {
-      // Drag nodes
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (rect) {
-        const currentMouse = screenToCanvas(
-          { x: e.clientX - rect.left, y: e.clientY - rect.top },
-          viewport
-        );
-        const delta = {
-          x: currentMouse.x - dragStateRef.current.dragStartMouse.x,
-          y: currentMouse.y - dragStateRef.current.dragStartMouse.y,
-        };
-        
-        const newPositions = updateDragPositions(
-          dragStateRef.current.draggedNodeIds,
-          dragStateRef.current.dragStartPositions,
-          delta
-        );
-        
-        // Emit position changes
-        const changes: CanvasNodeChange[] = [];
-        for (const [nodeId, pos] of newPositions) {
-          changes.push({ id: nodeId, type: "position", position: pos });
-        }
-        onNodesChange(changes);
+          dragAnimationFrameRef.current = null;
+        });
       }
       return;
     }
@@ -455,12 +581,12 @@ export function Canvas(props: Props) {
       if (rect) {
         const canvasPos = screenToCanvas(
           { x: e.clientX - rect.left, y: e.clientY - rect.top },
-          viewport
+          localViewportRef.current
         );
         setBoxSelection({ ...boxSelection, end: canvasPos });
       }
     }
-  }, [isPanning, isDragging, boxSelection, viewport, onViewportChange, onNodesChange]);
+  }, [isPanning, isDragging, boxSelection, onViewportChange, onNodesChange]);
 
   // Global mouse up handler
   useEffect(() => {
@@ -471,12 +597,36 @@ export function Canvas(props: Props) {
         const wasSpacePan = spaceKeyPressedRef.current && e.button === 0;
         
         if (wasMiddleButton || (!spaceKeyPressedRef.current && wasSpacePan)) {
+          // Cancel any pending pan animation
+          if (panAnimationFrameRef.current !== null) {
+            cancelAnimationFrame(panAnimationFrameRef.current);
+            panAnimationFrameRef.current = null;
+          }
           setIsPanning(false);
           panStartRef.current = null;
         }
       }
 
       if (isDragging) {
+        // Cancel any pending drag animation
+        if (dragAnimationFrameRef.current !== null) {
+          cancelAnimationFrame(dragAnimationFrameRef.current);
+          dragAnimationFrameRef.current = null;
+        }
+        
+        // Final sync to store (ensure all changes are committed)
+        if (dragStateRef.current) {
+          const changes: CanvasNodeChange[] = [];
+          for (const [nodeId, pos] of localNodePositionsRef.current) {
+            if (dragStateRef.current.draggedNodeIds.has(nodeId)) {
+              changes.push({ id: nodeId, type: "position", position: pos });
+            }
+          }
+          if (changes.length > 0) {
+            onNodesChange(changes);
+          }
+        }
+        
         setIsDragging(false);
         dragStateRef.current = null;
       }
@@ -485,12 +635,14 @@ export function Canvas(props: Props) {
         // Finalize box selection
         const normalizedBox = normalizeSelectionBox(boxSelection.start, boxSelection.end);
         
-        // Build node bounds map
+        // Build node bounds map using local positions
         const nodeBounds = new Map<string, { left: number; top: number; right: number; bottom: number }>();
         for (const node of nodes) {
           const size = getNodeSize(node.id);
           if (size) {
-            const bounds = getNodeBounds(node.position, size);
+            // Use local position if available (in case of concurrent drag)
+            const position = localNodePositionsRef.current.get(node.id) || node.position;
+            const bounds = getNodeBounds(position, size);
             nodeBounds.set(node.id, bounds);
           }
         }
@@ -516,16 +668,26 @@ export function Canvas(props: Props) {
       window.addEventListener("mouseup", handleGlobalMouseUp);
       return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
     }
-  }, [isPanning, isDragging, boxSelection, nodes, getNodeSize, onSelectionChange]);
+  }, [isPanning, isDragging, boxSelection, nodes, getNodeSize, onSelectionChange, onNodesChange]);
 
   // Handle mouse up (end box selection, drag, or pan)
   const handleMouseUp = useCallback(() => {
     if (isPanning) {
+      // Cancel any pending pan animation
+      if (panAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(panAnimationFrameRef.current);
+        panAnimationFrameRef.current = null;
+      }
       setIsPanning(false);
       panStartRef.current = null;
     }
 
     if (isDragging) {
+      // Cancel any pending drag animation
+      if (dragAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(dragAnimationFrameRef.current);
+        dragAnimationFrameRef.current = null;
+      }
       setIsDragging(false);
       dragStateRef.current = null;
     }
@@ -550,13 +712,13 @@ export function Canvas(props: Props) {
     
     const canvasPos = screenToCanvas(
       { x: e.clientX - rect.left, y: e.clientY - rect.top },
-      viewport
+      localViewportRef.current
     );
     
-    // Start drag
+    // Start drag - use local positions
     const nodePositions = new Map<string, { x: number; y: number }>();
-    for (const node of nodes) {
-      nodePositions.set(node.id, node.position);
+    for (const [nodeId, pos] of localNodePositionsRef.current) {
+      nodePositions.set(nodeId, pos);
     }
     
     const dragResult = startDrag(nodeId, selectedIdsRef.current, nodePositions);
@@ -578,7 +740,7 @@ export function Canvas(props: Props) {
     
     e.preventDefault();
     e.stopPropagation();
-  }, [nodes, viewport, onSelectionChange]);
+  }, [onSelectionChange]);
 
   // Keyboard handling
   useEffect(() => {
@@ -702,25 +864,27 @@ export function Canvas(props: Props) {
           pointerEvents: "all",
         }}
       >
-        {/* Background grid */}
+        {/* 点阵背景 (类似 ReactFlow) - 固定在视窗坐标系 */}
         <defs>
           <pattern
-            id="grid"
-            width={20 * viewport.zoom}
-            height={20 * viewport.zoom}
+            id="dot-pattern"
+            x={viewport.x % 20}
+            y={viewport.y % 20}
+            width={20}
+            height={20}
             patternUnits="userSpaceOnUse"
           >
-            <path
-              d={`M ${20 * viewport.zoom} 0 L 0 0 0 ${20 * viewport.zoom}`}
-              fill="none"
-              stroke="var(--border)"
-              strokeWidth={0.5}
-              opacity={0.3}
+            <circle
+              cx="1"
+              cy="1"
+              r="1"
+              fill="#d1d5db"
+              opacity="0.5"
             />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="var(--bg)" />
-        <rect width="100%" height="100%" fill="url(#grid)" />
+        <rect width="100%" height="100%" fill="#ffffff" />
+        <rect width="100%" height="100%" fill="url(#dot-pattern)" />
 
         {/* Apply viewport transform */}
         <g transform={getViewportTransform(viewport)}>

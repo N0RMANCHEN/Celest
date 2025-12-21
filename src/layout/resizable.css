@@ -1,0 +1,126 @@
+/**
+ * resizable.css
+ * ----------------
+ * 用途：
+ *  - ResizablePane 组件样式
+ *  - Cursor 风格的分割线（扁平、细、可拖动）
+ *  - 最小化视觉干扰
+ */
+
+/* ==================== 基础布局 ==================== */
+
+.resizable-pane {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.resizable-pane--horizontal {
+  flex-direction: row;
+}
+
+.resizable-pane--vertical {
+  flex-direction: column;
+}
+
+/* ==================== 面板 ==================== */
+
+.resizable-pane__panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 默认情况下，left/top 固定大小，right/bottom 自动填充 */
+.resizable-pane__left,
+.resizable-pane__top {
+  flex: 0 0 auto;
+}
+
+.resizable-pane__right,
+.resizable-pane__bottom {
+  flex: 1 1 auto;
+}
+
+/* ==================== 分割线 ==================== */
+
+.resizable-pane__divider {
+  position: relative;
+  background: var(--divider-bg);
+  transition: background 0.15s ease, width 0.1s ease, height 0.1s ease;
+  z-index: 10;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* 垂直分割线（左右拖动）- 默认 1px */
+.resizable-pane__divider--vertical {
+  width: 1px;
+  cursor: col-resize;
+}
+
+/* 水平分割线（上下拖动）- 默认 1px */
+.resizable-pane__divider--horizontal {
+  height: 1px;
+  cursor: row-resize;
+}
+
+/* 扩大命中区域：实际可拖动区域更大，但不影响布局 */
+.resizable-pane__divider::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+}
+
+.resizable-pane__divider--vertical::before {
+  top: 0;
+  left: -5px;
+  width: 11px;
+  height: 100%;
+}
+
+.resizable-pane__divider--horizontal::before {
+  left: 0;
+  top: -5px;
+  width: 100%;
+  height: 11px;
+}
+
+/* Hover 状态：分割线变明显 */
+.resizable-pane__divider--vertical:hover {
+  background: var(--divider-hover);
+  width: 2px;
+}
+
+.resizable-pane__divider--horizontal:hover {
+  background: var(--divider-hover);
+  height: 2px;
+}
+
+/* 拖动状态：保持不变，不改变颜色 */
+.resizable-pane.is-dragging .resizable-pane__divider--vertical {
+  /* 拖动时不改变样式，保持 hover 状态 */
+}
+
+.resizable-pane.is-dragging .resizable-pane__divider--horizontal {
+  /* 拖动时不改变样式，保持 hover 状态 */
+}
+
+/* 拖动时禁止选择文本 */
+.resizable-pane.is-dragging {
+  user-select: none;
+}
+
+.resizable-pane.is-dragging * {
+  user-select: none;
+  pointer-events: none;
+}
+
+.resizable-pane.is-dragging .resizable-pane__divider {
+  pointer-events: auto;
+}

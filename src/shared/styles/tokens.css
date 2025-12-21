@@ -11,28 +11,45 @@
  */
 
 :root {
-  /* OKX-ish background */
-  --bg: #f6f7fb;
+  /* OKX 浅色模式配色方案 - 更简洁、扁平化 */
+  --bg: #f7f8fa;
   --panel: #ffffff;
-  --panel-2: #fbfcff;
+  --panel-2: #fafbfc;
 
-  --text: #0b0f1a;
-  --muted: #5b6475;
+  --text: #1a1d1f;
+  --text-secondary: #6f767e;
+  --muted: #9a9fa5;
 
-  --border: #e6e9f0;
-  --divider: rgba(15, 23, 42, 0.08);
+  /* 边框和分割线 - 更细腻 */
+  --border: #eff1f4;
+  --divider: #eff1f4;
+  
+  /* 分割线颜色 - Cursor 风格 */
+  --divider-bg: #e6e8eb;
+  --divider-hover: #d1d5db;
+  --divider-active: #2b5cff;
 
-  /* OKX 更偏“线框感”：阴影要克制 */
-  --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.05);
+  /* 去掉阴影，采用扁平化设计 */
+  --shadow-sm: none;
 
-  --radius: 12px;
+  /* 圆角最小化 */
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
 
+  /* OKX 主题色 */
   --primary: #2b5cff;
   --primary-hover: #1f4fe8;
-  --primary-weak: rgba(43, 92, 255, 0.12);
+  --primary-weak: rgba(43, 92, 255, 0.08);
   
   /* Accent color for selected/highlighted elements */
-  --accent: #2b5cff; /* Same as primary for consistency */
+  --accent: #2b5cff;
+  --accent-bg: rgba(43, 92, 255, 0.06);
+  
+  /* 背景色系 */
+  --bg-hover: rgba(0, 0, 0, 0.02);
+  --bg-active: rgba(0, 0, 0, 0.04);
+  --bg-selected: rgba(43, 92, 255, 0.06);
 }
 
 /* ============ MiSans (served from /public) ============ */

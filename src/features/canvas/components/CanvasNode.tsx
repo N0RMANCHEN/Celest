@@ -25,15 +25,18 @@ const cardStyle: CSSProperties = {
   minWidth: 180,
   boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
   position: "relative",
-  cursor: "default",
+  cursor: "grab",
   userSelect: "none",
+  transition: "box-shadow 0.15s ease, border-color 0.15s ease",
+  willChange: "transform", // Performance hint for GPU acceleration
 };
 
 const selectedCardStyle: CSSProperties = {
   ...cardStyle,
   background: "var(--panel)",
   border: "2px solid var(--accent)",
-  boxShadow: "0 6px 16px rgba(0,0,0,0.12), 0 0 0 2px var(--accent)",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.16), 0 0 0 2px var(--accent)",
+  cursor: "grab",
 };
 
 const titleStyle: CSSProperties = {
@@ -77,6 +80,8 @@ const handleStyle: CSSProperties = {
   background: "var(--panel)",
   cursor: "crosshair",
   zIndex: 10,
+  transition: "transform 0.15s ease, border-color 0.15s ease",
+  willChange: "transform", // Performance hint
 };
 
 const handleLeftStyle: CSSProperties = {

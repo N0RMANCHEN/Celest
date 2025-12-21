@@ -23,6 +23,8 @@ const edgeStyle: React.CSSProperties = {
   strokeWidth: 2,
   pointerEvents: "stroke",
   cursor: "pointer",
+  transition: "stroke 0.15s ease, stroke-width 0.15s ease",
+  willChange: "auto", // Let browser optimize
 };
 
 const selectedEdgeStyle: React.CSSProperties = {

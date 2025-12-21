@@ -20,10 +20,8 @@ type Props = {
 const sectionStyle: CSSProperties = {
   display: "grid",
   gap: 12,
-  padding: 12,
-  background: "var(--panel-2)",
-  borderRadius: 12,
-  border: "1px solid var(--border)",
+  padding: 16,
+  background: "var(--panel)",
 };
 
 function Header({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -52,10 +50,10 @@ function PortList({ spec }: { spec: NodeKindSpec }) {
             key={p.id}
             style={{
               border: "1px solid var(--border)",
-              borderRadius: 8,
+              borderRadius: 0,
               padding: "4px 8px",
               fontSize: 11,
-              background: "rgba(255,255,255,0.04)",
+              background: "var(--panel-2)",
             }}
           >
             {p.direction === "in" ? "⬅" : "➡"} {p.label}
@@ -75,7 +73,7 @@ function SaveStatus({ ui }: { ui: SaveUiState | null }) {
       <span
         style={{
           padding: "2px 8px",
-          borderRadius: 999,
+          borderRadius: 0,
           border: `1px solid ${color}`,
           color,
         }}

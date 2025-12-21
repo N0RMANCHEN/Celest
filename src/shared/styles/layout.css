@@ -3,16 +3,13 @@
  * ----------------
  * 用途：
  *  - App 布局（Topbar + Workspace）
- *  - SplitPane 左右分栏 & 可拖拽分割线（更 OKX-ish：克制 hover、细线、弱手柄）
- *  - 关键：保证 ReactFlow 容器宽高链条不断（否则报 #004）
- *  - Topbar：Breadcrumbs + Status + Actions 三段
+ *  - Cursor 风格：扁平化、细分割线、无圆角、无阴影
  *
  * 对外接口（CSS 类）：
  *  - .app .topbar-wrap .topbar .topbar-left .topbar-center .topbar-right
  *  - .crumbs .crumb .crumb-sep
  *  - .status .status-chip
  *  - .workspace
- *  - .split-root .split-left .split-divider .split-right
  *  - .panel .canvas-panel .inspector-panel
  *  - .canvas-inner
  */
@@ -25,21 +22,18 @@
   min-height: 0;
 }
 
-/* ---- Topbar (OKX-ish sticky + blur + divider) ---- */
+/* ---- Topbar (Cursor 风格：扁平 + 细分割线) ---- */
 .topbar-wrap {
   position: sticky;
   top: 0;
   z-index: 50;
-
-  background: rgba(246, 247, 251, 0.78);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--divider);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
 }
 
 .topbar {
-  height: 56px;
+  height: 48px;
   padding: 0 16px;
-
   display: flex;
   align-items: center;
   gap: 12px;
@@ -48,15 +42,16 @@
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
 .brand {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 13px;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.3px;
   white-space: nowrap;
+  color: var(--text);
 }
 
 .crumbs {
@@ -69,19 +64,18 @@
 
 .crumb {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(15, 23, 42, 0.03);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
 }
 
 .crumb-sep {
-  color: rgba(15, 23, 42, 0.25);
+  color: var(--muted);
   font-size: 12px;
   flex: 0 0 auto;
 }
@@ -102,19 +96,16 @@
 }
 
 .status-chip {
-  height: 26px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-
-  padding: 0 10px;
-  border-radius: 999px;
-
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
-  color: rgba(11, 15, 26, 0.78);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(6px);
+  color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--panel);
 }
 
 .topbar-right {
@@ -128,106 +119,8 @@
 .workspace {
   flex: 1 1 auto;
   min-height: 0;
-
   display: flex;
-  padding: 12px 16px 16px 16px;
-}
-
-/* ---- SplitPane: 高度链条 ---- */
-.split-root {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-}
-
-.split-left {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-}
-
-.split-right {
-  flex: 0 0 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-}
-
-/* 分割线：命中区域 12px（好拖），视觉线 1px（细） */
-.split-divider {
-  flex: 0 0 12px;
-  cursor: col-resize;
-  position: relative;
-}
-
-/* 视觉细线（默认很克制） */
-.split-divider::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 1px;
-  height: 100%;
-  transform: translateX(-0.5px);
-  background: rgba(15, 23, 42, 0.08);
-  transition: background 0.15s ease;
-}
-
-/* “手柄”点阵（默认隐藏，hover 才出现，OKX-ish 很克制） */
-.split-divider::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 18px;
-  height: 34px;
-  transform: translate(-50%, -50%);
-  border-radius: 10px;
-  opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-
-  border: 1px solid transparent;
-  background: radial-gradient(
-      circle,
-      rgba(15, 23, 42, 0.28) 1px,
-      transparent 2px
-    )
-    center/6px 6px;
-}
-
-/* hover：线条稍微变明显 + 手柄淡淡出现（不抢戏） */
-.split-divider:hover::before {
-  background: rgba(15, 23, 42, 0.16);
-}
-.split-divider:hover::after {
-  opacity: 0.9;
-  border-color: rgba(15, 23, 42, 0.06);
-  background: radial-gradient(
-        circle,
-        rgba(15, 23, 42, 0.3) 1px,
-        transparent 2px
-      )
-      center/6px 6px,
-    rgba(255, 255, 255, 0.55);
-}
-
-/* dragging：线条变成 primary 弱态，手柄稳定显示 */
-.split-root.is-dragging .split-divider::before {
-  background: rgba(43, 92, 255, 0.35);
-}
-.split-root.is-dragging .split-divider::after {
-  opacity: 1;
-  border-color: rgba(43, 92, 255, 0.18);
-  background: radial-gradient(
-        circle,
-        rgba(43, 92, 255, 0.55) 1px,
-        transparent 2px
-      )
-      center/6px 6px,
-    rgba(255, 255, 255, 0.7);
+  padding: 0;
 }
 
 /* ---- Panels ---- */
@@ -235,26 +128,20 @@
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-
   display: flex;
   flex-direction: column;
-
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
 }
 
 .canvas-panel {
   overflow: hidden;
 }
 
-/* 右侧策略：OKX-ish “轻微分离感”，只给右侧一个很弱阴影 */
 .inspector-panel {
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
-/* ---- Canvas inner (ReactFlow 父容器必须有宽高) ---- */
+/* ---- Canvas inner ---- */
 .canvas-inner {
   flex: 1 1 auto;
   min-width: 0;
@@ -266,7 +153,7 @@
 /* ---- Inspector ---- */
 .inspector-head {
   height: 44px;
-  padding: 0 12px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -274,11 +161,12 @@
 }
 
 .inspector-title {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 13px;
+  color: var(--text);
 }
 
 .inspector-body {
-  padding: 12px;
+  padding: 16px;
   overflow: auto;
 }

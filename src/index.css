@@ -12,3 +12,4 @@
 @import "./shared/styles/layout.css";
 @import "./shared/styles/terminal.css";
 @import "./shared/styles/cursor.css";
+@import "./layout/resizable.css";

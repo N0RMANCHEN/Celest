@@ -46,7 +46,7 @@ export type ProjectSlice = {
   openProjectFolder: () => Promise<void>;
   reopenRecent: (key: string) => Promise<void>;
 
-  /** Step5A: manual save hook for /.nodeide assets (CodeGraph + viewports). */
+  /** Step5A: manual save hook for /.celest assets (CodeGraph + viewports). */
   saveActiveProject: () => Promise<void>;
 
   getActiveProject: () => ProjectState | null;

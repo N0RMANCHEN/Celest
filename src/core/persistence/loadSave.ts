@@ -2,7 +2,7 @@
  * core/persistence/loadSave.ts
  * ----------------
  * Step5A:
- * Minimal JSON persistence under `projectRoot/.nodeide/` using File System Access API.
+ * Minimal JSON persistence under `projectRoot/.celest/` using File System Access API.
  *
  * Notes:
  * - We deliberately keep this module "core" (no React dependency).
@@ -14,7 +14,7 @@ import {
   GRAPH_SCHEMA_VERSION,
   GRAPHS_DIRNAME,
   MAIN_GRAPH_FILENAME,
-  NODEIDE_DIRNAME,
+  CELEST_DIRNAME,
   WORKSPACE_FILENAME,
   WORKSPACE_SCHEMA_VERSION,
   defaultWorkspaceFile,
@@ -23,6 +23,12 @@ import {
   type GraphFileV1,
   type WorkspaceFileV1,
 } from "./nodeideSchema";
+import { createBackup, loadBackupFile } from "./backup";
+import { PersistenceErrors, type PersistenceError } from "./errors";
+import {
+  migrateWorkspaceFile,
+  migrateGraphFile,
+} from "./migration";
 
 function isNotFoundError(e: unknown): boolean {
   // Browsers typically throw DOMException with name "NotFoundError".
@@ -63,18 +69,75 @@ async function writeText(
   await writable.close();
 }
 
+type ReadJsonResult<T> = {
+  data: T | null;
+  error: PersistenceError | null;
+};
+
 async function readJson<T>(
   dir: FileSystemDirectoryHandle,
-  name: string
-): Promise<T | null> {
+  name: string,
+  filePath: string = name
+): Promise<ReadJsonResult<T>> {
   const file = await getFile(dir, name);
-  if (!file) return null;
-  const text = await file.text();
+  if (!file) {
+    // Try to load from backup
+    const backupData = await loadBackupFile<T>(dir, name);
+    if (backupData) {
+      return {
+        data: backupData,
+        error: PersistenceErrors.fileNotFound(
+          filePath + " (restored from backup)"
+        ),
+      };
+    }
+    return {
+      data: null,
+      error: PersistenceErrors.fileNotFound(filePath),
+    };
+  }
+
+  let text: string;
   try {
-    return JSON.parse(text) as T;
+    text = await file.text();
   } catch (e) {
-    console.warn(`[persistence] invalid JSON in ${name}: ${String(e)}`);
-    return null;
+    // Try to load from backup
+    const backupData = await loadBackupFile<T>(dir, name);
+    if (backupData) {
+      return {
+        data: backupData,
+        error: PersistenceErrors.readError(
+          filePath + " (restored from backup)",
+          String(e),
+          e
+        ),
+      };
+    }
+    return {
+      data: null,
+      error: PersistenceErrors.readError(filePath, String(e), e),
+    };
+  }
+
+  try {
+    const data = JSON.parse(text) as T;
+    return { data, error: null };
+  } catch (e) {
+    // JSON parse failed, try to load from backup
+    const backupData = await loadBackupFile<T>(dir, name);
+    if (backupData) {
+      return {
+        data: backupData,
+        error: PersistenceErrors.parseError(
+          filePath + " (restored from backup)",
+          e
+        ),
+      };
+    }
+    return {
+      data: null,
+      error: PersistenceErrors.parseError(filePath, e),
+    };
   }
 }
 
@@ -100,45 +163,145 @@ function validateGraphFile(v: unknown): v is GraphFileV1 {
   return true;
 }
 
-export type EnsureNodeideResult = {
-  nodeideDir: FileSystemDirectoryHandle;
+export type EnsureCelestResult = {
+  celestDir: FileSystemDirectoryHandle;
   graphsDir: FileSystemDirectoryHandle;
+  migrated: boolean;
 };
 
-export async function ensureNodeideDirs(
+/**
+ * Migrate from .nodeide to .celest directory.
+ * Returns true if migration was performed, false otherwise.
+ */
+async function migrateNodeideToCelest(
   projectDir: FileSystemDirectoryHandle
-): Promise<EnsureNodeideResult> {
-  const nodeideDir = await ensureDir(projectDir, NODEIDE_DIRNAME);
-  const graphsDir = await ensureDir(nodeideDir, GRAPHS_DIRNAME);
-  return { nodeideDir, graphsDir };
+): Promise<boolean> {
+  // Check if .celest already exists
+  try {
+    await projectDir.getDirectoryHandle(CELEST_DIRNAME);
+    // .celest exists, no migration needed
+    return false;
+  } catch (e) {
+    if (!isNotFoundError(e)) throw e;
+  }
+
+  // Check if .nodeide exists
+  let nodeideDir: FileSystemDirectoryHandle;
+  try {
+    nodeideDir = await projectDir.getDirectoryHandle(".nodeide");
+  } catch (e) {
+    if (isNotFoundError(e)) return false; // No .nodeide, nothing to migrate
+    throw e;
+  }
+
+  // Create .celest directory
+  const celestDir = await ensureDir(projectDir, CELEST_DIRNAME);
+
+  // Copy all files and subdirectories from .nodeide to .celest
+  async function copyDirectory(
+    source: FileSystemDirectoryHandle,
+    target: FileSystemDirectoryHandle
+  ): Promise<void> {
+    for await (const [name, handle] of source.entries()) {
+      if (handle.kind === "file") {
+        const fileHandle = handle as FileSystemFileHandle;
+        const file = await fileHandle.getFile();
+        const text = await file.text();
+        await writeText(target, name, text);
+      } else if (handle.kind === "directory") {
+        const targetSubdir = await ensureDir(target, name);
+        await copyDirectory(handle as FileSystemDirectoryHandle, targetSubdir);
+      }
+    }
+  }
+
+  await copyDirectory(nodeideDir, celestDir);
+
+  // Rename .nodeide to .nodeide.backup as a safety measure
+  // Note: File System Access API doesn't support rename directly,
+  // so we'll leave .nodeide in place. Users can manually delete it later.
+  // The migration is complete once .celest is created with all files.
+
+  return true;
+}
+
+export async function ensureCelestDirs(
+  projectDir: FileSystemDirectoryHandle
+): Promise<EnsureCelestResult> {
+  // Check and migrate from .nodeide if needed
+  const migrated = await migrateNodeideToCelest(projectDir);
+
+  const celestDir = await ensureDir(projectDir, CELEST_DIRNAME);
+  const graphsDir = await ensureDir(celestDir, GRAPHS_DIRNAME);
+  return { celestDir, graphsDir, migrated };
 }
 
 export async function loadWorkspaceFile(
   projectDir: FileSystemDirectoryHandle
-): Promise<WorkspaceFileV1 | null> {
-  const { nodeideDir } = await ensureNodeideDirs(projectDir);
-  const raw = await readJson<unknown>(nodeideDir, WORKSPACE_FILENAME);
-  if (!raw) return null;
-  if (!validateWorkspaceFile(raw)) {
-    console.warn(
-      `[persistence] workspace.json has unexpected shape/version; ignoring`
-    );
-    return null;
+): Promise<{
+  file: WorkspaceFileV1 | null;
+  migrated: boolean;
+  error: PersistenceError | null;
+}> {
+  const { celestDir, migrated } = await ensureCelestDirs(projectDir);
+  const filePath = `${CELEST_DIRNAME}/${WORKSPACE_FILENAME}`;
+  const { data: raw, error: readError } = await readJson<unknown>(
+    celestDir,
+    WORKSPACE_FILENAME,
+    filePath
+  );
+
+  if (readError) {
+    return { file: null, migrated, error: readError };
   }
-  return raw;
+
+  if (!raw) {
+    return { file: null, migrated, error: null };
+  }
+
+  // Check version and migrate if needed
+  const migrationResult = migrateWorkspaceFile(raw, filePath);
+  if (migrationResult.error) {
+    // If migration failed, try validation as fallback
+    if (validateWorkspaceFile(raw)) {
+      // File is valid v1, return it
+      return { file: raw, migrated, error: null };
+    }
+    // Migration failed and validation failed
+    console.warn(`[persistence] ${migrationResult.error.message}`);
+    return { file: null, migrated, error: migrationResult.error };
+  }
+
+  // Migration succeeded or no migration needed
+  if (migrationResult.data === null) {
+    // This shouldn't happen if error is null, but handle it defensively
+    return { file: null, migrated, error: null };
+  }
+  return { file: migrationResult.data, migrated, error: null };
 }
 
 export async function saveWorkspaceFile(
   projectDir: FileSystemDirectoryHandle,
   file: WorkspaceFileV1
 ): Promise<void> {
-  const { nodeideDir } = await ensureNodeideDirs(projectDir);
+  const { celestDir } = await ensureCelestDirs(projectDir);
+  
+  // Create backup before saving (non-fatal if backup fails)
+  try {
+    await createBackup(celestDir, WORKSPACE_FILENAME);
+  } catch (e) {
+    // Backup failure is non-fatal, log and continue
+    console.warn(
+      `[persistence] Failed to create backup for ${WORKSPACE_FILENAME}: ${String(e)}`
+    );
+  }
+
   const next: WorkspaceFileV1 = {
     ...file,
     meta: { ...file.meta, updatedAt: nowIso() },
   };
   await writeText(
-    nodeideDir,
+    celestDir,
     WORKSPACE_FILENAME,
     JSON.stringify(next, null, 2)
   );
@@ -146,47 +309,93 @@ export async function saveWorkspaceFile(
 
 export async function ensureWorkspaceFile(
   projectDir: FileSystemDirectoryHandle
-): Promise<WorkspaceFileV1> {
-  const existing = await loadWorkspaceFile(projectDir);
-  if (existing) return existing;
+): Promise<{ file: WorkspaceFileV1; migrated: boolean; error: PersistenceError | null }> {
+  const { file: existing, migrated, error } = await loadWorkspaceFile(projectDir);
+  if (existing) return { file: existing, migrated, error };
 
   const created = defaultWorkspaceFile();
   try {
     await saveWorkspaceFile(projectDir, created);
   } catch (e) {
     // Non-fatal: project can still run without persistence.
-    console.warn(`[persistence] failed to create workspace.json: ${String(e)}`);
+    const writeError = PersistenceErrors.writeError(
+      `${CELEST_DIRNAME}/${WORKSPACE_FILENAME}`,
+      String(e),
+      e
+    );
+    console.warn(`[persistence] ${writeError.message}`);
+    return { file: created, migrated, error: writeError };
   }
-  return created;
+  return { file: created, migrated, error: null };
 }
 
 export async function loadMainGraph(
   projectDir: FileSystemDirectoryHandle
-): Promise<{ graph: CodeGraphModel; createdAt?: string } | null> {
-  const ws = await ensureWorkspaceFile(projectDir);
+): Promise<{
+  graph: CodeGraphModel | null;
+  createdAt?: string;
+  error: PersistenceError | null;
+}> {
+  const { file: ws } = await ensureWorkspaceFile(projectDir);
   const rel = ws.graphs.files.main; // e.g. graphs/main.json
 
-  const { nodeideDir } = await ensureNodeideDirs(projectDir);
+  const { celestDir } = await ensureCelestDirs(projectDir);
   // Resolve `graphs/main.json` -> directory + filename.
   const parts = rel.split("/").filter(Boolean);
   const filename = parts.pop();
-  if (!filename) return null;
+  if (!filename) {
+    return {
+      graph: null,
+      error: PersistenceErrors.readError(
+        `${CELEST_DIRNAME}/${rel}`,
+        "Invalid file path in workspace.json"
+      ),
+    };
+  }
 
-  let dir = nodeideDir;
+  let dir = celestDir;
   for (const p of parts) {
     dir = await ensureDir(dir, p);
   }
 
-  const raw = await readJson<unknown>(dir, filename);
-  if (!raw) return null;
-  if (!validateGraphFile(raw)) {
-    console.warn(
-      `[persistence] graph file has unexpected shape/version; ignoring`
-    );
-    return null;
+  const filePath = `${CELEST_DIRNAME}/${rel}`;
+  const { data: raw, error: readError } = await readJson<unknown>(
+    dir,
+    filename,
+    filePath
+  );
+
+  if (readError) {
+    return { graph: null, error: readError };
   }
 
-  return { graph: raw.graph, createdAt: raw.meta?.createdAt };
+  if (!raw) {
+    return { graph: null, error: null };
+  }
+
+  // Check version and migrate if needed
+  const migrationResult = migrateGraphFile(raw, filePath);
+  if (migrationResult.error) {
+    // If migration failed, try validation as fallback
+    if (validateGraphFile(raw)) {
+      // File is valid v1, return it
+      return { graph: raw.graph, createdAt: raw.meta?.createdAt, error: null };
+    }
+    // Migration failed and validation failed
+    console.warn(`[persistence] ${migrationResult.error.message}`);
+    return { graph: null, error: migrationResult.error };
+  }
+
+  // Migration succeeded or no migration needed
+  if (migrationResult.data === null) {
+    // This shouldn't happen if error is null, but handle it defensively
+    return { graph: null, error: null };
+  }
+  return {
+    graph: migrationResult.data.graph,
+    createdAt: migrationResult.data.meta?.createdAt,
+    error: null,
+  };
 }
 
 export async function saveMainGraph(
@@ -194,24 +403,82 @@ export async function saveMainGraph(
   graph: CodeGraphModel
 ): Promise<void> {
   // Ensure workspace exists so the file location is stable.
-  const ws = await ensureWorkspaceFile(projectDir);
+  const { file: ws } = await ensureWorkspaceFile(projectDir);
   const rel = ws.graphs.files.main;
 
-  const { nodeideDir } = await ensureNodeideDirs(projectDir);
+  const { celestDir } = await ensureCelestDirs(projectDir);
   const parts = rel.split("/").filter(Boolean);
   const filename = parts.pop() ?? MAIN_GRAPH_FILENAME;
 
-  let dir = nodeideDir;
+  let dir = celestDir;
   for (const p of parts) {
     dir = await ensureDir(dir, p);
   }
 
+  // Create backup before saving (non-fatal if backup fails)
+  try {
+    await createBackup(dir, filename);
+  } catch (e) {
+    // Backup failure is non-fatal, log and continue
+    console.warn(
+      `[persistence] Failed to create backup for ${filename}: ${String(e)}`
+    );
+  }
+
   // Preserve createdAt if present.
-  const existing = await readJson<unknown>(dir, filename);
-  const createdAt = validateGraphFile(existing)
+  const { data: existing } = await readJson<unknown>(dir, filename, `${CELEST_DIRNAME}/${rel}`);
+  const createdAt = existing && validateGraphFile(existing)
     ? existing.meta?.createdAt
     : undefined;
   const wrapped = wrapGraphFile(graph, createdAt);
 
   await writeText(dir, filename, JSON.stringify(wrapped, null, 2));
+}
+
+/**
+ * Reset workspace.json to default values.
+ * Useful when file is corrupted and cannot be recovered from backup.
+ */
+export async function resetWorkspaceFileToDefault(
+  projectDir: FileSystemDirectoryHandle
+): Promise<WorkspaceFileV1> {
+  const { celestDir } = await ensureCelestDirs(projectDir);
+  const defaultFile = defaultWorkspaceFile();
+  await writeText(
+    celestDir,
+    WORKSPACE_FILENAME,
+    JSON.stringify(defaultFile, null, 2)
+  );
+  return defaultFile;
+}
+
+/**
+ * Reset graph file to default (empty graph).
+ * Useful when file is corrupted and cannot be recovered from backup.
+ */
+export async function resetGraphFileToDefault(
+  projectDir: FileSystemDirectoryHandle
+): Promise<CodeGraphModel> {
+  const { file: ws } = await ensureWorkspaceFile(projectDir);
+  const rel = ws.graphs.files.main;
+
+  const { celestDir } = await ensureCelestDirs(projectDir);
+  const parts = rel.split("/").filter(Boolean);
+  const filename = parts.pop() ?? MAIN_GRAPH_FILENAME;
+
+  let dir = celestDir;
+  for (const p of parts) {
+    dir = await ensureDir(dir, p);
+  }
+
+  const emptyGraph: CodeGraphModel = {
+    version: 1,
+    nodes: {},
+    edges: {},
+  };
+
+  const wrapped = wrapGraphFile(emptyGraph);
+  await writeText(dir, filename, JSON.stringify(wrapped, null, 2));
+
+  return emptyGraph;
 }

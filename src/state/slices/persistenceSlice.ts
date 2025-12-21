@@ -19,6 +19,7 @@ import {
   saveMainGraph,
   saveWorkspaceFile,
 } from "../../core/persistence/loadSave";
+import { PersistenceErrors, formatErrorForUser, type PersistenceError } from "../../core/persistence/errors";
 
 const AUTOSAVE_DEBOUNCE_MS = 900;
 
@@ -145,7 +146,7 @@ export const createPersistenceSlice: StateCreator<
       await saveMainGraph(p.dirHandle, p.graph);
 
       // 2) Views + UI
-      const ws = await ensureWorkspaceFile(p.dirHandle);
+      const { file: ws } = await ensureWorkspaceFile(p.dirHandle);
       const mainVp =
         p.views.find((v) => v.id === "main")?.viewport ??
         ws.views.viewports.main;
@@ -216,7 +217,20 @@ export const createPersistenceSlice: StateCreator<
         autosaveTimerByProjectId.set(projectId, timer);
       }
     } catch (e) {
-      const msg = String(e);
+      // Convert error to PersistenceError if it isn't already
+      let error: PersistenceError;
+      if (e && typeof e === "object" && "type" in e && "filePath" in e) {
+        error = e as PersistenceError;
+      } else {
+        // Generic error, create a PersistenceError
+        error = PersistenceErrors.writeError(
+          "unknown",
+          String(e),
+          e
+        );
+      }
+
+      const errorMessage = formatErrorForUser(error);
       set((s) => {
         const prev = s.saveUiByProjectId[projectId] ?? defaultUi();
         return {
@@ -226,12 +240,12 @@ export const createPersistenceSlice: StateCreator<
               ...prev,
               status: "error",
               dirty: true,
-              lastError: msg,
+              lastError: errorMessage,
             },
           },
         };
       });
-      get().terminalLog("error", `Save failed: ${msg}`);
+      get().terminalLog("error", `Save failed: ${errorMessage}`);
     }
   },
 

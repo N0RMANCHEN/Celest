@@ -61,9 +61,11 @@ function idForPath(relPath: string): string {
  * Notes:
  * - This is a performance safeguard, not a "security" feature.
  * - We keep it intentionally conservative and easy to tweak later.
- * - `.nodeide` must be ignored to avoid indexing Celest's own workspace assets.
+ * - `.celest` must be ignored to avoid indexing Celest's own workspace assets.
+ * - `.nodeide` is also ignored for backward compatibility (old projects).
  */
 const DEFAULT_IGNORED_DIR_NAMES = new Set<string>([
+  ".celest",
   ".nodeide",
 
   // package / deps

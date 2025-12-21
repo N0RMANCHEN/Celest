@@ -21,10 +21,9 @@ import {
   loadMainGraph,
   saveMainGraph,
 } from "../../core/persistence/loadSave";
+import type { PersistenceError } from "../../core/persistence/errors";
 
-function viewsFromWorkspace(
-  ws: Awaited<ReturnType<typeof ensureWorkspaceFile>>
-): ViewState[] {
+function viewsFromWorkspace(ws: { views: { viewports: { main: { x: number; y: number; zoom: number }; view2: { x: number; y: number; zoom: number } } } }): ViewState[] {
   return [
     { id: "main", name: "Main", viewport: ws.views.viewports.main },
     { id: "view2", name: "View 2", viewport: ws.views.viewports.view2 },
@@ -63,6 +62,17 @@ function sanitizeSelectedNodeIds(
   return out;
 }
 
+/**
+ * Check if an error indicates that data was restored from backup.
+ */
+function isRestoredFromBackup(error: PersistenceError | null): boolean {
+  if (!error) return false;
+  return (
+    error.filePath.includes("restored from backup") ||
+    error.message.includes("restored from backup")
+  );
+}
+
 export async function buildProjectFromDirectoryHandle(
   dirHandle: FileSystemDirectoryHandle,
   opts?: { fixedId?: string; fixedName?: string }
@@ -72,17 +82,28 @@ export async function buildProjectFromDirectoryHandle(
 
   const scanned = await scanFsMeta(dirHandle, name);
 
-  // Step5A: load (or create) /.nodeide/workspace.json and graphs/main.json
+  // Step5A: load (or create) /.celest/workspace.json and graphs/main.json
   // Non-fatal: if the browser denies write access, project still opens.
-  const ws = await ensureWorkspaceFile(dirHandle);
+  const { file: ws } = await ensureWorkspaceFile(dirHandle);
 
   let graph: CodeGraphModel = seedGraph();
   try {
     const loaded = await loadMainGraph(dirHandle);
-    if (loaded?.graph) graph = loaded.graph;
-    else {
+    if (loaded.graph) {
+      graph = loaded.graph;
+    } else {
       // First run: persist the seeded graph as a convenience.
       await saveMainGraph(dirHandle, graph);
+    }
+    // Log errors if any (non-fatal)
+    if (loaded.error) {
+      if (isRestoredFromBackup(loaded.error)) {
+        console.warn(
+          `[openProject] Graph file restored from backup. Original file may be corrupted: ${loaded.error.filePath}`
+        );
+      } else {
+        console.warn(`[openProject] loadMainGraph error: ${loaded.error.message}`);
+      }
     }
   } catch (e) {
     console.warn(`[openProject] loadMainGraph failed: ${String(e)}`);
@@ -116,3 +137,4 @@ export async function buildProjectFromDirectoryHandle(
     treeExpanded: {},
   };
 }
+

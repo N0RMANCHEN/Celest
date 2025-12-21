@@ -109,7 +109,7 @@ AI agents **must ask** when:
 
 - Requirements are ambiguous
 - Multiple architectural paths exist
-- A change would affect persistence schema or any persisted `/.nodeide/` format
+- A change would affect persistence schema or any persisted `/.celest/` format
 
 Guessing is forbidden.
 
@@ -159,7 +159,7 @@ Unit tests are optional during MVP unless:
 
 ## 10. MVP Reliability Notes (Lightweight)
 
-- If a change touches `/.nodeide/` persistence formats: ask first and include a brief migration note.
+- If a change touches `/.celest/` persistence formats: ask first and include a brief migration note.
 - For OPEN_PROJECT / SAVE / LOAD changes: ensure clear success/failure user feedback.
 - When reporting bugs: include full error output + steps to reproduce + what changed.
 

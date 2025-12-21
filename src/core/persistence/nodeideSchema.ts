@@ -2,17 +2,17 @@
  * core/persistence/nodeideSchema.ts
  * ----------------
  * Step5A:
- * Define the on-disk layout under `/.nodeide/` and the versioned JSON shapes.
+ * Define the on-disk layout under `/.celest/` and the versioned JSON shapes.
  *
  * Notes:
- * - Phase 1 keeps the location fixed: projectRoot/.nodeide/
+ * - Phase 1 keeps the location fixed: projectRoot/.celest/
  * - FS Index is NOT persisted (rebuild by scanning the folder).
  * - CodeGraph and viewports ARE persisted.
  */
 
 import type { CodeGraphModel } from "../../entities/graph/types";
 
-export const NODEIDE_DIRNAME = ".nodeide";
+export const CELEST_DIRNAME = ".celest";
 export const GRAPHS_DIRNAME = "graphs";
 
 export const WORKSPACE_FILENAME = "workspace.json";
@@ -65,7 +65,7 @@ export type WorkspaceFileV1 = {
   /** Phase 1 fixed graph */
   graphs: {
     activeGraphId: "main";
-    files: Record<"main", string>; // relative to .nodeide/
+    files: Record<"main", string>; // relative to .celest/
   };
   meta: {
     createdAt: string; // ISO

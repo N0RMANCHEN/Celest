@@ -17,12 +17,24 @@ import {
 } from "../../features/project/usecases";
 
 import { ensureWorkspaceFile } from "../../core/persistence/loadSave";
+import type { PersistenceError } from "../../core/persistence/errors";
 
 const adapter = createBrowserAdapter();
 
 function alertError(message: string) {
   // Keep behavior consistent with legacy MVP.
   alert(message);
+}
+
+/**
+ * Check if an error indicates that data was restored from backup.
+ */
+function isRestoredFromBackup(error: PersistenceError | null): boolean {
+  if (!error) return false;
+  return (
+    error.filePath.includes("restored from backup") ||
+    error.message.includes("restored from backup")
+  );
 }
 
 export const createProjectSlice: StateCreator<
@@ -94,7 +106,23 @@ export const createProjectSlice: StateCreator<
       // NOTE: ensureWorkspaceFile is async, but setFsIndexSnapshot above is synchronous,
       // so the snapshot is guaranteed to exist when hydrateFsTreeUi is called.
       try {
-        const ws = await ensureWorkspaceFile(project.dirHandle);
+        const { file: ws, migrated, error } = await ensureWorkspaceFile(project.dirHandle);
+        if (migrated) {
+          get().terminalLog(
+            "info",
+            `Migrated workspace from .nodeide to .celest for project: ${project.name}`
+          );
+        }
+        if (error) {
+          if (isRestoredFromBackup(error)) {
+            get().terminalLog(
+              "warn",
+              `Workspace file restored from backup for project: ${project.name}. Original file may be corrupted.`
+            );
+          } else {
+            get().terminalLog("warn", `Workspace load warning: ${error.message}`);
+          }
+        }
         const fsTree = ws.ui?.fsTree;
         // Always call hydrateFsTreeUi to initialize state (even if fsTree is undefined).
         // It will default to root expanded if no persisted state exists.
@@ -137,7 +165,23 @@ export const createProjectSlice: StateCreator<
       // NOTE: ensureWorkspaceFile is async, but setFsIndexSnapshot above is synchronous,
       // so the snapshot is guaranteed to exist when hydrateFsTreeUi is called.
       try {
-        const ws = await ensureWorkspaceFile(project.dirHandle);
+        const { file: ws, migrated, error } = await ensureWorkspaceFile(project.dirHandle);
+        if (migrated) {
+          get().terminalLog(
+            "info",
+            `Migrated workspace from .nodeide to .celest for project: ${project.name}`
+          );
+        }
+        if (error) {
+          if (isRestoredFromBackup(error)) {
+            get().terminalLog(
+              "warn",
+              `Workspace file restored from backup for project: ${project.name}. Original file may be corrupted.`
+            );
+          } else {
+            get().terminalLog("warn", `Workspace load warning: ${error.message}`);
+          }
+        }
         const fsTree = ws.ui?.fsTree;
         // Always call hydrateFsTreeUi to initialize state (even if fsTree is undefined).
         // It will default to root expanded if no persisted state exists.

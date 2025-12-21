@@ -27,7 +27,7 @@ AI is an **accelerator**, never the source of truth.
 ### 2.1 Local-First, Project-Scoped
 
 - Every Celest workspace maps to a **real project folder**
-- All metadata lives in `/.nodeide/` under the project root
+- All metadata lives in `/.celest/` under the project root
 - Users must be able to:
   - Close Celest
   - Reopen the project
@@ -195,7 +195,7 @@ Each knowledge node contains:
 
 - **Structure & layout**
 
-  - `/.nodeide/knowledge/<treeId>.json`
+  - `/.celest/knowledge/<treeId>.json`
 
 - **Content**
   - One tree = one Markdown file
@@ -287,7 +287,7 @@ These are CS146S-style guardrails adapted to MVP speed.
 
 ### 12.1 Schema & Persistence Changes (Ask First)
 
-If a change touches any persisted format under `/.nodeide/` (JSON schema, file names, folder layout):
+If a change touches any persisted format under `/.celest/` (JSON schema, file names, folder layout):
 
 - Stop and ask before changing the format.
 - Provide a short migration note (how old data is handled).

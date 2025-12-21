@@ -97,7 +97,9 @@ export const createPersistenceSlice: StateCreator<
         // user edited after an error -> clear lastError so UI isn't stuck
         ...(prev.lastError ? { lastError: undefined } : {}),
       };
-      return { saveUiByProjectId: { ...s.saveUiByProjectId, [projectId]: next } };
+      return {
+        saveUiByProjectId: { ...s.saveUiByProjectId, [projectId]: next },
+      };
     });
 
     // Debounced autosave
@@ -142,16 +144,41 @@ export const createPersistenceSlice: StateCreator<
       // 1) Graph
       await saveMainGraph(p.dirHandle, p.graph);
 
-      // 2) Views
+      // 2) Views + UI
       const ws = await ensureWorkspaceFile(p.dirHandle);
-      const mainVp = p.views.find((v) => v.id === "main")?.viewport ?? ws.views.viewports.main;
-      const view2Vp = p.views.find((v) => v.id === "view2")?.viewport ?? ws.views.viewports.view2;
+      const mainVp =
+        p.views.find((v) => v.id === "main")?.viewport ??
+        ws.views.viewports.main;
+      const view2Vp =
+        p.views.find((v) => v.id === "view2")?.viewport ??
+        ws.views.viewports.view2;
+
+      // 3) FS Tree UI (expanded/selected) -> persisted into workspace.json
+      const expanded = get().fsExpandedByProjectId[projectId] ?? {};
+      const selectedFsId = get().fsSelectedIdByProjectId[projectId] ?? null;
+
+      // 4) Canvas UI (selection)
+      const selectedNodeIds = Array.isArray(p.selectedIds) ? p.selectedIds : [];
+
+      const prevUi = ws.ui ?? {};
+      const prevCanvas = prevUi.canvas ?? {};
 
       await saveWorkspaceFile(p.dirHandle, {
         ...ws,
         views: {
           activeViewId: p.activeViewId,
           viewports: { main: mainVp, view2: view2Vp },
+        },
+        ui: {
+          ...prevUi,
+          fsTree: {
+            expanded,
+            selectedId: selectedFsId,
+          },
+          canvas: {
+            ...prevCanvas,
+            selectedNodeIds,
+          },
         },
       });
 
@@ -195,7 +222,12 @@ export const createPersistenceSlice: StateCreator<
         return {
           saveUiByProjectId: {
             ...s.saveUiByProjectId,
-            [projectId]: { ...prev, status: "error", dirty: true, lastError: msg },
+            [projectId]: {
+              ...prev,
+              status: "error",
+              dirty: true,
+              lastError: msg,
+            },
           },
         };
       });

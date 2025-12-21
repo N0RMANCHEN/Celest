@@ -88,7 +88,9 @@ export type PersistenceSlice = {
   removeProjectPersistence: (projectId: string) => void;
 
   /** Mark active project as dirty and schedule debounced autosave. */
-  markActiveProjectDirty: (source: "graph" | "viewport" | "view") => void;
+  markActiveProjectDirty: (
+    source: "graph" | "viewport" | "view" | "fsTree"
+  ) => void;
 
   /** Flush active project persistence immediately. */
   flushActiveProjectSave: (opts: {
@@ -142,6 +144,18 @@ export type FsIndexSlice = {
   toggleFsExpanded: (projectId: string, dirId: string) => void;
   selectFsEntry: (projectId: string, entryId: string) => void;
   clearFsSelection: (projectId: string) => void;
+
+  /**
+   * Restore persisted FS tree UI state from workspace.json (per project).
+   * Should be called after setFsIndexSnapshot so we can sanitize ids.
+   */
+  hydrateFsTreeUi: (
+    projectId: string,
+    state: {
+      expanded?: Record<string, boolean>;
+      selectedId?: string | null;
+    }
+  ) => void;
 
   getActiveFsExpanded: () => Record<string, boolean>;
   getActiveFsSelectedId: () => string | null;

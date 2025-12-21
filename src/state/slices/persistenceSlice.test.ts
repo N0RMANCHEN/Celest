@@ -60,6 +60,8 @@ async function makeStore() {
 
   type TestState = {
     getActiveProject: () => StubProject | null;
+    fsExpandedByProjectId: Record<string, Record<string, boolean>>;
+    fsSelectedIdByProjectId: Record<string, string | null>;
   } & TerminalSlice &
     PersistenceSlice;
 
@@ -78,6 +80,8 @@ async function makeStore() {
 
   return createStore<TestState>((set, get, api) => ({
     getActiveProject: () => project,
+    fsExpandedByProjectId: { p1: { root: true } },
+    fsSelectedIdByProjectId: { p1: null },
     ...terminal(set, get, api),
     ...persistence(set, get, api),
   }));

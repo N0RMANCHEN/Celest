@@ -18,6 +18,12 @@
  * P1-1:
  * - Props accept UI-engine-agnostic Canvas* event contracts.
  * - This component translates ReactFlow events into Canvas* contracts.
+ *
+ * CRITICAL (fix max update depth):
+ * - ReactFlow will emit `onSelectionChange` when it syncs props -> internal store.
+ * - If we echo the SAME selection back into Zustand, it can create an infinite loop
+ *   (StoreUpdater -> setNodes -> rerender -> StoreUpdater...).
+ * - Therefore, we must de-duplicate selection events at the adapter boundary.
  */
 
 import {
@@ -137,6 +143,24 @@ function toCanvasEdgeChanges(changes: RFEdgeChange[]): CanvasEdgeChange[] {
   return out;
 }
 
+function normalizeIds(ids: string[]): string[] {
+  const out = new Set<string>();
+  for (const id of ids) {
+    if (typeof id !== "string") continue;
+    const s = id.trim();
+    if (!s) continue;
+    out.add(s);
+  }
+  return Array.from(out).sort();
+}
+
+function arrayEq(a: string[], b: string[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 function FlowCanvasInner(props: Props) {
   const {
     nodes,
@@ -163,13 +187,26 @@ function FlowCanvasInner(props: Props) {
   const lastDragStopAtRef = useRef<number>(0);
 
   // Controlled selection ids, updated from props.
+  // We keep it normalized so we can de-dupe adapter events.
   const selectedIdsRef = useRef<string[]>([]);
   useEffect(() => {
-    selectedIdsRef.current = [
+    const next = normalizeIds([
       ...nodes.filter((n) => n.selected).map((n) => n.id),
       ...edges.filter((e) => e.selected).map((e) => e.id),
-    ];
+    ]);
+    selectedIdsRef.current = next;
   }, [nodes, edges]);
+
+  // Emit selection only when it actually differs from the selection already projected on props.
+  const emitSelection = useCallback(
+    (ids: string[]) => {
+      const next = normalizeIds(ids);
+      const cur = selectedIdsRef.current;
+      if (arrayEq(next, cur)) return; // CRITICAL: break ReactFlow StoreUpdater feedback loop
+      onSelectionChange(next);
+    },
+    [onSelectionChange]
+  );
 
   const rf = useReactFlow<Node<CanvasNodeData>, Edge<CanvasEdgeData>>();
 
@@ -264,9 +301,9 @@ function FlowCanvasInner(props: Props) {
   const handleNodeDragStart = useCallback(
     (_: ReactMouseEvent, node: Node<CanvasNodeData>) => {
       // Select on drag start so the selection tint + Inspector stay in sync during drag.
-      onSelectionChange([node.id]);
+      emitSelection([node.id]);
     },
-    [onSelectionChange]
+    [emitSelection]
   );
 
   const handleNodeDragStop = useCallback(() => {
@@ -287,9 +324,9 @@ function FlowCanvasInner(props: Props) {
         return;
       }
 
-      onSelectionChange([]);
+      emitSelection([]);
     },
-    [onCreateNoteNodeAt, onSelectionChange, rf]
+    [onCreateNoteNodeAt, emitSelection, rf]
   );
 
   // Immediate click selection → update store now (no need to click empty space)
@@ -299,13 +336,13 @@ function FlowCanvasInner(props: Props) {
         const current = new Set(selectedIdsRef.current);
         if (current.has(node.id)) current.delete(node.id);
         else current.add(node.id);
-        onSelectionChange(Array.from(current));
+        emitSelection(Array.from(current));
         return;
       }
 
-      onSelectionChange([node.id]);
+      emitSelection([node.id]);
     },
-    [onSelectionChange]
+    [emitSelection]
   );
 
   const handleEdgeClick = useCallback(
@@ -314,23 +351,24 @@ function FlowCanvasInner(props: Props) {
         const current = new Set(selectedIdsRef.current);
         if (current.has(edge.id)) current.delete(edge.id);
         else current.add(edge.id);
-        onSelectionChange(Array.from(current));
+        emitSelection(Array.from(current));
         return;
       }
 
-      onSelectionChange([edge.id]);
+      emitSelection([edge.id]);
     },
-    [onSelectionChange]
+    [emitSelection]
   );
 
   // Keep ReactFlow's selection change for box-select etc.
+  // IMPORTANT: de-dupe to avoid StoreUpdater feedback loop.
   const handleSelectionChange = useCallback(
     (sel: OnSelectionChangeParams) => {
       const nodeIds = sel?.nodes?.map((n) => n.id) ?? [];
       const edgeIds = sel?.edges?.map((e) => e.id) ?? [];
-      onSelectionChange([...nodeIds, ...edgeIds]);
+      emitSelection([...nodeIds, ...edgeIds]);
     },
-    [onSelectionChange]
+    [emitSelection]
   );
 
   // Optional: focus a node when requested by the store.

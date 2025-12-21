@@ -45,6 +45,24 @@ function seedGraph(): CodeGraphModel {
   });
 }
 
+function sanitizeSelectedNodeIds(
+  graph: CodeGraphModel,
+  ids: unknown
+): string[] {
+  if (!Array.isArray(ids)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const v of ids) {
+    if (typeof v !== "string") continue;
+    if (!graph.nodes[v]) continue;
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  out.sort();
+  return out;
+}
+
 export async function buildProjectFromDirectoryHandle(
   dirHandle: FileSystemDirectoryHandle,
   opts?: { fixedId?: string; fixedName?: string }
@@ -70,6 +88,12 @@ export async function buildProjectFromDirectoryHandle(
     console.warn(`[openProject] loadMainGraph failed: ${String(e)}`);
   }
 
+  // Phase 1 UI restore: Canvas selection (FS tree UI restore is handled by fsIndexSlice).
+  const selectedIds = sanitizeSelectedNodeIds(
+    graph,
+    ws.ui?.canvas?.selectedNodeIds
+  );
+
   return {
     id,
     name,
@@ -82,7 +106,7 @@ export async function buildProjectFromDirectoryHandle(
 
     graph,
 
-    selectedIds: [],
+    selectedIds,
     focusNodeId: undefined,
     focusNonce: 0,
 

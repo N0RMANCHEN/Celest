@@ -45,6 +45,14 @@ function sanitizeHandleId(v: unknown): string | undefined {
   return s;
 }
 
+function normalizeSelectionIds(ids: unknown): string[] {
+  const safeIds = Array.isArray(ids)
+    ? ids.filter((id): id is string => typeof id === "string")
+    : [];
+  // Store selection is stable: unique + sorted.
+  return Array.from(new Set(safeIds)).sort();
+}
+
 export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
   set,
   get
@@ -201,15 +209,20 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
   },
 
   onSelectionChange: (ids) => {
+    const p = get().getActiveProject();
+    if (!p) return;
+
+    const next = normalizeSelectionIds(ids);
+
+    // IMPORTANT: If selection is unchanged, do not call `set()`.
+    // Zustand will still publish an update even if projects reference is unchanged,
+    // which can cause ReactFlow to fall into an update loop.
+    if (arrayEq(p.selectedIds, next)) return;
+
     set((s) => ({
-      projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
-        const safeIds = Array.isArray(ids)
-          ? ids.filter((id): id is string => typeof id === "string")
-          : [];
-        const next = Array.from(new Set(safeIds)).sort();
-        if (arrayEq(p.selectedIds, next)) return p;
-        return { ...p, selectedIds: next };
-      }),
+      projects: mapActiveProject(s.projects, s.activeProjectId, (proj) =>
+        proj === p ? { ...proj, selectedIds: next } : proj
+      ),
     }));
   },
 });

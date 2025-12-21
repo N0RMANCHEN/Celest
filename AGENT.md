@@ -8,10 +8,10 @@
 ## 1. Product Identity
 
 **Product Name:** Celest  
-**Tagline (internal):** Local‑first Graph Workbench for Projects & Knowledge
+**Tagline (internal):** Local-first Graph Workbench for Projects & Knowledge
 
 Celest is **not** just a code editor, and **not** just a knowledge tool.  
-It is a **graph‑based workbench** that lets users:
+It is a **graph-based workbench** that lets users:
 
 - Work with **real local projects** (files & folders)
 - Express **structure and thinking** on a canvas (graphs)
@@ -24,7 +24,7 @@ AI is an **accelerator**, never the source of truth.
 
 ## 2. Core Product Philosophy
 
-### 2.1 Local‑First, Project‑Scoped
+### 2.1 Local-First, Project-Scoped
 
 - Every Celest workspace maps to a **real project folder**
 - All metadata lives in `/.nodeide/` under the project root
@@ -38,7 +38,7 @@ AI is an **accelerator**, never the source of truth.
 - Canvas graphs are **not visualizations** of something else
 - They are the **primary editing and reasoning surface**
 
-### 2.3 Separation of Concerns (Non‑Negotiable)
+### 2.3 Separation of Concerns (Non-Negotiable)
 
 - **FS Index ≠ CodeGraph ≠ Knowledge Tree**
 - Never merge these models
@@ -51,7 +51,7 @@ AI is an **accelerator**, never the source of truth.
   - Suggestions
   - Summaries
   - Draft content
-- Only **user‑editable artifacts** are saved
+- Only **user-editable artifacts** are saved
 
 ---
 
@@ -74,7 +74,7 @@ The **MD Skill Tree** is the first _killer scenario_.
 
 ## 4. UI Shell & Layout Rules
 
-Celest uses a **Figma‑like Shell**.
+Celest uses a **Figma-like Shell**.
 
 ### 4.1 Layout Zones
 
@@ -109,10 +109,10 @@ Celest uses a **Figma‑like Shell**.
 - **Bottom Panel**
   - Terminal (Phase 1 placeholder)
 
-All non‑canvas panels:
+All non-canvas panels:
 
 - Can be hidden
-- Future‑proofed for resizing
+- Future-proofed for resizing
 
 ---
 
@@ -132,7 +132,7 @@ Examples:
 Rules:
 
 - Views can switch which graph is active
-- Views are future‑extensible
+- Views are future-extensible
 - Phase 1 ships with **2 fixed presets**
 
 ---
@@ -148,8 +148,8 @@ Rules:
 ### 6.2 CodeGraph
 
 - Purpose: structure, architecture, logic
-- Node‑based
-- Plugin‑driven node types
+- Node-based
+- Plugin-driven node types
 
 ### 6.3 Knowledge Graph (MD Skill Tree)
 
@@ -176,7 +176,7 @@ Each knowledge node contains:
 - `id`
 - `title`
 - `status` (todo / doing / done)
-- `summary` (editable; AI‑assist later)
+- `summary` (editable; AI-assist later)
 - `body` (Markdown content)
 - `parentId`
 - `sources[]` (file paths, URLs, references)
@@ -233,7 +233,7 @@ AI always works through **explicit contracts**.
 
 - `app/` — bootstrap only
 - `shell/` — global UI shell
-- `features/` — user‑facing capabilities
+- `features/` — user-facing capabilities
 - `entities/` — stable domain models
 - `core/` — pure logic & persistence
 - `state/` — Zustand slices
@@ -264,13 +264,67 @@ AI agents **must**:
 
 AI agents **must not**:
 
-- Re‑architect without instruction
+- Re-architect without instruction
 - Merge FS Index with graphs
 - Introduce hidden state
 
 ---
 
-## 11. Phase 1 Scope (Locked)
+## 11. MVP Guardrails (Lightweight, Required)
+
+For any coding change, the agent must also provide:
+
+- A **Regression Pack** (3–5 smoke checks) for the change
+- A **Self-check status** for each item: PASS / NOT VERIFIED (and why)
+
+Note: Automated unit tests are optional for MVP unless the repo already has a test runner and the change is pure logic.
+
+---
+
+## 12. MVP Reliability Add-ons (Lightweight, Required)
+
+These are CS146S-style guardrails adapted to MVP speed.
+
+### 12.1 Schema & Persistence Changes (Ask First)
+
+If a change touches any persisted format under `/.nodeide/` (JSON schema, file names, folder layout):
+
+- Stop and ask before changing the format.
+- Provide a short migration note (how old data is handled).
+
+### 12.2 Minimal Observability
+
+For key actions, ensure there is at least minimal, non-sensitive reporting:
+
+- OPEN_PROJECT / SAVE / LOAD should have clear success/failure user feedback.
+- Do not log absolute paths or file contents.
+
+### 12.3 Debug Package When Reporting Bugs
+
+When reporting a bug or failure, always include:
+
+- Command/run context (what you did)
+- Error output (full)
+- What changed recently (files/feature)
+
+### 12.4 Lightweight Review Checklist
+
+Before delivering code, quickly check:
+
+- Does it violate FS Index ≠ CodeGraph ≠ Knowledge Tree?
+- Does it touch persistence? (then ask first)
+- Could it break open/save/load? (add to regression pack)
+
+### 12.5 Optional Multi-Agent Workflow (If Using Multiple Agents)
+
+If you split work across agents:
+
+- One agent may research/file-scan; one implements; one reviews/tests.
+- Output must still be consolidated into a single coherent delivery (full files).
+
+---
+
+## 13. Phase 1 Scope (Locked)
 
 - Web only
 - File System Access API
@@ -283,7 +337,7 @@ No desktop, no collaboration, no cloud sync.
 
 ---
 
-## 12. Product North Star
+## 14. Product North Star
 
 If Celest is successful, users will say:
 
@@ -293,9 +347,9 @@ If Celest is successful, users will say:
 
 ## Contributing & AI Execution Rules
 
-All AI agents (Codex / GPT / others) MUST also follow `contributing_ai.md`.
+All AI agents (Codex / GPT / others) MUST also follow `CONTRIBUTING_AI.md`.
 If there is any conflict, **AGENT.md overrides CONTRIBUTING_AI.md**.
-Reading order: `AGENT.md` → `contributing_ai.md`.
+Reading order: `AGENT.md` → `CONTRIBUTING_AI.md`.
 
 **This file is authoritative.**  
 Any AI system contributing to Celest must align with it.

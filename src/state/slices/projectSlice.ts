@@ -16,7 +16,7 @@ import {
   reopenRecentUsecase,
 } from "../../features/project/usecases";
 
-
+import { ensureWorkspaceFile } from "../../core/persistence/loadSave";
 
 const adapter = createBrowserAdapter();
 
@@ -25,10 +25,12 @@ function alertError(message: string) {
   alert(message);
 }
 
-export const createProjectSlice: StateCreator<AppState, [], [], ProjectSlice> = (
-  set,
-  get
-) => ({
+export const createProjectSlice: StateCreator<
+  AppState,
+  [],
+  [],
+  ProjectSlice
+> = (set, get) => ({
   projects: [],
   activeProjectId: undefined,
   recents: [],
@@ -82,7 +84,23 @@ export const createProjectSlice: StateCreator<AppState, [], [], ProjectSlice> = 
       activeProjectId: project.id,
       recents,
     }));
-    if (fsIndex) get().setFsIndexSnapshot(project.id, fsIndex);
+    if (fsIndex) {
+      get().setFsIndexSnapshot(project.id, fsIndex);
+
+      // Step4B: hydrate FS tree expanded/selected state from persisted workspace.json
+      try {
+        const ws = await ensureWorkspaceFile(project.dirHandle);
+        const fsTree = ws.ui?.fsTree;
+        if (fsTree) {
+          get().hydrateFsTreeUi(project.id, {
+            expanded: fsTree.expanded,
+            selectedId: fsTree.selectedId,
+          });
+        }
+      } catch (e) {
+        console.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
+      }
+    }
 
     // Step5B: initialize persistence UI state for this project.
     get().initProjectPersistence(project.id, {
@@ -104,7 +122,23 @@ export const createProjectSlice: StateCreator<AppState, [], [], ProjectSlice> = 
       activeProjectId: project.id,
       recents,
     }));
-    if (fsIndex) get().setFsIndexSnapshot(project.id, fsIndex);
+    if (fsIndex) {
+      get().setFsIndexSnapshot(project.id, fsIndex);
+
+      // Step4B: hydrate FS tree expanded/selected state from persisted workspace.json
+      try {
+        const ws = await ensureWorkspaceFile(project.dirHandle);
+        const fsTree = ws.ui?.fsTree;
+        if (fsTree) {
+          get().hydrateFsTreeUi(project.id, {
+            expanded: fsTree.expanded,
+            selectedId: fsTree.selectedId,
+          });
+        }
+      } catch (e) {
+        console.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
+      }
+    }
 
     // Step5B: initialize persistence UI state for this project.
     get().initProjectPersistence(project.id, {

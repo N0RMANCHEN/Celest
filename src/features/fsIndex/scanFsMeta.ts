@@ -9,11 +9,13 @@
  *   - file open operations (via handle lookup)
  *
  * P0-Task-5:
- * - Add a default ignore list to avoid scanning huge folders (node_modules/.git/dist...),
+ * - Add a default ignore list to avoid scanning huge folders (node_modules/.git/dist...)
  *   preventing UI freezes when opening common frontend projects.
+ *
+ * P1-4 (critical):
+ * - FS entry IDs must be STABLE across reopen.
+ *   Otherwise workspace.json can't persist tree expanded/selected state.
  */
-
-import { nanoid } from "nanoid";
 
 import type { FsKind, FsMeta } from "../../entities/fsIndex/types";
 
@@ -28,6 +30,28 @@ function sortEntries(entries: Array<[string, FileSystemHandle]>) {
     if (a[1].kind !== b[1].kind) return a[1].kind === "directory" ? -1 : 1;
     return a[0].localeCompare(b[0]);
   });
+}
+
+function normalizePath(p: string): string {
+  if (!p) return "/";
+  return p.startsWith("/") ? p : `/${p}`;
+}
+
+function joinPath(parentPath: string, name: string): string {
+  const base = normalizePath(parentPath);
+  if (base === "/") return `/${name}`;
+  return `${base}/${name}`;
+}
+
+/**
+ * Stable, readable ids that do NOT depend on random nanoid().
+ *
+ * NOTE:
+ * - We intentionally keep ids derived from the *relative path from project root*.
+ * - This keeps ids stable even if the project folder is renamed.
+ */
+function idForPath(relPath: string): string {
+  return `fs:${normalizePath(relPath)}`;
 }
 
 /**
@@ -73,13 +97,16 @@ export async function scanFsMeta(
   const handles: Record<string, FileSystemHandle> = {};
   const meta: Record<string, FsMeta> = {};
 
-  const rootId = nanoid();
+  // Root is always the project root ("/")
+  const rootPath = "/";
+  const rootId = idForPath(rootPath);
+
   handles[rootId] = root;
   meta[rootId] = {
     id: rootId,
     kind: "dir",
     name: rootName,
-    path: `/${rootName}`,
+    path: rootPath,
   };
 
   async function walk(
@@ -100,8 +127,8 @@ export async function scanFsMeta(
       if (handle.kind === "directory" && shouldIgnoreDir(name)) continue;
 
       const kind: FsKind = handle.kind === "directory" ? "dir" : "file";
-      const id = nanoid();
-      const path = `${parentPath}/${name}`;
+      const path = joinPath(parentPath, name);
+      const id = idForPath(path);
 
       handles[id] = handle;
       meta[id] = { id, kind, name, path, parentId };
@@ -112,7 +139,7 @@ export async function scanFsMeta(
     }
   }
 
-  await walk(root, rootId, `/${rootName}`);
+  await walk(root, rootId, rootPath);
 
   return { rootId, handles, meta };
 }

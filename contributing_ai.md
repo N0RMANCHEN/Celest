@@ -61,6 +61,7 @@ New code must go in the correct layer:
 - `state/` → Zustand slices
 - `core/` → pure logic / persistence
 - `shell/` → app shell only
+- `shared/` → reusable UI & utilities
 
 ---
 
@@ -70,6 +71,7 @@ New code must go in the correct layer:
 - One store
 - Multiple slices
 - No global mutable state
+- No Immer in Phase 1
 
 UI components must not mutate state directly.
 
@@ -80,18 +82,21 @@ UI components must not mutate state directly.
 ### 5.1 AI Never Owns State
 
 AI agents may:
+
 - Generate drafts
 - Suggest summaries
 - Propose branches
 
 AI agents must not:
+
 - Persist hidden reasoning
 - Mutate saved data silently
-- Store provider‑specific data
+- Store provider-specific data
 
 ### 5.2 Determinism
 
 AI outputs must be:
+
 - Explicit
 - Reviewable
 - Editable by the user
@@ -104,7 +109,7 @@ AI agents **must ask** when:
 
 - Requirements are ambiguous
 - Multiple architectural paths exist
-- A change would affect persistence schema
+- A change would affect persistence schema or any persisted `/.nodeide/` format
 
 Guessing is forbidden.
 
@@ -124,7 +129,7 @@ Unless explicitly instructed.
 
 ---
 
-## 8. Commit‑Level Discipline (Mental Model)
+## 8. Commit-Level Discipline (Mental Model)
 
 Think in **Git commits**:
 
@@ -134,7 +139,33 @@ Think in **Git commits**:
 
 ---
 
-## 9. Success Criteria
+## 9. MVP Guardrails (Lightweight, Required)
+
+For any coding change, the agent must include:
+
+- **Goal**
+- **DoD** (testable)
+- **Minimal Changes** (files touched, why)
+- **Regression Pack** (3–5 smoke checks)
+- **Final Files** (complete file contents, no diffs)
+- **Self-check status** per regression item: PASS / NOT VERIFIED (and why)
+
+Unit tests are optional during MVP unless:
+
+- the repo already has a test runner, AND
+- the change touches pure logic in `entities/` or `core/`.
+
+---
+
+## 10. MVP Reliability Notes (Lightweight)
+
+- If a change touches `/.nodeide/` persistence formats: ask first and include a brief migration note.
+- For OPEN_PROJECT / SAVE / LOAD changes: ensure clear success/failure user feedback.
+- When reporting bugs: include full error output + steps to reproduce + what changed.
+
+---
+
+## 11. Success Criteria
 
 A contribution is successful if:
 
@@ -142,8 +173,3 @@ A contribution is successful if:
 - It preserves existing behavior
 - It advances the current Step goal
 - It does not introduce hidden state
-
----
-
-**If unsure — stop and ask.**
-

@@ -25,6 +25,36 @@ export const GRAPH_SCHEMA_VERSION = 1 as const;
 
 export type ViewportV1 = { x: number; y: number; zoom: number };
 
+/**
+ * Phase 1 UI state persisted in workspace.json.
+ *
+ * IMPORTANT:
+ * - This is project-local UI state (per folder), not global app settings.
+ * - Keep optional to preserve backward compatibility without bumping schema version.
+ */
+export type FsTreeUiV1 = {
+  /** Directory expansion map: dirId -> expanded? */
+  expanded?: Record<string, boolean>;
+  /** Selected entry id in the left tree. */
+  selectedId?: string | null;
+};
+
+/**
+ * Canvas UI state (Phase 1 minimal).
+ *
+ * NOTE:
+ * - We only persist selection for now.
+ * - This is NOT the domain graph; graph content lives in graphs/*.json.
+ */
+export type CanvasUiV1 = {
+  selectedNodeIds?: string[];
+};
+
+export type WorkspaceUiV1 = {
+  fsTree?: FsTreeUiV1;
+  canvas?: CanvasUiV1;
+};
+
 export type WorkspaceFileV1 = {
   version: typeof WORKSPACE_SCHEMA_VERSION;
   /** Phase 1 fixed views */
@@ -41,6 +71,9 @@ export type WorkspaceFileV1 = {
     createdAt: string; // ISO
     updatedAt: string; // ISO
   };
+
+  /** Optional UI state (Phase 1: FS Tree + Canvas selection) */
+  ui?: WorkspaceUiV1;
 };
 
 export type GraphFileV1 = {
@@ -75,7 +108,10 @@ export function defaultWorkspaceFile(): WorkspaceFileV1 {
   };
 }
 
-export function wrapGraphFile(graph: CodeGraphModel, createdAt?: string): GraphFileV1 {
+export function wrapGraphFile(
+  graph: CodeGraphModel,
+  createdAt?: string
+): GraphFileV1 {
   const now = nowIso();
   return {
     version: GRAPH_SCHEMA_VERSION,

@@ -24,6 +24,9 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  overscroll-behavior-x: contain;
 }
 
 body {

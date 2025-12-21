@@ -3,10 +3,10 @@
  * ----------------
  * FS Index domain types.
  *
- * Phase 1 context:
- * - Legacy MVP uses an FSGraph (ReactFlow nodes/edges) for both navigation and canvas.
- * - Step4A introduces FsIndexSnapshot: a pure, JSON-serializable snapshot that will
- *   drive the Left Tree (navigation) in Step4B.
+ * Phase 1:
+ * - FS Index is a pure, JSON-serializable snapshot of the file system structure.
+ * - It drives the Left Tree (navigation) and is separate from CodeGraph.
+ * - FsIndexSnapshot is built from FsMeta during project scanning.
  */
 
 export type FsKind = "dir" | "file";
@@ -14,7 +14,8 @@ export type FsKind = "dir" | "file";
 /**
  * Runtime metadata for FS entries.
  *
- * Legacy FSGraph builds and stores this so UI can derive names/paths quickly.
+ * Used during project scanning to build FsIndexSnapshot.
+ * Contains path-based stable IDs for consistent tree expansion/selection.
  */
 export type FsMeta = {
   id: string;
@@ -24,24 +25,7 @@ export type FsMeta = {
   parentId?: string;
 };
 
-/**
- * ReactFlow node data used by the legacy FSGraph view.
- */
-export type FsNodeData = {
-  title: string;
-  kind: "dir" | "file" | "group";
-  path: string;
-};
-
-/**
- * ReactFlow edge data used by the legacy FSGraph view.
- */
-export type FsEdgeData = {
-  locked?: boolean;
-  edgeKind: "fs" | "flow";
-};
-
-// ---------------------- Step4A: FS Index Snapshot ----------------------
+// ---------------------- FS Index Snapshot ----------------------
 
 /**
  * A pure node entry inside FsIndexSnapshot.

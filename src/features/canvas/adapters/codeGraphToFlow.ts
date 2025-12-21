@@ -61,9 +61,27 @@ export function codeGraphToFlow(
   const seenNodeIds = new Set<string>();
   const nodes: Node<CanvasNodeData>[] = [];
 
-  for (const [key, n] of Object.entries(graph.nodes)) {
+  // CRITICAL: Sort node keys to ensure stable order for ReactFlow.
+  // ReactFlow requires stable node order to correctly track nodes during drag.
+  const nodeKeys = Object.keys(graph.nodes).sort();
+  
+  for (const key of nodeKeys) {
+    const n = graph.nodes[key];
+    if (!n) {
+      // Log missing node for debugging
+      console.warn('[codeGraphToFlow] Node key exists in graph.nodes but node is null/undefined:', key);
+      continue;
+    }
+    
     const id = key || n.id;
-    if (!id || seenNodeIds.has(id)) continue;
+    if (!id) {
+      console.warn('[codeGraphToFlow] Node has no valid ID:', { key, node: n });
+      continue;
+    }
+    if (seenNodeIds.has(id)) {
+      console.warn('[codeGraphToFlow] Duplicate node ID detected:', id);
+      continue;
+    }
     seenNodeIds.add(id);
 
     const position = n.position ?? { x: 0, y: 0 };
@@ -79,7 +97,13 @@ export function codeGraphToFlow(
   const seenEdgeIds = new Set<string>();
   const edges: Edge<CanvasEdgeData>[] = [];
 
-  for (const [key, e] of Object.entries(graph.edges)) {
+  // CRITICAL: Sort edge keys to ensure stable order for ReactFlow.
+  const edgeKeys = Object.keys(graph.edges).sort();
+  
+  for (const key of edgeKeys) {
+    const e = graph.edges[key];
+    if (!e) continue;
+    
     const id = key || e.id;
     if (!id || seenEdgeIds.has(id)) continue;
     if (!e.source || !e.target) continue;

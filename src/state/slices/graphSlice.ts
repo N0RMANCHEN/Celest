@@ -130,13 +130,17 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
   },
 
   onNodesChange: (changes: CanvasNodeChange[]) => {
+    if (changes.length === 0) return;
+    
     let didChange = false;
-    set((s) => ({
-      projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
+    set((s) => {
+      const nextProjects = mapActiveProject(s.projects, s.activeProjectId, (p) => {
         let g = p.graph;
         for (const ch of changes) {
           if (ch.type === "position") {
             if (!ch.position) continue;
+            // CRITICAL: Always update position, even if it seems the same.
+            // ReactFlow needs to see the position update to stay in sync.
             g = updateNodePosition(g, ch.id, {
               x: ch.position.x,
               y: ch.position.y,
@@ -148,10 +152,17 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
         if (g === p.graph) return p;
         didChange = true;
         return { ...p, graph: g };
-      }),
-    }));
+      });
+      
+      if (!didChange) return {};
+      return { projects: nextProjects };
+    });
 
-    if (didChange) get().markActiveProjectDirty("graph");
+    // CRITICAL: Always mark dirty when there are changes, even during drag.
+    // The debounce in markActiveProjectDirty will handle batching.
+    if (didChange) {
+      get().markActiveProjectDirty("graph");
+    }
   },
 
   onEdgesChange: (changes: CanvasEdgeChange[]) => {
@@ -224,5 +235,8 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
         proj === p ? { ...proj, selectedIds: next } : proj
       ),
     }));
+
+    // Mark dirty so selection is persisted to workspace.json
+    get().markActiveProjectDirty("graph");
   },
 });

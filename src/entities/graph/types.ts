@@ -82,23 +82,3 @@ export type CodeGraphModel = {
   nodes: Record<string, CodeGraphNode>;
   edges: Record<string, CodeGraphEdge>;
 };
-
-/**
- * Canvas (ReactFlow) view-model data shapes.
- * Keep these small and stable; UI can derive labels/icons from them.
- */
-export type CanvasNodeType =
-  | "noteNode"
-  | "fileRefNode"
-  | "groupNode"
-  | "subgraphNode";
-
-export type CanvasNodeData = {
-  kind: CodeNodeKind;
-  title: string;
-  subtitle?: string;
-};
-
-export type CanvasEdgeData = {
-  edgeKind: "flow";
-};

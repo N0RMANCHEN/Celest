@@ -3,6 +3,7 @@
  * ----------------
  * Build a stable "view-model" for Workbench UI.
  *
+ * P1-5: Refactored to use selectors for derived state.
  * - Left Tree uses FsIndexSnapshot.
  * - Canvas uses CodeGraphModel (converted to ReactFlow view model).
  *
@@ -10,33 +11,62 @@
  * - state layer must not depend on ReactFlow/@xyflow types.
  */
 
-import { useMemo, useCallback } from "react";
+import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import type { CanvasViewport } from "../../entities/canvas/canvasEvents";
-
-import { codeGraphToFlow } from "../../features/canvas/adapters/codeGraphToFlow";
 import type { Vec2 } from "../../entities/graph/types";
-import type { FsMeta } from "../../entities/fsIndex/types";
 
 import { useAppStore } from "../store";
+import {
+  selectActiveFsIndex,
+  selectActiveFsExpanded,
+  selectActiveFsSelectedId,
+  selectSelectedFsInfo,
+} from "../selectors/fsIndexSelectors";
+import {
+  selectSelectedGraphNode,
+  selectFocusRequest,
+  selectCanvasViewModel,
+  type FocusRequest,
+} from "../selectors/workbenchSelectors";
 
 const FALLBACK_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1 };
-const EMPTY_OBJ: Record<string, never> = Object.freeze({});
 
-export type FocusRequest = { nodeId: string; nonce: number };
+export type { FocusRequest };
 
 export function useWorkbenchModel() {
   const panels = useAppStore((s) => s.panels);
   const project = useAppStore((s) => s.getActiveProject());
   const activeView = useAppStore((s) => s.getActiveView());
   const saveUi = useAppStore((s) => s.getActiveSaveUi());
-  const fsExpandedByProjectId = useAppStore((s) => s.fsExpandedByProjectId);
-  const fsSelectedIdByProjectId = useAppStore((s) => s.fsSelectedIdByProjectId);
-  const getFsIndexForProject = useAppStore((s) => s.getFsIndexForProject);
   const activeFilePath = useAppStore((s) => s.activeFilePath);
-  const focusNodeId = project?.focusNodeId ?? null;
-  const focusNonce = project?.focusNonce ?? 0;
+
+  // Use selectors for derived state
+  const fsIndex = useAppStore(selectActiveFsIndex);
+  const fsSelectedId = useAppStore(selectActiveFsSelectedId);
+  const selectedGraphNode = useAppStore(selectSelectedGraphNode);
+  
+  // CRITICAL: Use useShallow for selectors that return objects/arrays to prevent infinite loops.
+  // These selectors return new references on every call, causing React to think state changed.
+  const fsExpanded = useAppStore(
+    useShallow((s) => selectActiveFsExpanded(s))
+  );
+  
+  const selectedInfo = useAppStore(
+    useShallow((s) => selectSelectedFsInfo(s))
+  );
+  
+  const focusRequest = useAppStore(
+    useShallow((s) => selectFocusRequest(s))
+  );
+  
+  // CRITICAL: selectCanvasViewModel now returns a stable object reference when content is unchanged.
+  // We don't need useShallow here because the selector itself handles reference stability.
+  // This allows ReactFlow to see position updates during drag while preventing infinite loops.
+  const canvasVM = useAppStore(selectCanvasViewModel);
+  const canvasNodes = canvasVM.nodes;
+  const canvasEdges = canvasVM.edges;
 
   const {
     onNodesChange,
@@ -70,56 +100,8 @@ export function useWorkbenchModel() {
     }))
   );
 
-  const fsIndex = useMemo(() => {
-    if (!project) return null;
-    return getFsIndexForProject(project.id);
-  }, [getFsIndexForProject, project]);
-
-  const fsExpanded = useMemo(() => {
-    if (!project) return EMPTY_OBJ;
-    return fsExpandedByProjectId[project.id] ?? EMPTY_OBJ;
-  }, [fsExpandedByProjectId, project]);
-
-  const fsSelectedId = useMemo(() => {
-    if (!project) return null;
-    return fsSelectedIdByProjectId[project.id] ?? null;
-  }, [fsSelectedIdByProjectId, project]);
-
-  const selectedInfo: FsMeta | null = useMemo(() => {
-    const fsNode = fsIndex && fsSelectedId ? fsIndex.nodes[fsSelectedId] : null;
-    if (!fsNode) return null;
-    return {
-      id: fsNode.id,
-      kind: fsNode.kind,
-      name: fsNode.name,
-      path: fsNode.path,
-      ...(fsNode.parentId ? { parentId: fsNode.parentId } : {}),
-    };
-  }, [fsIndex, fsSelectedId]);
-
-  const selectedGraphNode = useMemo(() => {
-    if (!project) return null;
-    const firstSelected = project.selectedIds.find(
-      (id) => project.graph.nodes[id]
-    );
-    return firstSelected ? project.graph.nodes[firstSelected] ?? null : null;
-  }, [project]);
-
   const activeViewId = activeView?.id ?? "main";
   const viewport = activeView?.viewport ?? FALLBACK_VIEWPORT;
-
-  const focusRequest: FocusRequest | null = useMemo(() => {
-    if (!focusNodeId) return null;
-    return { nodeId: focusNodeId, nonce: focusNonce };
-  }, [focusNodeId, focusNonce]);
-
-  const canvasVM = useMemo(() => {
-    const graph = project?.graph;
-    if (!graph) return { nodes: [], edges: [] };
-
-    // ✅ IMPORTANT: project selection is projected back onto ReactFlow nodes/edges
-    return codeGraphToFlow(graph, project?.selectedIds ?? []);
-  }, [project?.graph, project?.selectedIds]);
 
   const handleCreateNote = useCallback(
     (pos: Vec2) => {
@@ -155,8 +137,8 @@ export function useWorkbenchModel() {
     activeFilePath,
     saveUi,
 
-    canvasNodes: canvasVM.nodes,
-    canvasEdges: canvasVM.edges,
+    canvasNodes,
+    canvasEdges,
 
     activeViewId,
     viewport,

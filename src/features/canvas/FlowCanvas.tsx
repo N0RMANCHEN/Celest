@@ -19,11 +19,12 @@
  * - Props accept UI-engine-agnostic Canvas* event contracts.
  * - This component translates ReactFlow events into Canvas* contracts.
  *
- * CRITICAL (fix max update depth):
- * - ReactFlow will emit `onSelectionChange` when it syncs props -> internal store.
- * - If we echo the SAME selection back into Zustand, it can create an infinite loop
- *   (StoreUpdater -> setNodes -> rerender -> StoreUpdater...).
- * - Therefore, we must de-duplicate selection events at the adapter boundary.
+ * Architecture:
+ * - Uses modular hooks for separation of concerns:
+ *   - useDragHandling: Drag logic with store isolation during drag
+ *   - useSelectionHandling: Selection logic with de-duplication
+ *   - useViewportHandling: Viewport restoration and changes
+ *   - useKeyboardHandling: Keyboard shortcuts
  */
 
 import {
@@ -42,14 +43,11 @@ import {
   type Node,
   type NodeChange as RFNodeChange,
   type NodeTypes,
-  type OnSelectionChangeParams,
-  type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 
@@ -62,6 +60,10 @@ import type {
 
 import type { CanvasEdgeData, CanvasNodeData } from "./types";
 import { getNodeTypes } from "./nodeTypes";
+import { useDragHandling } from "./hooks/useDragHandling";
+import { useSelectionHandling } from "./hooks/useSelectionHandling";
+import { useViewportHandling } from "./hooks/useViewportHandling";
+import { useKeyboardHandling } from "./hooks/useKeyboardHandling";
 
 export type Props = {
   nodes: Node<CanvasNodeData>[];
@@ -99,17 +101,6 @@ function sanitizeHandleId(handle: unknown): string | null {
   return s;
 }
 
-function isTypingTarget(t: EventTarget | null) {
-  if (!t || !(t instanceof HTMLElement)) return false;
-  const tag = t.tagName;
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-  if (t.isContentEditable) return true;
-  if (typeof t.closest === "function") {
-    if (t.closest(".monaco-editor")) return true;
-  }
-  return false;
-}
-
 function toCanvasNodeChanges(changes: RFNodeChange[]): CanvasNodeChange[] {
   const out: CanvasNodeChange[] = [];
   for (const ch of changes) {
@@ -143,24 +134,6 @@ function toCanvasEdgeChanges(changes: RFEdgeChange[]): CanvasEdgeChange[] {
   return out;
 }
 
-function normalizeIds(ids: string[]): string[] {
-  const out = new Set<string>();
-  for (const id of ids) {
-    if (typeof id !== "string") continue;
-    const s = id.trim();
-    if (!s) continue;
-    out.add(s);
-  }
-  return Array.from(out).sort();
-}
-
-function arrayEq(a: string[], b: string[]) {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-}
-
 function FlowCanvasInner(props: Props) {
   const {
     nodes,
@@ -176,97 +149,71 @@ function FlowCanvasInner(props: Props) {
     onCreateNoteNodeAt,
   } = props;
 
-  const lastCommitRef = useRef<{ viewId: string; v: CanvasViewport } | null>(
-    null
-  );
-  const lastViewportRef = useRef<CanvasViewport | null>(null);
-  const didFitRef = useRef(false);
-
-  // When releasing a drag, ReactFlow may still dispatch a trailing pane click.
-  // We use this to avoid "drag -> selection flash -> clear" artifacts.
-  const lastDragStopAtRef = useRef<number>(0);
-
-  // Controlled selection ids, updated from props.
-  // We keep it normalized so we can de-dupe adapter events.
-  const selectedIdsRef = useRef<string[]>([]);
-  useEffect(() => {
-    const next = normalizeIds([
-      ...nodes.filter((n) => n.selected).map((n) => n.id),
-      ...edges.filter((e) => e.selected).map((e) => e.id),
-    ]);
-    selectedIdsRef.current = next;
-  }, [nodes, edges]);
-
-  // Emit selection only when it actually differs from the selection already projected on props.
-  const emitSelection = useCallback(
-    (ids: string[]) => {
-      const next = normalizeIds(ids);
-      const cur = selectedIdsRef.current;
-      if (arrayEq(next, cur)) return; // CRITICAL: break ReactFlow StoreUpdater feedback loop
-      onSelectionChange(next);
-    },
-    [onSelectionChange]
-  );
-
   const rf = useReactFlow<Node<CanvasNodeData>, Edge<CanvasEdgeData>>();
 
-  // Restore viewport when switching views.
-  useEffect(() => {
-    const last = lastViewportRef.current;
-    if (
-      last &&
-      Math.abs(last.x - viewport.x) < 0.0001 &&
-      Math.abs(last.y - viewport.y) < 0.0001 &&
-      Math.abs(last.zoom - viewport.zoom) < 0.0001
-    ) {
-      return;
-    }
+  // Drag handling with store isolation during drag
+  const {
+    isDragging,
+    handleNodesChangeDuringDrag,
+    handleNodeDragStart,
+    handleNodeDragStop,
+    cancelDrag,
+    lastDragStopAt,
+  } = useDragHandling(onNodesChange, onSelectionChange);
 
-    lastViewportRef.current = viewport;
-    // CanvasViewport is structurally compatible with XYFlow Viewport.
-    rf.setViewport(viewport as RFViewport, { duration: 220 });
-  }, [activeViewId, viewport, rf]);
+  // Selection handling with de-duplication
+  const {
+    handleSelectionChange,
+    handleNodeClick,
+    handleEdgeClick,
+    emitSelection,
+  } = useSelectionHandling(nodes, edges, onSelectionChange);
 
-  // Fit view once when nodes appear.
-  useEffect(() => {
-    if (didFitRef.current) return;
-    if (nodes.length === 0) return;
-    didFitRef.current = true;
-
-    const t = window.setTimeout(() => {
-      try {
-        rf.fitView({ padding: 0.2, duration: 250 });
-      } catch {
-        // ignore
-      }
-    }, 30);
-
-    return () => window.clearTimeout(t);
-  }, [nodes.length, rf]);
-
-  const commitViewportIfChanged = useCallback(
-    (viewId: string, v: CanvasViewport) => {
-      const last = lastCommitRef.current;
-      if (
-        last &&
-        last.viewId === viewId &&
-        Math.abs(last.v.x - v.x) < 0.0001 &&
-        Math.abs(last.v.y - v.y) < 0.0001 &&
-        Math.abs(last.v.zoom - v.zoom) < 0.0001
-      ) {
-        return;
-      }
-      lastCommitRef.current = { viewId, v };
-      onViewportChange(v);
-    },
-    [onViewportChange]
+  // Viewport handling
+  const { handleMoveEnd } = useViewportHandling(
+    activeViewId,
+    viewport,
+    nodes,
+    onViewportChange
   );
 
-  const handleMoveEnd = useCallback(
-    (_: unknown, v: RFViewport) => {
-      commitViewportIfChanged(activeViewId, v);
+  // Keyboard handling
+  useKeyboardHandling(
+    nodes,
+    edges,
+    isDragging,
+    cancelDrag,
+    onNodesChange,
+    onEdgesChange
+  );
+
+  // Handle node changes when NOT dragging (immediate store update)
+  const handleNodesChangeNormal = useCallback(
+    (changes: RFNodeChange[]) => {
+      const mapped = toCanvasNodeChanges(changes);
+      if (mapped.length > 0) onNodesChange(mapped);
     },
-    [activeViewId, commitViewportIfChanged]
+    [onNodesChange]
+  );
+
+  // Main handler - routes to drag or normal handler based on state
+  const handleNodesChange = useCallback(
+    (changes: RFNodeChange[]) => {
+      if (isDragging) {
+        handleNodesChangeDuringDrag(changes);
+      } else {
+        handleNodesChangeNormal(changes);
+      }
+    },
+    [isDragging, handleNodesChangeDuringDrag, handleNodesChangeNormal]
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: RFEdgeChange[]) => {
+      const mapped = toCanvasEdgeChanges(changes);
+      if (mapped.length > 0) onEdgesChange(mapped);
+    },
+    [onEdgesChange]
   );
 
   const handleConnect = useCallback(
@@ -282,41 +229,14 @@ function FlowCanvasInner(props: Props) {
     [onConnect]
   );
 
-  const handleNodesChange = useCallback(
-    (changes: RFNodeChange[]) => {
-      const mapped = toCanvasNodeChanges(changes);
-      if (mapped.length > 0) onNodesChange(mapped);
-    },
-    [onNodesChange]
-  );
-
-  const handleEdgesChange = useCallback(
-    (changes: RFEdgeChange[]) => {
-      const mapped = toCanvasEdgeChanges(changes);
-      if (mapped.length > 0) onEdgesChange(mapped);
-    },
-    [onEdgesChange]
-  );
-
-  const handleNodeDragStart = useCallback(
-    (_: ReactMouseEvent, node: Node<CanvasNodeData>) => {
-      // Select on drag start so the selection tint + Inspector stay in sync during drag.
-      emitSelection([node.id]);
-    },
-    [emitSelection]
-  );
-
-  const handleNodeDragStop = useCallback(() => {
-    lastDragStopAtRef.current = Date.now();
-  }, []);
-
   // Pane click:
   // - single click clears selection
   // - double click creates note node (if enabled)
   const handlePaneClick = useCallback(
     (evt: ReactMouseEvent) => {
       const now = Date.now();
-      if (now - lastDragStopAtRef.current < 140) return;
+      // Use ref.current directly - refs are stable and don't need to be in deps
+      if (now - lastDragStopAt.current < 140) return;
 
       if (evt.detail >= 2 && onCreateNoteNodeAt) {
         const pos = rf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
@@ -326,49 +246,8 @@ function FlowCanvasInner(props: Props) {
 
       emitSelection([]);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onCreateNoteNodeAt, emitSelection, rf]
-  );
-
-  // Immediate click selection → update store now (no need to click empty space)
-  const handleNodeClick = useCallback(
-    (evt: ReactMouseEvent, node: Node<CanvasNodeData>) => {
-      if (evt.shiftKey) {
-        const current = new Set(selectedIdsRef.current);
-        if (current.has(node.id)) current.delete(node.id);
-        else current.add(node.id);
-        emitSelection(Array.from(current));
-        return;
-      }
-
-      emitSelection([node.id]);
-    },
-    [emitSelection]
-  );
-
-  const handleEdgeClick = useCallback(
-    (evt: ReactMouseEvent, edge: Edge<CanvasEdgeData>) => {
-      if (evt.shiftKey) {
-        const current = new Set(selectedIdsRef.current);
-        if (current.has(edge.id)) current.delete(edge.id);
-        else current.add(edge.id);
-        emitSelection(Array.from(current));
-        return;
-      }
-
-      emitSelection([edge.id]);
-    },
-    [emitSelection]
-  );
-
-  // Keep ReactFlow's selection change for box-select etc.
-  // IMPORTANT: de-dupe to avoid StoreUpdater feedback loop.
-  const handleSelectionChange = useCallback(
-    (sel: OnSelectionChangeParams) => {
-      const nodeIds = sel?.nodes?.map((n) => n.id) ?? [];
-      const edgeIds = sel?.edges?.map((e) => e.id) ?? [];
-      emitSelection([...nodeIds, ...edgeIds]);
-    },
-    [emitSelection]
   );
 
   // Optional: focus a node when requested by the store.
@@ -383,36 +262,6 @@ function FlowCanvasInner(props: Props) {
       // ignore
     }
   }, [focusRequest, rf]);
-
-  // Keyboard delete (controlled selection)
-  useEffect(() => {
-    const opts: AddEventListenerOptions = { capture: true };
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Backspace" && e.key !== "Delete") return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (isTypingTarget(e.target)) return;
-
-      const nodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
-      const edgeIds = edges.filter((ed) => ed.selected).map((ed) => ed.id);
-
-      if (nodeIds.length === 0 && edgeIds.length === 0) return;
-
-      e.preventDefault();
-
-      if (edgeIds.length > 0) {
-        onEdgesChange(edgeIds.map((id) => ({ id, type: "remove" })));
-      }
-      if (nodeIds.length > 0) {
-        onNodesChange(nodeIds.map((id) => ({ id, type: "remove" })));
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown, opts);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown, opts);
-    };
-  }, [edges, nodes, onEdgesChange, onNodesChange]);
 
   // Memoize isValidConnection to avoid re-creating the function every render.
   const isValidConnection = useMemo(() => {
@@ -430,6 +279,9 @@ function FlowCanvasInner(props: Props) {
     };
   }, [rf]);
 
+  // CRITICAL: Always use props.nodes/props.edges to maintain reference stability.
+  // During drag, we don't update store, so selector doesn't recalculate,
+  // keeping array references stable (fixing React Flow error #015).
   return (
     <ReactFlow
       nodes={nodes}
@@ -452,6 +304,12 @@ function FlowCanvasInner(props: Props) {
       // we manage deletion ourselves
       deleteKeyCode={null}
       isValidConnection={isValidConnection}
+      // CRITICAL: Ensure nodes are draggable and prevent drag issues
+      nodesDraggable={true}
+      nodesConnectable={true}
+      elementsSelectable={true}
+      // Performance: Only update on drag end for viewport
+      onlyRenderVisibleElements={false}
     >
       <Background
         variant={BackgroundVariant.Dots}

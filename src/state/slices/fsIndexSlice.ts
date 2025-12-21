@@ -26,31 +26,38 @@ export const createFsIndexSlice: StateCreator<
 
   setFsIndexSnapshot: (projectId, snapshot) =>
     set((s) => {
+      // IMPORTANT: Do not initialize expanded/selected here.
+      // Let hydrateFsTreeUi handle the initial state from workspace.json.
+      // Only preserve existing state if it exists (e.g., during same session).
       const prevExpanded = s.fsExpandedByProjectId[projectId];
       const prevSelected = s.fsSelectedIdByProjectId[projectId];
 
-      const expanded = prevExpanded
-        ? { ...prevExpanded }
-        : { [snapshot.rootId]: true };
-
-      // Ensure root is always visible.
-      expanded[snapshot.rootId] = expanded[snapshot.rootId] ?? true;
-
-      const selectedId = prevSelected ?? null;
+      // If no previous state exists, leave it undefined so hydrateFsTreeUi can initialize.
+      // If previous state exists (same session), preserve it.
+      const expanded = prevExpanded ? { ...prevExpanded } : undefined;
+      const selectedId = prevSelected ?? undefined;
 
       return {
         fsIndexByProjectId: {
           ...s.fsIndexByProjectId,
           [projectId]: snapshot,
         },
-        fsExpandedByProjectId: {
-          ...s.fsExpandedByProjectId,
-          [projectId]: expanded,
-        },
-        fsSelectedIdByProjectId: {
-          ...s.fsSelectedIdByProjectId,
-          [projectId]: selectedId,
-        },
+        ...(expanded !== undefined
+          ? {
+              fsExpandedByProjectId: {
+                ...s.fsExpandedByProjectId,
+                [projectId]: expanded,
+              },
+            }
+          : {}),
+        ...(selectedId !== undefined
+          ? {
+              fsSelectedIdByProjectId: {
+                ...s.fsSelectedIdByProjectId,
+                [projectId]: selectedId,
+              },
+            }
+          : {}),
       };
     }),
 
@@ -62,15 +69,11 @@ export const createFsIndexSlice: StateCreator<
       const nodes = snapshot.nodes;
       const rootId = snapshot.rootId;
 
-      const nextExpanded: Record<string, boolean> = s.fsExpandedByProjectId[
-        projectId
-      ]
-        ? { ...s.fsExpandedByProjectId[projectId] }
-        : {};
+      // Initialize expanded state from persisted data or default to root only.
+      const nextExpanded: Record<string, boolean> = {};
 
       if (state.expanded) {
-        // Replace with sanitized map.
-        for (const k of Object.keys(nextExpanded)) delete nextExpanded[k];
+        // Restore from persisted workspace.json: sanitize and only keep valid dir ids.
         for (const [id, expanded] of Object.entries(state.expanded)) {
           if (!expanded) continue;
           const n = nodes[id];
@@ -80,9 +83,10 @@ export const createFsIndexSlice: StateCreator<
         }
       }
 
-      // Ensure root is always visible.
+      // Ensure root is always visible (even if not in persisted state).
       nextExpanded[rootId] = true;
 
+      // Restore selected id from persisted data, or keep existing if not provided.
       const candidateSelected =
         state.selectedId === undefined
           ? s.fsSelectedIdByProjectId[projectId]

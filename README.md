@@ -39,8 +39,7 @@ Phase 1 目标是一个纯 Web（浏览器）MVP：用 **File System Access API*
 
 待补齐/修复（⚠️）：
 
-- ⚠️ 左侧索引树与 View 切换 UI：当前工作区引用了不存在的 legacy 组件文件，需修复后才能正常编译运行
-- ⚠️ 面板开关（TopTabs）目前未驱动布局隐藏（toggle 写入了 store，但 Workspace 未消费）
+- 无（所有 Phase 1 MVP 功能已实现）
 
 ---
 
@@ -167,132 +166,86 @@ Legacy（归档，不要求可运行）：
 
 ## 1) 已完成（✅）
 
-### P0（稳定基座，用户已验证）
+### P0（稳定基座）
 
-- ✅ 清理 `_legacy` 编译期依赖（并且用户已删除 `_legacy` 仍可编译运行）
+- ✅ 清理 `_legacy` 编译期依赖（用户已删除 `_legacy` 仍可编译运行）
 - ✅ 面板开关驱动布局（Left / Inspector / Terminal 可隐藏，Canvas 优先铺满）
 - ✅ ReactFlow StrictMode nodeTypes/edgeTypes 稳定引用警告处理
 - ✅ File System Access API TS 类型补齐（strict TS，不靠 any）
 - ✅ FS 扫描默认 ignore（node_modules/.git/dist/.next 等）避免卡死
 - ✅ 不支持 File System Access API 的提示兜底（避免白屏）
 
-### P1（交互高收益）
+### P1（交互高收益 + 分层洁净）
 
 - ✅ BottomToolbar 固定在 Canvas 底部居中（不被 Terminal 展开影响）
 - ✅ 删除闭环：Delete/Backspace 删除节点（可靠）
 - ✅ 选中可视化：节点选中为 tint（非描边）
-- ✅ 选中即时同步修复：点击 Node/Edge 立刻写入 store selection（Inspector/高亮不再需要再点空白）
-- ✅ Cursor 规范：全站无“小手 pointer”，默认箭头；输入区域保持 I-beam（通过全局 cursor.css 收敛）
-- ✅ 拖动/轻点分离：拖动时选中态不闪（drag start 立即选中；drag stop 后短窗口忽略 pane click 清空）
+- ✅ 选中即时同步：点击 Node/Edge 立刻写入 store selection（Inspector/高亮不再需要再点空白）
+- ✅ Cursor 规范：全站无"小手 pointer"，默认箭头；输入区域保持 I-beam
+- ✅ 拖动/轻点分离：拖动时选中态不闪
+- ✅ **P1-1**：彻底隔离 ReactFlow（state 层使用 Canvas* 契约，不直接依赖 ReactFlow 类型）
+- ✅ **P1-2**：ProjectState / ViewState 收敛到 `entities/project/types.ts`（Snapshot vs Runtime 分离）
+- ✅ **P1-3**：`entities/graph/types.ts` 去 Canvas* 命名（Canvas 视图类型移至 `features/canvas/types.ts`）
+- ✅ **P1-4**：FS Index path-based id（`fs:${normalizePath(relPath)}`）+ FS Tree UI 持久化闭环
+- ✅ **P1-5**：`useWorkbenchModel` 变薄（selector 化，已迁移至 `state/selectors/*`，有单测）
+- ✅ **P1-6**：Canvas 交互一致性（Figma-like：点击即选中、光标策略）
 
 ---
 
-## 2) Roadmap（最新执行版：未完成/新增项）
+## 2) Roadmap（待完成项）
 
-> 说明：下面是面向下一阶段的执行版；每个 task 都要保持“最小变更集”。
+> 说明：下面是面向下一阶段的执行版；每个 task 都要保持"最小变更集"。
 
-### P1（分层洁净 + 为 P2 做地基）
+### P0（稳定性与可靠性：高优先级）
 
-#### P1-1 彻底隔离 ReactFlow（state 层不 import reactflow/@xyflow）
+#### P0-1 React Flow 错误 #015 彻底修复
 
-**目标**
-
-- state 层不再依赖 `NodeChange/EdgeChange/Connection/Viewport` 等 ReactFlow 类型
+**问题**
+- 拖拽节点时偶尔出现 "node not initialized" 错误
+- 可能原因：节点在转换过程中丢失、数组引用不稳定、初始化时序问题
 
 **交付**
-
-- 新增 `features/canvas/canvasEvents.ts`（UI-无关事件契约）
-- `FlowCanvas` 把 ReactFlow 事件翻译为契约 → 再调用 store action
-- state/types、graphSlice 等仅使用契约类型
+- 增强 `codeGraphToFlow` 的节点验证（确保所有 graph.nodes 都被转换）
+- 改进 `selectCanvasViewModel` 的缓存策略（确保节点数组引用稳定）
+- 添加拖拽前的节点存在性检查
+- 添加错误边界和降级处理（节点缺失时自动恢复）
 
 **DoD**
-
-- `rg "reactflow|@xyflow" src/state` 结果为空
-- 拖拽/连线/viewport 保存加载行为不回归
+- 拖拽操作不再触发错误 #015
+- 所有 graph.nodes 都能正确转换为 ReactFlow nodes
+- 节点数组引用在拖拽过程中保持稳定
 
 ---
 
-#### P1-2 ProjectState / ViewState 收敛到 `entities/project/types.ts`（拆 snapshot vs runtime）
+#### P0-2 `.nodeide` 持久化文件错误处理与版本管理
 
-**目标**
-
-- 清晰区分“可序列化快照”和“运行时句柄/缓存”
+**问题**
+- 文件损坏时缺少恢复机制
+- 版本升级时缺少迁移逻辑
+- 缺少备份机制
+- 错误信息不够详细
 
 **交付**
-
-- `entities/project/types.ts` 定义：
-  - `ProjectSnapshot`（可持久化）
-  - `ProjectRuntime`（不可持久化：dirHandle/handles map 等）
-  - `ProjectState = Snapshot & Runtime`
-- `features/project/openProject.ts` 只保留用例逻辑，不再定义类型
-- state/types 只从 entities 引类型
-
-**DoD**
-
-- `openProject.ts` 不再导出/定义 ProjectState/ViewState
-- snapshot 与 runtime 边界明确
-
----
-
-#### P1-3 `entities/graph/types.ts` 去 Canvas\* 命名（领域模型更纯）
-
-**目标**
-
-- `entities/graph/*` 只保留“领域对象”，Canvas 视图类型移入 `features/canvas/*`
-
-**交付**
-
-- `CanvasNodeData/CanvasEdgeData/...` 移动到 `features/canvas/types.ts`（或 adapters/types.ts）
-- `entities/graph/types.ts` 只保留 CodeGraphModel + 各类领域节点（Note/FileRef/Frame/Group/Subgraph 等）
+- **错误恢复**：
+  - 文件损坏时自动创建备份（`.nodeide/workspace.json.backup`）
+  - 提供"重置为默认值"的降级选项
+  - 添加文件完整性校验（checksum）
+- **版本迁移**：
+  - 实现 `migrateWorkspaceFile(v1 -> v2)` 函数
+  - 实现 `migrateGraphFile(v1 -> v2)` 函数
+  - 支持向后兼容（读取旧版本，写入新版本）
+- **备份机制**：
+  - 保存前自动备份（`.nodeide/workspace.json.backup`）
+  - 支持手动备份/恢复功能
+- **错误报告**：
+  - 详细的错误日志（文件路径、错误类型、建议操作）
+  - 用户友好的错误提示（UI 中显示）
 
 **DoD**
-
-- `entities/graph` 内不再出现 `Canvas*` 命名
-- adapter 与编译通过
-
----
-
-#### P1-4 FS Index id 稳定化（path-based id）+ 为 Frame 懒加载铺垫
-
-**目标**
-
-- 同一路径在多次打开项目时 id 稳定（否则展开/选中/未来映射都会丢）
-
-**交付**
-
-- `scanFsMeta.ts`：从 `nanoid()` 改为 path-based id（推荐 hash(path)）
-- `treeExpanded/selected` 等状态以稳定 id 为 key
-
-**DoD**
-
-- 重复打开同项目：左侧树展开态/选中态稳定
-- ignore 规则仍生效、性能不回退
-
----
-
-#### P1-5 `useWorkbenchModel` 变薄（selector 化）
-
-**目标**
-
-- 降低“巨型拼装 hook”的维护成本，为 Frame/多选/懒加载扩展做准备
-
-**交付**
-
-- 纯派生逻辑迁移到 `state/selectors/*`
-- hook 只负责绑定 store + selectors
-- 至少补 3 个核心 selector 的 vitest 单测（最小集即可）
-
-**DoD**
-
-- `useWorkbenchModel.ts` 显著变短（如 <120 行）
-- 单测可跑通
-
----
-
-#### P1-6 Canvas 交互一致性（Figma-like）——已完成 ✅
-
-- 点击即选中、无需二次点击空白
-- Cursor 策略：默认箭头；输入区 I-beam；避免全站 pointer hand
+- 文件损坏时能自动恢复或提示用户
+- 版本升级时能自动迁移数据
+- 有备份机制防止数据丢失
+- 错误信息清晰，便于排查
 
 ---
 
@@ -371,6 +324,39 @@ Legacy（归档，不要求可运行）：
   - FS Index / CodeGraph / MirrorGraph 分离
   - adapter 边界未破坏（state 不依赖 UI 引擎类型）
   - persistence schema 可升级（versioned）
+
+---
+
+### P4（UI/UX 持续改进）
+
+#### P4-1 UI 界面美观化与交互细节优化
+
+**目标**
+- 提升整体视觉设计（颜色、间距、字体、图标）
+- 优化交互细节（动画、反馈、状态提示）
+- 改善用户体验（减少操作步骤、提高可发现性）
+
+**交付**
+- **视觉设计**：
+  - 统一设计系统（颜色、间距、字体）
+  - 优化 Canvas 背景和节点样式
+  - 改进左侧树和 Inspector 的视觉层次
+- **交互优化**：
+  - 添加过渡动画（节点拖拽、面板展开/收起）
+  - 改进选中态反馈（更明显的视觉提示）
+  - 优化快捷键提示和帮助文档
+- **用户体验**：
+  - 改进错误提示（更友好、更具体）
+  - 添加加载状态指示器
+  - 优化空状态提示（无节点、无文件等）
+
+**DoD**
+- UI 视觉统一、美观
+- 交互流畅、反馈及时
+- 用户体验明显提升
+
+**优先级**
+- 中低优先级（不影响功能，持续改进）
 
 ---
 

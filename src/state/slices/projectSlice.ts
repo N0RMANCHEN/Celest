@@ -85,18 +85,23 @@ export const createProjectSlice: StateCreator<
       recents,
     }));
     if (fsIndex) {
+      // CRITICAL TIMING: setFsIndexSnapshot must be called BEFORE hydrateFsTreeUi.
+      // setFsIndexSnapshot is synchronous and sets the snapshot immediately.
+      // hydrateFsTreeUi depends on the snapshot existing to sanitize persisted IDs.
       get().setFsIndexSnapshot(project.id, fsIndex);
 
       // Step4B: hydrate FS tree expanded/selected state from persisted workspace.json
+      // NOTE: ensureWorkspaceFile is async, but setFsIndexSnapshot above is synchronous,
+      // so the snapshot is guaranteed to exist when hydrateFsTreeUi is called.
       try {
         const ws = await ensureWorkspaceFile(project.dirHandle);
         const fsTree = ws.ui?.fsTree;
-        if (fsTree) {
-          get().hydrateFsTreeUi(project.id, {
-            expanded: fsTree.expanded,
-            selectedId: fsTree.selectedId,
-          });
-        }
+        // Always call hydrateFsTreeUi to initialize state (even if fsTree is undefined).
+        // It will default to root expanded if no persisted state exists.
+        get().hydrateFsTreeUi(project.id, {
+          expanded: fsTree?.expanded,
+          selectedId: fsTree?.selectedId,
+        });
       } catch (e) {
         console.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
       }
@@ -123,18 +128,23 @@ export const createProjectSlice: StateCreator<
       recents,
     }));
     if (fsIndex) {
+      // CRITICAL TIMING: setFsIndexSnapshot must be called BEFORE hydrateFsTreeUi.
+      // setFsIndexSnapshot is synchronous and sets the snapshot immediately.
+      // hydrateFsTreeUi depends on the snapshot existing to sanitize persisted IDs.
       get().setFsIndexSnapshot(project.id, fsIndex);
 
       // Step4B: hydrate FS tree expanded/selected state from persisted workspace.json
+      // NOTE: ensureWorkspaceFile is async, but setFsIndexSnapshot above is synchronous,
+      // so the snapshot is guaranteed to exist when hydrateFsTreeUi is called.
       try {
         const ws = await ensureWorkspaceFile(project.dirHandle);
         const fsTree = ws.ui?.fsTree;
-        if (fsTree) {
-          get().hydrateFsTreeUi(project.id, {
-            expanded: fsTree.expanded,
-            selectedId: fsTree.selectedId,
-          });
-        }
+        // Always call hydrateFsTreeUi to initialize state (even if fsTree is undefined).
+        // It will default to root expanded if no persisted state exists.
+        get().hydrateFsTreeUi(project.id, {
+          expanded: fsTree?.expanded,
+          selectedId: fsTree?.selectedId,
+        });
       } catch (e) {
         console.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
       }

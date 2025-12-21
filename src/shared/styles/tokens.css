@@ -30,6 +30,9 @@
   --primary: #2b5cff;
   --primary-hover: #1f4fe8;
   --primary-weak: rgba(43, 92, 255, 0.12);
+  
+  /* Accent color for selected/highlighted elements */
+  --accent: #2b5cff; /* Same as primary for consistency */
 }
 
 /* ============ MiSans (served from /public) ============ */

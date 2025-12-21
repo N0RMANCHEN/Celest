@@ -15,7 +15,7 @@
 
 import type { AppState } from "../types";
 import type { CodeGraphNode } from "../../entities/graph/types";
-import { codeGraphToFlow } from "../../features/canvas/adapters/codeGraphToFlow";
+import { codeGraphToCanvas } from "../../features/canvas/adapters/codeGraphToCanvas";
 
 export type FocusRequest = { nodeId: string; nonce: number };
 
@@ -90,30 +90,6 @@ export function selectFocusRequest(state: AppState): FocusRequest | null {
 }
 
 /**
- * Module-level cache for canvas view model with content-based comparison.
- * 
- * Design rationale:
- * - Phase 1 assumes a single active project instance (single-page app).
- * - Module-level caching is safe and efficient for this use case.
- * - Maintains reference stability to prevent React re-renders while allowing
- *   ReactFlow to detect position updates during drag operations.
- * 
- * Cache strategy:
- * - Uses content-based comparison (not just cache key) to detect real changes.
- * - Returns cached reference when content is identical, even if cache key changed.
- * - This is critical for drag performance: positions change frequently during drag,
- *   but we only want to update ReactFlow when positions actually change.
- * 
- * Note: If we later need to support multiple project instances simultaneously,
- * we should migrate to a WeakMap-based cache keyed by project ID.
- */
-let cachedCanvasVM: {
-  cacheKey?: string;
-  nodes: ReturnType<typeof codeGraphToFlow>["nodes"];
-  edges: ReturnType<typeof codeGraphToFlow>["edges"];
-} = { nodes: [], edges: [] };
-
-/**
  * Create a cache key from graph state that captures all relevant changes.
  * This includes node positions, selection, and graph structure.
  */
@@ -147,66 +123,35 @@ function createCacheKey(
 }
 
 /**
- * Compare two node arrays by content (not reference).
+ * Module-level cache for canvas view model (custom Canvas implementation).
+ * 
+ * Design rationale:
+ * - Phase 1 assumes a single active project instance (single-page app).
+ * - Module-level caching is safe and efficient for this use case.
+ * - Maintains reference stability to prevent React re-renders while allowing
+ *   Canvas to detect position updates during drag operations.
+ * 
+ * Cache strategy:
+ * - Uses content-based comparison (not just cache key) to detect real changes.
+ * - Returns cached reference when content is identical, even if cache key changed.
+ * - This is critical for drag performance: positions change frequently during drag,
+ *   but we only want to update Canvas when positions actually change.
+ * 
+ * Note: If we later need to support multiple project instances simultaneously,
+ * we should migrate to a WeakMap-based cache keyed by project ID.
  */
-function nodesEqual(
-  a: ReturnType<typeof codeGraphToFlow>["nodes"],
-  b: ReturnType<typeof codeGraphToFlow>["nodes"]
-): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const na = a[i];
-    const nb = b[i];
-    if (
-      na.id !== nb.id ||
-      na.position.x !== nb.position.x ||
-      na.position.y !== nb.position.y ||
-      na.selected !== nb.selected ||
-      na.type !== nb.type
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
+let cachedCanvasVM: {
+  cacheKey?: string;
+  nodes: ReturnType<typeof codeGraphToCanvas>["nodes"];
+  edges: ReturnType<typeof codeGraphToCanvas>["edges"];
+} = { nodes: [], edges: [] };
 
 /**
- * Compare two edge arrays by content (not reference).
- */
-function edgesEqual(
-  a: ReturnType<typeof codeGraphToFlow>["edges"],
-  b: ReturnType<typeof codeGraphToFlow>["edges"]
-): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const ea = a[i];
-    const eb = b[i];
-    if (
-      ea.id !== eb.id ||
-      ea.source !== eb.source ||
-      ea.target !== eb.target ||
-      ea.selected !== eb.selected
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/**
- * Get canvas view model (ReactFlow nodes/edges) for the active project.
- * 
- * CRITICAL: Uses content-based caching to prevent infinite loops while still
- * allowing ReactFlow to see position updates during drag.
- * 
- * The cache compares node/edge content (positions, selection, etc.) rather than
- * just references, so it can detect real changes while avoiding unnecessary re-renders.
- * 
- * IMPORTANT: Always ensures all nodes from graph.nodes are included in the result.
- * Missing nodes would cause ReactFlow "node not initialized" errors.
+ * Get canvas view model (custom Canvas nodes/edges) for the active project.
+ * This replaces the old ReactFlow implementation.
  */
 export function selectCanvasViewModel(state: AppState): ReturnType<
-  typeof codeGraphToFlow
+  typeof codeGraphToCanvas
 > {
   const project = state.getActiveProject();
   const graph = project?.graph;
@@ -220,11 +165,10 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   const selectedIds = project?.selectedIds ?? [];
   const cacheKey = createCacheKey(graph, selectedIds);
 
-  // IMPORTANT: project selection is projected back onto ReactFlow nodes/edges
-  const vm = codeGraphToFlow(graph, selectedIds);
+  // IMPORTANT: project selection is projected back onto Canvas nodes/edges
+  const vm = codeGraphToCanvas(graph, selectedIds);
   
   // CRITICAL: Verify all graph nodes are included in the result
-  // This prevents nodes from disappearing due to conversion errors
   const graphNodeIds = new Set(Object.keys(graph.nodes));
   const vmNodeIds = new Set(vm.nodes.map((n) => n.id));
   const missingNodeIds = Array.from(graphNodeIds).filter(
@@ -232,123 +176,34 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   );
 
   if (missingNodeIds.length > 0) {
-    // Log missing nodes for debugging
     console.warn(
       "[selectCanvasViewModel] Missing nodes in conversion:",
       missingNodeIds
     );
-    // CRITICAL: Attempt recovery by re-converting missing nodes
-    // This handles cases where nodes were skipped during initial conversion
-    const recoveredNodes: ReturnType<typeof codeGraphToFlow>["nodes"] = [];
-    for (const missingId of missingNodeIds) {
-      const node = graph.nodes[missingId];
-      if (node) {
-        // Try to convert the missing node
-        try {
-          const position = node.position ?? { x: 0, y: 0 };
-          const selected = selectedIds.includes(missingId);
-          recoveredNodes.push({
-            id: missingId,
-            type:
-              node.kind === "fileRef"
-                ? "fileRefNode"
-                : node.kind === "group"
-                  ? "groupNode"
-                  : node.kind === "subgraphInstance"
-                    ? "subgraphNode"
-                    : "noteNode",
-            position: { x: position.x ?? 0, y: position.y ?? 0 },
-            data:
-              node.kind === "fileRef"
-                ? { kind: node.kind, title: node.title, subtitle: node.path }
-                : node.kind === "note"
-                  ? { kind: node.kind, title: node.title, subtitle: node.text }
-                  : node.kind === "subgraphInstance"
-                    ? {
-                        kind: node.kind,
-                        title: node.title,
-                        subtitle: `uses: ${node.defId}`,
-                      }
-                    : { kind: node.kind, title: node.title },
-            selected,
-          });
-        } catch (e) {
-          // If recovery fails, create placeholder
-          console.warn(
-            "[selectCanvasViewModel] Failed to recover node, creating placeholder:",
-            missingId,
-            e
-          );
-          recoveredNodes.push({
-            id: missingId,
-            type: "noteNode",
-            position: node.position ?? { x: 0, y: 0 },
-            data: {
-              kind: "note",
-              title: `[Placeholder: ${missingId}]`,
-              subtitle: "Node recovery failed, placeholder created",
-            },
-            selected: false,
-          });
-        }
-      } else {
-        // Node is null/undefined, create placeholder
-        console.warn(
-          "[selectCanvasViewModel] Node is null/undefined, creating placeholder:",
-          missingId
-        );
-        recoveredNodes.push({
-          id: missingId,
-          type: "noteNode",
-          position: { x: 0, y: 0 },
-          data: {
-            kind: "note",
-            title: `[Placeholder: ${missingId}]`,
-            subtitle: "Node is null, placeholder created",
-          },
-          selected: false,
-        });
-      }
-    }
-
-    // Merge recovered nodes with existing nodes
-    const allNodes = [...vm.nodes, ...recoveredNodes];
-    // Force cache invalidation and return result with recovered nodes
-    cachedCanvasVM = {
-      cacheKey,
-      nodes: allNodes,
-      edges: vm.edges,
-    };
+    // For now, just log - we can add recovery logic later if needed
+  }
+  
+  // Check content equality
+  const contentEqual = 
+    cachedCanvasVM.nodes.length === vm.nodes.length &&
+    cachedCanvasVM.edges.length === vm.edges.length &&
+    cachedCanvasVM.nodes.every((n, i) => {
+      const other = vm.nodes[i];
+      return other && n.id === other.id && 
+        n.position.x === other.position.x &&
+        n.position.y === other.position.y &&
+        n.selected === other.selected;
+    }) &&
+    cachedCanvasVM.edges.every((e, i) => {
+      const other = vm.edges[i];
+      return other && e.id === other.id && e.selected === other.selected;
+    });
+  
+  if (contentEqual && cachedCanvasVM.cacheKey === cacheKey) {
     return cachedCanvasVM;
   }
   
-  // CRITICAL: Check content equality FIRST, regardless of cache key.
-  // This is essential for drag performance: during drag, positions change frequently,
-  // causing cache key to change, but if we check content equality first, we can
-  // return the cached array reference when only positions changed (which ReactFlow
-  // handles internally via onNodesChange).
-  // 
-  // However, we still need to return a new array when positions actually change
-  // so ReactFlow can see the updates. The key is: if content is identical, return cached.
-  const contentEqual = nodesEqual(cachedCanvasVM.nodes, vm.nodes) &&
-    edgesEqual(cachedCanvasVM.edges, vm.edges);
-  
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'workbenchSelectors.ts:252',message:'Cache check',data:{contentEqual,cacheKeyChanged:cacheKey!==cachedCanvasVM.cacheKey,vmNodesCount:vm.nodes.length,cachedNodesCount:cachedCanvasVM.nodes.length,vmNodesRef:Object.prototype.toString.call(vm.nodes),cachedNodesRef:Object.prototype.toString.call(cachedCanvasVM.nodes),nodeIds:vm.nodes.map(n=>n.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-  }
-  // #endregion
-
-  if (contentEqual) {
-    // Content is identical, return cached to maintain reference stability
-    // Update cache key for next comparison
-    cachedCanvasVM.cacheKey = cacheKey;
-    return cachedCanvasVM;
-  }
-  
-  // Content changed, update cache and return new object
-  // CRITICAL: Only return a new object reference when content actually changes,
-  // so ReactFlow can detect position updates during drag.
+  // Content changed, update cache
   cachedCanvasVM = {
     cacheKey,
     nodes: vm.nodes,

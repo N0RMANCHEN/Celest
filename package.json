@@ -12,7 +12,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@xyflow/react": "^12.10.0",
     "@monaco-editor/react": "^4.7.0",
     "nanoid": "^5.1.6",
     "react": "^19.2.0",

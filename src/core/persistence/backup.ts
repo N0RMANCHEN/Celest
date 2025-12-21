@@ -157,7 +157,7 @@ export async function loadBackupFile<T>(
     try {
       const text = await file.text();
       return JSON.parse(text) as T;
-    } catch (e) {
+    } catch {
       // Backup file is corrupted, try next one
       continue;
     }

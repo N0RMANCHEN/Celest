@@ -5,10 +5,10 @@
  *
  * NOTE:
  * - Left Tree uses FsIndexSnapshot.
- * - Canvas uses CodeGraphModel (converted to ReactFlow view-model).
+ * - Canvas uses CodeGraphModel (converted to custom Canvas view-model).
  */
 
-import FlowCanvas from "../features/canvas/FlowCanvas";
+import { Canvas } from "../features/canvas/Canvas";
 import BottomToolbar from "../features/canvas/BottomToolbar";
 import InspectorPanel from "../features/inspector/InspectorPanel";
 import TerminalPanel from "../features/terminal/TerminalPanel";
@@ -16,14 +16,12 @@ import TerminalPanel from "../features/terminal/TerminalPanel";
 import { useWorkbenchModel } from "../state/hooks/useWorkbenchModel";
 import { ErrorBoundary } from "../shared/ErrorBoundary";
 import { useAppStore } from "../state/store";
-import { useEffect, useRef } from "react";
 
 import LeftSidebar from "./workbench/LeftSidebar";
 
 export default function Workspace() {
   const vm = useWorkbenchModel();
   const terminalLog = useAppStore((s) => s.terminalLog);
-  const placeholderNodesRef = useRef<Set<string>>(new Set());
 
   if (!vm.project) return null;
 
@@ -34,29 +32,6 @@ export default function Workspace() {
     );
     console.error("[Workspace] Canvas error:", error, errorInfo);
   };
-
-  // Detect placeholder nodes and log to terminal
-  useEffect(() => {
-    const placeholderNodes = vm.canvasNodes.filter(
-      (n) => n.data.title?.startsWith("[Placeholder:")
-    );
-    const newPlaceholderIds = new Set(
-      placeholderNodes.map((n) => n.id)
-    );
-    const previousIds = placeholderNodesRef.current;
-
-    // Log newly detected placeholder nodes
-    for (const node of placeholderNodes) {
-      if (!previousIds.has(node.id)) {
-        terminalLog(
-          "warn",
-          `Node conversion failed for "${node.id}", placeholder created. Check console for details.`
-        );
-      }
-    }
-
-    placeholderNodesRef.current = newPlaceholderIds;
-  }, [vm.canvasNodes, terminalLog]);
 
   return (
     <div className="workbench">
@@ -80,7 +55,7 @@ export default function Workspace() {
           {/* IMPORTANT: make canvas container relative so the toolbar anchors to canvas */}
           <div className="centerStack__canvas" style={{ position: "relative" }}>
             <ErrorBoundary onError={handleCanvasError}>
-              <FlowCanvas
+              <Canvas
                 nodes={vm.canvasNodes}
                 edges={vm.canvasEdges}
                 onNodesChange={vm.onNodesChange}

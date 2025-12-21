@@ -5,10 +5,9 @@
  *
  * P1-5: Refactored to use selectors for derived state.
  * - Left Tree uses FsIndexSnapshot.
- * - Canvas uses CodeGraphModel (converted to ReactFlow view model).
+ * - Canvas uses CodeGraphModel (converted to custom Canvas view model).
  *
- * P1-1:
- * - state layer must not depend on ReactFlow/@xyflow types.
+ * P0-1.5: ReactFlow has been replaced with custom Canvas implementation.
  */
 
 import { useCallback } from "react";
@@ -61,9 +60,9 @@ export function useWorkbenchModel() {
     useShallow((s) => selectFocusRequest(s))
   );
   
-  // CRITICAL: selectCanvasViewModel now returns a stable object reference when content is unchanged.
+  // P0-1.5: Use custom Canvas implementation (replaces ReactFlow)
+  // CRITICAL: selectCanvasViewModel returns a stable object reference when content is unchanged.
   // We don't need useShallow here because the selector itself handles reference stability.
-  // This allows ReactFlow to see position updates during drag while preventing infinite loops.
   const canvasVM = useAppStore(selectCanvasViewModel);
   const canvasNodes = canvasVM.nodes;
   const canvasEdges = canvasVM.edges;

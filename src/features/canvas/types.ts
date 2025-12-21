@@ -1,16 +1,16 @@
 /**
  * features/canvas/types.ts
  * ----------------
- * Canvas (ReactFlow) view-model types.
+ * Canvas view-model types.
  * 
  * P1-3: These types are UI/view-model specific and should not be in entities layer.
- * They define the data shapes used by ReactFlow nodes/edges.
+ * They define the data shapes used by the custom Canvas implementation.
  */
 
 import type { CodeNodeKind } from "../../entities/graph/types";
 
 /**
- * ReactFlow node type identifiers.
+ * Canvas node type identifiers.
  */
 export type CanvasNodeType =
   | "noteNode"
@@ -19,7 +19,7 @@ export type CanvasNodeType =
   | "subgraphNode";
 
 /**
- * Data shape for ReactFlow nodes.
+ * Data shape for Canvas nodes.
  */
 export type CanvasNodeData = {
   kind: CodeNodeKind;
@@ -28,7 +28,7 @@ export type CanvasNodeData = {
 };
 
 /**
- * Data shape for ReactFlow edges.
+ * Data shape for Canvas edges.
  */
 export type CanvasEdgeData = {
   edgeKind: "flow";

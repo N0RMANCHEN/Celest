@@ -16,12 +16,7 @@ body * {
   cursor: default !important;
 }
 
-/* 2) ReactFlow connect handles: show crosshair (still not a hand cursor) */
-.react-flow__handle {
-  cursor: crosshair !important;
-}
-
-/* 3) Typing areas: keep I-beam */
+/* 2) Typing areas: keep I-beam */
 input[type="text"],
 input[type="search"],
 input[type="email"],

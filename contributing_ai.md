@@ -42,6 +42,13 @@ AI must respect these boundaries:
 
 Violations require user approval.
 
+**UI ↔ Domain 解耦守则（补充约束）**
+- UI 组件只消费视图模型/事件契约，不直接操作领域模型或文件 IO。
+- 交互/几何/拖拽/选中等规则放 `core/` 或 `utils/` 纯函数层，组件仅调用。
+- Adapter 负责领域模型 ⇄ 视图模型转换（如 `codeGraphToCanvas`）；新增能力优先改 adapter，而非在 UI 内引用领域类型。
+- 状态读写走 slices/selectors，不在组件内直接 mutate store 或拼装领域数据。
+- 持久化/迁移/FS 访问留在 usecase 或 `core/persistence`，UI 事件中只触发 action。
+
 ---
 
 ## 3. How to Make Changes

@@ -17,14 +17,20 @@ import {
 import type { CodeGraphModel } from "../../entities/graph/types";
 
 class MockFile {
-  constructor(public content: string) {}
+  content: string;
+  constructor(content: string) {
+    this.content = content;
+  }
   async text(): Promise<string> {
     return this.content;
   }
 }
 
 class MockWritable {
-  constructor(private file: MockFile) {}
+  private file: MockFile;
+  constructor(file: MockFile) {
+    this.file = file;
+  }
   async write(text: string): Promise<void> {
     this.file.content = String(text);
   }
@@ -33,7 +39,10 @@ class MockWritable {
 
 class MockFileHandle {
   kind = "file" as const;
-  constructor(private file: MockFile) {}
+  private file: MockFile;
+  constructor(file: MockFile) {
+    this.file = file;
+  }
   async getFile(): Promise<MockFile> {
     return this.file;
   }
@@ -67,8 +76,7 @@ class MockDirectoryHandle {
       return dir;
     }
     const err = new Error("NotFoundError");
-    // @ts-expect-error simulate DOMException name
-    err.name = "NotFoundError";
+    (err as any).name = "NotFoundError";
     throw err;
   }
 
@@ -84,8 +92,7 @@ class MockDirectoryHandle {
       return new MockFileHandle(f);
     }
     const err = new Error("NotFoundError");
-    // @ts-expect-error simulate DOMException name
-    err.name = "NotFoundError";
+    (err as any).name = "NotFoundError";
     throw err;
   }
 
@@ -93,8 +100,7 @@ class MockDirectoryHandle {
     if (this.files.delete(name)) return;
     if (this.dirs.delete(name)) return;
     const err = new Error("NotFoundError");
-    // @ts-expect-error simulate DOMException name
-    err.name = "NotFoundError";
+    (err as any).name = "NotFoundError";
     throw err;
   }
 

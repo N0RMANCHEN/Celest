@@ -131,19 +131,12 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
 
   onNodesChange: (changes: CanvasNodeChange[]) => {
     if (changes.length === 0) return;
-    
-    // #region agent log
-    if (typeof window !== 'undefined') {
-      fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'graphSlice.ts:132',message:'onNodesChange called',data:{changesCount:changes.length,changeTypes:changes.map(c=>c.type),nodeIds:changes.map(c=>c.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    }
-    // #endregion
-    
+
     let didChange = false;
     set((s) => {
       const project = s.getActiveProject();
-      const graphBefore = project?.graph;
-      const graphNodeIdsBefore = graphBefore ? Object.keys(graphBefore.nodes) : [];
-      
+      if (!project) return {};
+
       const nextProjects = mapActiveProject(s.projects, s.activeProjectId, (p) => {
         let g = p.graph;
         for (const ch of changes) {
@@ -156,22 +149,11 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
               y: ch.position.y,
             });
           } else if (ch.type === "remove") {
-            // #region agent log
-            if (typeof window !== 'undefined') {
-              fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'graphSlice.ts:149',message:'Removing node',data:{nodeId:ch.id,graphNodeIdsBefore},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            }
-            // #endregion
             g = removeNode(g, ch.id);
           }
         }
         if (g === p.graph) return p;
         didChange = true;
-        const graphNodeIdsAfter = Object.keys(g.nodes);
-        // #region agent log
-        if (typeof window !== 'undefined') {
-          fetch('http://127.0.0.1:7243/ingest/235ef1dd-c85c-4ef1-9b5d-11ecf4cd6583',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'graphSlice.ts:156',message:'Graph updated',data:{graphNodeIdsBefore,graphNodeIdsAfter,removedNodes:graphNodeIdsBefore.filter(id=>!graphNodeIdsAfter.includes(id))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        }
-        // #endregion
         return { ...p, graph: g };
       });
       

@@ -102,15 +102,6 @@
   height: 2px;
 }
 
-/* 拖动状态：保持不变，不改变颜色 */
-.resizable-pane.is-dragging .resizable-pane__divider--vertical {
-  /* 拖动时不改变样式，保持 hover 状态 */
-}
-
-.resizable-pane.is-dragging .resizable-pane__divider--horizontal {
-  /* 拖动时不改变样式，保持 hover 状态 */
-}
-
 /* 拖动时禁止选择文本 */
 .resizable-pane.is-dragging {
   user-select: none;

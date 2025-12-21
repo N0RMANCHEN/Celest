@@ -8,14 +8,20 @@ import {
 } from "./backup";
 
 class MockFile {
-  constructor(public content: string) {}
+  content: string;
+  constructor(content: string) {
+    this.content = content;
+  }
   async text(): Promise<string> {
     return this.content;
   }
 }
 
 class MockWritable {
-  constructor(private file: MockFile) {}
+  private file: MockFile;
+  constructor(file: MockFile) {
+    this.file = file;
+  }
   async write(text: string): Promise<void> {
     this.file.content = String(text);
   }
@@ -25,7 +31,10 @@ class MockWritable {
 }
 
 class MockFileHandle {
-  constructor(private file: MockFile) {}
+  private file: MockFile;
+  constructor(file: MockFile) {
+    this.file = file;
+  }
   async getFile(): Promise<MockFile> {
     return this.file;
   }
@@ -57,8 +66,7 @@ class MockDirectoryHandle {
       return new MockFileHandle(file);
     }
     const err = new Error("NotFoundError");
-    // @ts-expect-error - simulate DOMException name
-    err.name = "NotFoundError";
+    (err as any).name = "NotFoundError";
     throw err;
   }
 
@@ -66,8 +74,7 @@ class MockDirectoryHandle {
     const existed = this.files.delete(name);
     if (!existed) {
       const err = new Error("NotFoundError");
-      // @ts-expect-error - simulate DOMException name
-      err.name = "NotFoundError";
+      (err as any).name = "NotFoundError";
       throw err;
     }
   }

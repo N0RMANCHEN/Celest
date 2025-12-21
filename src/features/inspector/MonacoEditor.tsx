@@ -17,17 +17,23 @@ const DEFAULT_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   fontSize: 13,
   fontFamily:
     '"MiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  fontWeight: "400",
+  lineHeight: 20,
   wordWrap: "on",
   lineNumbers: "off",
   smoothScrolling: true,
   tabSize: 2,
-  padding: { top: 8, bottom: 8 },
+  padding: { top: 6, bottom: 10 },
   automaticLayout: true,
   glyphMargin: false,
   renderLineHighlight: "none",
   renderLineHighlightOnlyWhenFocus: true,
   guides: { indentation: false },
   lineDecorationsWidth: 0,
+  renderWhitespace: "none",
+  matchBrackets: "never",
+  selectionHighlight: false,
+  occurrencesHighlight: "off",
   scrollbar: {
     vertical: "hidden",
     horizontal: "hidden",
@@ -37,6 +43,8 @@ const DEFAULT_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
     horizontalScrollbarSize: 0,
   },
 };
+
+const ACCENT_COLOR = "#24414E";
 
 type Props = {
   value: string;
@@ -53,6 +61,42 @@ export default function MonacoEditor({
 }: Props) {
   return (
     <div style={{ ...wrapperStyle, height }}>
+      <style>
+        {`
+        .monaco-editor,
+        .monaco-editor .margin,
+        .monaco-editor .mtk1,
+        .monaco-editor .mtk2,
+        .monaco-editor .mtk3,
+        .monaco-editor .mtk4,
+        .monaco-editor .mtk5,
+        .monaco-editor .mtk6,
+        .monaco-editor .mtk7,
+        .monaco-editor .mtk8,
+        .monaco-editor .mtk9 {
+          color: ${ACCENT_COLOR};
+        }
+        .monaco-editor .view-line > span {
+          color: ${ACCENT_COLOR};
+        }
+        /* 柔和的选区效果，避免深灰大片 */
+        .monaco-editor .selected-text {
+          background: rgba(36, 65, 78, 0.08) !important;
+        }
+        .monaco-editor .view-lines span::selection {
+          background: rgba(36, 65, 78, 0.08) !important;
+          color: ${ACCENT_COLOR};
+        }
+        .monaco-editor .selectionHighlight {
+          background: transparent !important;
+        }
+        /* 去掉括号匹配的方框 */
+        .monaco-editor .bracket-match {
+          background: transparent !important;
+          border: none !important;
+        }
+        `}
+      </style>
       <Editor
         height="100%"
         width="100%"

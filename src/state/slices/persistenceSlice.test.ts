@@ -56,8 +56,8 @@ function makeStubProject(): StubProject {
     dirHandle: {},
     graph: { version: 1, nodes: {}, edges: {} },
     views: [
-      { id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1 } },
-      { id: "view2", name: "View 2", viewport: { x: 10, y: 20, zoom: 0.8 } },
+      { id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1, z: 1 } },
+      { id: "view2", name: "View 2", viewport: { x: 10, y: 20, zoom: 0.8, z: 0.8 } },
     ],
     activeViewId: "main",
   };

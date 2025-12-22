@@ -14,7 +14,7 @@ Phase 1 目标是一个纯 Web（浏览器）MVP：用 **File System Access API*
 - **左侧索引**：文件/节点索引树（用于导航）
   - **Views / Pages（VERY IMPORTANT）**：位于左侧索引顶部，类似 Figma Pages，用于切换 active graph / mode
 - **中心 Canvas**：架构编辑的 Source of Truth（已实现自定义画布系统，SVG 渲染，Figma 级交互）
-- **右侧 Inspector**：编辑/属性面板（Phase 1 用 Monaco，`.md` 直接编辑并保存到真实文件）
+- **右侧 Inspector**：编辑/属性面板（Phase 1 用 CodeMirror，`.md` 直接编辑并保存到真实文件）
 - **底部 Terminal**：占位（Phase 1 仅展示日志/输出容器）
 
 长期方向（已在代码结构中预埋）：
@@ -34,7 +34,7 @@ Phase 1 目标是一个纯 Web（浏览器）MVP：用 **File System Access API*
 - ✅ 打开项目文件夹（File System Access API）
 - ✅ 持久化写入 `/.celest/`（`workspace.json` + `graphs/main.json`）
 - ✅ Canvas 基础：自定义 SVG 画布系统，Figma 级交互（点击选择、框选、拖拽、平移、缩放、双击创建节点）
-- ✅ Inspector：Monaco 编辑 + 写回真实文件
+- ✅ Inspector：CodeMirror 编辑 + 写回真实文件
 - ✅ Terminal：placeholder
 - ✅ 自动迁移：从旧版 `.nodeide/` 自动迁移到 `.celest/`
 
@@ -124,7 +124,7 @@ npm run build
   - `core/`：ViewportManager、SelectionManager、DragManager、BoxSelection
   - `components/`：CanvasNode、CanvasEdge、SelectionBox
   - `adapters/codeGraphToCanvas.ts`：领域模型到画布视图模型的转换
-- `src/features/inspector/*`：Monaco 编辑器 + 保存
+- `src/features/inspector/*`：CodeMirror 编辑器 + 保存
 - `src/features/terminal/*`：Terminal 占位
 
 Shell（布局与交互）：
@@ -174,65 +174,11 @@ Shell（布局与交互）：
 - Canvas 已实现自定义画布系统（SVG 渲染，Figma 级交互），完全替换 ReactFlow
 - FS Index 与 CodeGraph 分离（左侧树 ≠ 画布资产）
 - 自动迁移：从 `.nodeide/` 迁移到 `.celest/`
+- Inspector 使用 CodeMirror 编辑器（Markdown 编辑）
 
 ---
 
-## 1) 已完成（✅）
-
-### P0（稳定基座）
-
-- ✅ 清理 `_legacy` 编译期依赖（已完全移除 ReactFlow 和 `_legacy` 目录）
-- ✅ 面板开关驱动布局（Left / Inspector / Terminal 可隐藏，Canvas 优先铺满）
-- ✅ File System Access API TS 类型补齐（strict TS，不靠 any）
-- ✅ FS 扫描默认 ignore（node_modules/.git/dist/.next/.celest 等）避免卡死
-- ✅ 不支持 File System Access API 的提示兜底（避免白屏）
-
-### P1（交互高收益 + 分层洁净）
-
-- ✅ BottomToolbar 固定在 Canvas 底部居中（不被 Terminal 展开影响）
-- ✅ 删除闭环：Delete/Backspace 删除节点（可靠）
-- ✅ 选中可视化：节点选中为 tint（非描边）
-- ✅ 选中即时同步：点击 Node/Edge 立刻写入 store selection（Inspector/高亮不再需要再点空白）
-- ✅ Cursor 规范：全站无"小手 pointer"，默认箭头；输入区域保持 I-beam
-- ✅ 拖动/轻点分离：拖动时选中态不闪
-- ✅ **P1-1**：彻底隔离 UI 引擎（state 层使用 Canvas* 契约，不直接依赖任何 UI 库类型）
-- ✅ **P1-2**：ProjectState / ViewState 收敛到 `entities/project/types.ts`（Snapshot vs Runtime 分离）
-- ✅ **P1-3**：`entities/graph/types.ts` 去 Canvas* 命名（Canvas 视图类型移至 `features/canvas/types.ts`）
-- ✅ **P1-4**：FS Index path-based id（`fs:${normalizePath(relPath)}`）+ FS Tree UI 持久化闭环
-- ✅ **P1-5**：`useWorkbenchModel` 变薄（selector 化，已迁移至 `state/selectors/*`，有单测）
-- ✅ **P1-6**：Canvas 交互一致性（Figma-like：点击即选中、光标策略）
-
-### P0-2 持久化文件错误处理与版本管理（✅ 已完成）
-
-**状态**：已完成
-
-**交付**：
-- ✅ **错误恢复**：
-  - 文件损坏时自动创建备份（`.celest/workspace.json.backup`）
-  - 提供"重置为默认值"的降级选项
-  - 添加文件完整性校验
-- ✅ **版本迁移**：
-  - 实现 `migrateWorkspaceFile(v1 -> v2)` 函数
-  - 实现 `migrateGraphFile(v1 -> v2)` 函数
-  - 支持向后兼容（读取旧版本，写入新版本）
-- ✅ **备份机制**：
-  - 保存前自动备份（`.celest/workspace.json.backup`）
-  - 支持手动备份/恢复功能
-- ✅ **错误报告**：
-  - 详细的错误日志（文件路径、错误类型、建议操作）
-  - 用户友好的错误提示（UI 中显示）
-- ✅ **目录迁移**：
-  - 自动从 `.nodeide/` 迁移到 `.celest/`
-
-**DoD**：
-- ✅ 文件损坏时能自动恢复或提示用户
-- ✅ 版本升级时能自动迁移数据
-- ✅ 有备份机制防止数据丢失
-- ✅ 错误信息清晰，便于排查
-
----
-
-## 2) Roadmap（待完成项）
+## Roadmap（待完成项）
 
 > 说明：下面是面向下一阶段的执行版；每个 task 都要保持"最小变更集"。
 
@@ -240,19 +186,12 @@ Shell（布局与交互）：
 
 #### P0-1.5 自定义画布系统完善（🔄 进行中）
 
-**状态**：基础实现完成，但需要完善以达到生产质量
+**状态**：基础实现完成，等待用户反馈后针对性优化
 
 **当前进度**：
 - ✅ 实现自定义画布系统（SVG 渲染）
-- ✅ 基础交互实现：
-  - ✅ 点击选择（单选）
-  - ✅ 框选（部分重叠即选中）
-  - ✅ 节点拖拽（单个、多个）
-  - ✅ 视口管理（平移、缩放）
-  - ✅ 双击创建节点
+- ✅ 基础交互实现（点击选择、框选、拖拽、平移、缩放、双击创建）
 - ✅ 边连接系统（handles、连接、路由）
-- ✅ 保持 API 兼容（使用 `canvasEvents.ts` 契约）
-- ✅ 替换 `FlowCanvas.tsx` 为 `Canvas.tsx`
 - ✅ 完全移除 ReactFlow 依赖
 
 **待完善项（待用户反馈后补充）**：
@@ -260,14 +199,12 @@ Shell（布局与交互）：
 - ⏳ 交互细节优化
 - ⏳ 性能优化
 - ⏳ 边界情况处理
-- ⏳ 测试覆盖
 
 **DoD（目标）**：
 - 画布功能完全对等或超越 ReactFlow 版本
 - 所有交互行为完全符合 Figma
 - 无错误和性能问题
 - 用户体验流畅自然
-
 
 ---
 
@@ -280,13 +217,10 @@ Shell（布局与交互）：
 - Shift 点击 toggle selection；框选多选；Inspector 多选态显示"批量操作/仅显示计数"
 - DoD：多选稳定、删除行为符合预期
 
-#### P1-B2 Inspector 增加 Delete 按钮（非快捷键依赖）
+#### P1-B2 Inspector CodeMirror language mapping（按扩展名选择语言）
 
-- DoD：不靠键盘也能删除选中节点/边
-
-#### P1-B3 Inspector Monaco language mapping（按扩展名选择语言）
-
-- DoD：`.md/.ts/.json` 等至少覆盖一批常用后缀
+- 按文件扩展名自动选择 CodeMirror 语言模式
+- DoD：`.md/.ts/.json/.js/.tsx/.jsx/.css/.html` 等至少覆盖一批常用后缀
 
 #### P1-B4 Inspector Markdown（CM6）对齐 Obsidian（交互/视觉）
 
@@ -346,13 +280,25 @@ Shell（布局与交互）：
 
 ### P3（工程护栏：避免未来再次大重构）
 
-#### P3-1 架构健康度 Checklist
+#### P3-1 架构健康度 Checklist ✅ 已完成
 
-- 输出：`docs/architecture-checklist.md`
-- 每次变更前后对照：
-  - FS Index / CodeGraph / MirrorGraph 分离
-  - adapter 边界未破坏（state 不依赖 UI 引擎类型）
-  - persistence schema 可升级（versioned）
+**状态**：已完成
+
+**交付**：
+- ✅ 输出：`docs/architecture-checklist.md`
+- ✅ 包含完整的检查清单：
+  - 分层边界检查（entities/core/state/features/shell）
+  - 模型分离检查（FS Index ≠ CodeGraph ≠ Knowledge Tree）
+  - UI ↔ Domain 解耦检查
+  - 依赖方向检查
+  - Persistence Schema 检查
+  - 代码质量检查
+  - 变更前后验证流程
+
+**DoD**：
+- ✅ 有可执行的架构健康检查清单
+- ✅ 包含常见违规模式和正确示例
+- ✅ 提供快速参考和检查流程
 
 ---
 

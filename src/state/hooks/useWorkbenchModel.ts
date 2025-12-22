@@ -10,7 +10,7 @@
  * P0-1.5: ReactFlow has been replaced with custom Canvas implementation.
  */
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import type { CanvasViewport } from "../../entities/canvas/canvasEvents";
@@ -29,6 +29,7 @@ import {
   selectCanvasViewModel,
   type FocusRequest,
 } from "../selectors/workbenchSelectors";
+import { selectInspectorNodeViewModel } from "../selectors/inspectorSelectors";
 
 const FALLBACK_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1, z: 1 };
 
@@ -45,6 +46,7 @@ export function useWorkbenchModel() {
   const fsIndex = useAppStore(selectActiveFsIndex);
   const fsSelectedId = useAppStore(selectActiveFsSelectedId);
   const selectedGraphNode = useAppStore(selectSelectedGraphNode);
+  const inspectorNodeViewModel = useAppStore(selectInspectorNodeViewModel);
   
   // CRITICAL: Use useShallow for selectors that return objects/arrays to prevent infinite loops.
   // These selectors return new references on every call, causing React to think state changed.
@@ -100,9 +102,14 @@ export function useWorkbenchModel() {
   );
 
   const activeViewId = activeView?.id ?? "main";
-  const viewport = activeView
-    ? { ...activeView.viewport, z: activeView.viewport.z ?? activeView.viewport.zoom }
-    : FALLBACK_VIEWPORT;
+  // CRITICAL: Cache viewport object to prevent infinite loops
+  // Use useMemo to ensure stable reference when values haven't changed
+  const viewport = useMemo(() => {
+    if (activeView) {
+      return { ...activeView.viewport, z: activeView.viewport.z ?? activeView.viewport.zoom };
+    }
+    return FALLBACK_VIEWPORT;
+  }, [activeView?.viewport.x, activeView?.viewport.y, activeView?.viewport.zoom, activeView?.viewport.z]);
 
   const handleCreateNote = useCallback(
     (pos: Vec2) => {
@@ -127,38 +134,73 @@ export function useWorkbenchModel() {
     [project, selectFsEntry]
   );
 
-  return {
-    panels,
-    project,
-    selectedInfo,
+  // CRITICAL: Use useMemo to cache the return object to prevent infinite loops
+  // This ensures the object reference is stable when dependencies haven't changed
+  return useMemo(
+    () => ({
+      panels,
+      project,
+      selectedInfo,
 
-    fsIndex,
-    fsExpanded,
-    fsSelectedId,
-    activeFilePath,
-    saveUi,
+      fsIndex,
+      fsExpanded,
+      fsSelectedId,
+      activeFilePath,
+      saveUi,
 
-    canvasNodes,
-    canvasEdges,
+      canvasNodes,
+      canvasEdges,
 
-    activeViewId,
-    viewport,
-    focusRequest,
-    selectedGraphNode,
+      activeViewId,
+      viewport,
+      focusRequest,
+      selectedGraphNode,
+      inspectorNodeViewModel,
 
-    onNodesChange,
-    onEdgesChange,
-    onConnect,
-    onSelectionChange,
-    onCreateNoteNodeAt: handleCreateNote,
-    onUpdateNodeTitle: updateNodeTitle,
-    onUpdateNoteText: updateNoteText,
-    onUpdateFilePath: updateFilePath,
+      onNodesChange,
+      onEdgesChange,
+      onConnect,
+      onSelectionChange,
+      onCreateNoteNodeAt: handleCreateNote,
+      onUpdateNodeTitle: updateNodeTitle,
+      onUpdateNoteText: updateNoteText,
+      onUpdateFilePath: updateFilePath,
 
-    setActiveView,
-    updateActiveViewViewport,
-    toggleFsExpanded: handleToggleFsExpanded,
-    selectFsEntry: handleSelectFsEntry,
-    openFile,
-  };
+      setActiveView,
+      updateActiveViewViewport,
+      toggleFsExpanded: handleToggleFsExpanded,
+      selectFsEntry: handleSelectFsEntry,
+      openFile,
+    }),
+    [
+      panels,
+      project,
+      selectedInfo,
+      fsIndex,
+      fsExpanded,
+      fsSelectedId,
+      activeFilePath,
+      saveUi,
+      canvasNodes,
+      canvasEdges,
+      activeViewId,
+      viewport,
+      focusRequest,
+      selectedGraphNode,
+      inspectorNodeViewModel,
+      onNodesChange,
+      onEdgesChange,
+      onConnect,
+      onSelectionChange,
+      handleCreateNote,
+      updateNodeTitle,
+      updateNoteText,
+      updateFilePath,
+      setActiveView,
+      updateActiveViewViewport,
+      handleToggleFsExpanded,
+      handleSelectFsEntry,
+      openFile,
+    ]
+  );
 }

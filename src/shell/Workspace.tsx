@@ -51,7 +51,7 @@ export default function Workspace() {
   // 右侧面板
   const rightPanel = vm.panels.inspector ? (
     <InspectorPanel
-      selectedNode={vm.selectedGraphNode}
+      selectedNode={vm.inspectorNodeViewModel}
       selectedFsEntry={vm.selectedInfo}
       saveUi={vm.saveUi}
       onChangeTitle={vm.onUpdateNodeTitle}

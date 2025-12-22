@@ -169,7 +169,7 @@ export type EditorSlice = {
   /**
    * Phase 1 Step4B:
    * Minimal editor state, used when selecting a file from the left tree.
-   * Step6 will upgrade this into Monaco buffers + save/load.
+   * Step6 will upgrade this into CodeMirror buffers + save/load.
    */
   activeFilePath: string | null;
   openFile: (path: string) => void;

@@ -172,55 +172,7 @@ Unit tests are optional during MVP unless:
 
 ---
 
-## 11. Architecture Decision Process (协作方式)
-
-### 11.1 架构决策流程
-
-AI agents 在发现架构问题时，必须遵循以下流程：
-
-1. **识别问题**：发现可能违反架构原则的情况
-2. **提出建议**：说明问题，并提出建议（保持现状或修改）
-3. **说明理由**：解释为什么建议这样做
-4. **等待决策**：由用户最终决定是否采纳
-
-**禁止行为**：
-- ❌ 直接修改代码而不说明理由
-- ❌ 假设用户想要"完美架构"而过度设计
-- ❌ 创建不必要的抽象层而不先说明
-
-**正确做法**：
-- ✅ 发现问题时主动提出："这里可能违反 XX 原则，但我建议保持现状，因为..."
-- ✅ 说明理由：为什么这样做更好
-- ✅ 尊重用户决策：用户决定是否修复或改变
-
-### 11.2 架构原则的严格程度
-
-**必须严格遵循的原则**：
-- `entities/` 和 `core/` 不能导入 React
-- `state/` 不能导入 UI 引擎类型（如 ReactFlow、Monaco）
-- 持久化 schema 必须版本化
-- FS Index ≠ CodeGraph ≠ Knowledge Tree（严格分离）
-
-**可以灵活处理的情况**：
-- UI 组件直接使用领域模型（如果结构简单，不需要复杂转换）
-- 某些组件直接导入 `entities/` 的类型定义（如果只是类型，不是逻辑）
-- 简单的数据展示不需要视图模型层
-
-**判断标准**：
-- 是否需要复杂转换？（如 Canvas 需要坐标转换、选中态等 → 需要 adapter）
-- 领域模型是否包含 UI 不需要的字段？（是 → 考虑视图模型）
-- 是否需要多个视图变体？（是 → 考虑视图模型）
-- 如果以上都是"否"，直接使用领域模型更实用
-
-### 11.3 架构决策记录
-
-重要架构决策应记录在 `docs/architecture-decisions.md` 中，包括：
-- 决策内容
-- 决策理由
-- 替代方案
-- 影响范围
-
-## 12. Success Criteria
+## 11. Success Criteria
 
 A contribution is successful if:
 
@@ -228,4 +180,3 @@ A contribution is successful if:
 - It preserves existing behavior
 - It advances the current Step goal
 - It does not introduce hidden state
-- It follows the architecture decision process (Section 11)

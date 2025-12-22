@@ -17,8 +17,8 @@ vi.mock("../../core/persistence/loadSave", () => ({
     views: {
       activeViewId: "main",
       viewports: {
-        main: { x: 0, y: 0, zoom: 1, z: 1 },
-        view2: { x: 10, y: 20, zoom: 0.8, z: 0.8 },
+        main: { x: 0, y: 0, zoom: 1 },
+        view2: { x: 10, y: 20, zoom: 0.8 },
       },
     },
       graphs: {

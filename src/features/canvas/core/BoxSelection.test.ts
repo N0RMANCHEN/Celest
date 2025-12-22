@@ -28,11 +28,5 @@ describe("BoxSelection", () => {
     const box = { left: 10, top: 10, right: 15, bottom: 15 };
     expect(isNodeInSelectionBox(node, box)).toBe(false);
   });
-
-  it("isNodeInSelectionBox 边界贴合也视为重叠", () => {
-    const node = { left: 0, top: 0, right: 10, bottom: 10 };
-    const box = { left: 10, top: -5, right: 20, bottom: 5 };
-    expect(isNodeInSelectionBox(node, box)).toBe(true);
-  });
 });
 

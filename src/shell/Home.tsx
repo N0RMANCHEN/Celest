@@ -31,11 +31,11 @@ export default function Home() {
   const openProjectFolder = useAppStore((s) => s.openProjectFolder);
   const recents = useAppStore((s) => s.recents);
   const reopenRecent = useAppStore((s) => s.reopenRecent);
-  const openStatus = useAppStore((s) => s.openStatus);
+  const openStatus = useAppStore((s) => (s as { openStatus?: { state: string; message?: string } }).openStatus);
 
   const { canUse, isSecure, hasPicker } = getFsApiStatus();
-  const isOpening = openStatus.state === "opening";
-  const openError = openStatus.state === "error" ? openStatus.message : null;
+  const isOpening = openStatus?.state === "opening";
+  const openError = openStatus?.state === "error" ? openStatus.message : null;
 
   return (
     <div className="home">

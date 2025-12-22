@@ -85,6 +85,45 @@ export type GraphFileV1 = {
   };
 };
 
+// Minimal validators (Phase1: shape/check version)
+export function validateWorkspaceFile(
+  json: unknown,
+  filePath: string
+): { ok: true; value: WorkspaceFileV1 } | { ok: false; error: Error } {
+  if (
+    typeof json === "object" &&
+    json !== null &&
+    (json as { version?: unknown }).version === WORKSPACE_SCHEMA_VERSION
+  ) {
+    return { ok: true, value: json as WorkspaceFileV1 };
+  }
+  return {
+    ok: false,
+    error: new Error(
+      `[${filePath}] Validation failed: Missing or invalid version field`
+    ),
+  };
+}
+
+export function validateGraphFile(
+  json: unknown,
+  filePath: string
+): { ok: true; value: GraphFileV1 } | { ok: false; error: Error } {
+  if (
+    typeof json === "object" &&
+    json !== null &&
+    (json as { version?: unknown }).version === GRAPH_SCHEMA_VERSION
+  ) {
+    return { ok: true, value: json as GraphFileV1 };
+  }
+  return {
+    ok: false,
+    error: new Error(
+      `[${filePath}] Validation failed: Missing or invalid version field`
+    ),
+  };
+}
+
 export function nowIso(): string {
   return new Date().toISOString();
 }

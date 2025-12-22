@@ -65,8 +65,11 @@ describe("projectSlice open/reopen status", () => {
 
     await store.getState().openProjectFolder();
 
-    expect(store.getState().openStatus.state).toBe("error");
-    expect(store.getState().openStatus.message).toContain("boom");
+    const status = store.getState().openStatus;
+    expect(status.state).toBe("error");
+    if (status.state === "error") {
+      expect(status.message).toContain("boom");
+    }
     expect(terminalLog).toHaveBeenCalledWith("error", expect.stringContaining("boom"));
   });
 
@@ -133,8 +136,11 @@ describe("projectSlice open/reopen status", () => {
     const store = createStore({ terminalLog });
     await store.getState().reopenRecent("k");
 
-    expect(store.getState().openStatus.state).toBe("error");
-    expect(store.getState().openStatus.message).toContain("fail");
+    const status = store.getState().openStatus;
+    expect(status.state).toBe("error");
+    if (status.state === "error") {
+      expect(status.message).toContain("fail");
+    }
     expect(terminalLog).toHaveBeenCalledWith("error", expect.stringContaining("fail"));
   });
 });

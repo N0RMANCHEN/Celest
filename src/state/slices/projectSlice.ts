@@ -18,7 +18,6 @@ import {
 
 import { ensureWorkspaceFile } from "../../core/persistence/loadSave";
 import type { PersistenceError } from "../../core/persistence/errors";
-import { logger } from "../../shared/utils/logger";
 
 const adapter = createBrowserAdapter();
 
@@ -54,7 +53,7 @@ export const createProjectSlice: StateCreator<
       const recents = await listRecents();
       set({ recents });
     } catch (e) {
-      logger.warn(`[projectSlice] hydrateRecents failed: ${String(e)}`);
+      console.warn(`[projectSlice] hydrateRecents failed: ${String(e)}`);
     }
   },
 
@@ -85,31 +84,23 @@ export const createProjectSlice: StateCreator<
   },
 
   openProjectFolder: async () => {
-    const start = performance.now();
-    set({ openStatus: { state: "opening" } });
-    get().terminalLog("info", "正在打开项目文件夹并扫描文件...");
     const out = await openProjectFolderUsecase(adapter);
-    if (out.kind === "cancel") {
-      set({ openStatus: { state: "idle" } });
-      return;
-    }
+    if (out.kind === "cancel") return;
     if (out.kind === "error") {
-      set({ openStatus: { state: "error", message: out.message } });
-      get().terminalLog("error", `打开项目失败：${out.message}`);
       alertError(out.message);
+      set({
+        openStatus: {
+          state: "error",
+          message: out.message,
+        },
+      });
+      get().terminalLog("error", `Open project failed: ${out.message}`);
       return;
     }
+
+    get().terminalLog("info", `Opening project: ${out.project.name}`);
 
     const { project, recents, fsIndex } = out;
-    const elapsedMs = Math.round(performance.now() - start);
-    const metaValues = Object.values(project.meta ?? {});
-    const dirCount = metaValues.filter((m) => m.kind === "dir").length;
-    const fileCount = metaValues.filter((m) => m.kind === "file").length;
-    get().terminalLog(
-      "info",
-      `扫描完成：${dirCount} 个文件夹，${fileCount} 个文件（${elapsedMs}ms）`
-    );
-
     set((s) => ({
       projects: [...s.projects, project],
       activeProjectId: project.id,
@@ -150,7 +141,7 @@ export const createProjectSlice: StateCreator<
           selectedId: fsTree?.selectedId,
         });
       } catch (e) {
-        logger.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
+        console.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
       }
     }
 
@@ -163,31 +154,23 @@ export const createProjectSlice: StateCreator<
   },
 
   reopenRecent: async (key) => {
-    const start = performance.now();
-    set({ openStatus: { state: "opening" } });
-    get().terminalLog("info", "正在重新打开 Recent 项目并扫描文件...");
     const out = await reopenRecentUsecase(adapter, key);
-    if (out.kind === "cancel") {
-      set({ openStatus: { state: "idle" } });
-      return;
-    }
+    if (out.kind === "cancel") return;
     if (out.kind === "error") {
-      set({ openStatus: { state: "error", message: out.message } });
-      get().terminalLog("error", `重新打开失败：${out.message}`);
       alertError(out.message);
+      set({
+        openStatus: {
+          state: "error",
+          message: out.message,
+        },
+      });
+      get().terminalLog("error", `Reopen project failed: ${out.message}`);
       return;
     }
+
+    get().terminalLog("info", `Reopening project: ${out.project.name}`);
 
     const { project, recents, fsIndex } = out;
-    const elapsedMs = Math.round(performance.now() - start);
-    const metaValues = Object.values(project.meta ?? {});
-    const dirCount = metaValues.filter((m) => m.kind === "dir").length;
-    const fileCount = metaValues.filter((m) => m.kind === "file").length;
-    get().terminalLog(
-      "info",
-      `扫描完成：${dirCount} 个文件夹，${fileCount} 个文件（${elapsedMs}ms）`
-    );
-
     set((s) => ({
       projects: [...s.projects, project],
       activeProjectId: project.id,
@@ -228,7 +211,7 @@ export const createProjectSlice: StateCreator<
           selectedId: fsTree?.selectedId,
         });
       } catch (e) {
-        logger.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
+        console.warn(`[projectSlice] hydrate fsTree ui failed: ${String(e)}`);
       }
     }
 

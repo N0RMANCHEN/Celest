@@ -43,16 +43,18 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (
         const cur = p.views.find((v) => v.id === p.activeViewId);
         if (!cur) return p;
 
+        const currentZ = cur.viewport.z ?? cur.viewport.zoom;
+        const nextZ = vp.z ?? vp.zoom;
         if (
           cur.viewport.x === vp.x &&
           cur.viewport.y === vp.y &&
           cur.viewport.zoom === vp.zoom &&
-          cur.viewport.z === vp.z
+          currentZ === nextZ
         ) {
           return p;
         }
 
-        const nextViewport = { ...vp, z: vp.z ?? vp.zoom };
+        const nextViewport = { ...vp, z: nextZ };
         const views = p.views.map((v) =>
           v.id === p.activeViewId ? { ...v, viewport: nextViewport } : v
         );

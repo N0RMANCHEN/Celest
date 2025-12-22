@@ -65,6 +65,14 @@ export function isRecoverableError(error: PersistenceError): boolean {
   return error.recoverable;
 }
 
+// Helper: NotFoundError detection (File System Access API)
+export function isNotFoundError(e: unknown): boolean {
+  if (typeof e !== "object" || e === null) return false;
+  if (!("name" in e)) return false;
+  const name = (e as { name?: unknown }).name;
+  return typeof name === "string" && name === "NotFoundError";
+}
+
 /**
  * Common error creators for specific scenarios.
  */

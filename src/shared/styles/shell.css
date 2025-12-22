@@ -407,6 +407,7 @@
   flex-direction: column;
   background: var(--panel);
 }
+
 .terminal__header {
   height: 36px;
   display: flex;

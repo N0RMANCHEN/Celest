@@ -38,11 +38,13 @@ export function startDrag(
   draggedNodeIds: Set<string>;
   dragStartPositions: Map<string, { x: number; y: number }>;
 } {
-  // 选区保持不变；拖拽集合依据当前是否已选
+  // 如果未选中，被拖拽节点应加入选区（Figma 行为）
   const selectedIds = new Set(currentSelection);
-  const draggedNodeIds = selectedIds.has(nodeId)
-    ? new Set(selectedIds)
-    : new Set([nodeId]);
+  if (!selectedIds.has(nodeId)) {
+    selectedIds.add(nodeId);
+  }
+  // 拖拽集合 = 当前选区
+  const draggedNodeIds = new Set(selectedIds);
   const dragStartPositions = new Map<string, { x: number; y: number }>();
   
   for (const id of draggedNodeIds) {

@@ -1,15 +1,21 @@
 import type { CSSProperties, ReactElement } from "react";
-import { useMemo, lazy, Suspense } from "react";
+import { useMemo } from "react";
 
 import type { NodeKindSpec } from "../../entities/graph/registry";
 import { getNodeSpec } from "../../entities/graph/registry";
-import type { CodeGraphNode } from "../../entities/graph/types";
 import type { FsMeta } from "../../entities/fsIndex/types";
 import type { SaveUiState } from "../../state/types";
-const LazyEditor = lazy(() => import("./MonacoEditor"));
+import type { InspectorNodeViewModel } from "./types";
+import MonacoEditor from "./MonacoEditor";
+
+function isNoteViewModel(
+  node: InspectorNodeViewModel | null
+): node is InspectorNodeViewModel & { kind: "note"; text: string } {
+  return Boolean(node && node.kind === "note" && typeof node.text === "string");
+}
 
 type Props = {
-  selectedNode: CodeGraphNode | null;
+  selectedNode: InspectorNodeViewModel | null;
   selectedFsEntry: FsMeta | null;
   saveUi: SaveUiState | null;
   onChangeTitle: (nodeId: string, title: string) => void;
@@ -114,19 +120,21 @@ function SaveStatus({ ui }: { ui: SaveUiState | null }) {
   );
 }
 
+type NoteInspectorProps = {
+  node: InspectorNodeViewModel & { kind: "note"; text: string };
+  spec: NodeKindSpec;
+  saveUi: SaveUiState | null;
+  onChangeTitle: (nodeId: string, title: string) => void;
+  onChangeNoteText: (nodeId: string, text: string) => void;
+};
+
 function NoteInspector({
   node,
   spec,
   saveUi,
   onChangeTitle,
   onChangeNoteText,
-}: {
-  node: Extract<CodeGraphNode, { kind: "note" }>;
-  spec: NodeKindSpec;
-  saveUi: SaveUiState | null;
-  onChangeTitle: (nodeId: string, title: string) => void;
-  onChangeNoteText: (nodeId: string, text: string) => void;
-}): ReactElement {
+}: NoteInspectorProps): ReactElement {
   const titleInputId = useMemo(() => `title-${node.id}`, [node.id]);
 
   return (
@@ -170,9 +178,11 @@ function NoteInspector({
               marginLeft: 0,
             }}
           >
-            <Suspense fallback={<div style={{ padding: 12, fontSize: 12 }}>Loading editor…</div>}>
-              <LazyEditor value={node.text} onChange={(v) => onChangeNoteText(node.id, v)} height="100%" />
-            </Suspense>
+            <MonacoEditor
+            value={node.text ?? ""}
+              onChange={(v: string) => onChangeNoteText(node.id, v)}
+            height="100%"
+          />
           </div>
         </div>
       </div>
@@ -228,7 +238,7 @@ export default function InspectorPanel(props: Props) {
   const spec = props.selectedNode ? getNodeSpec(props.selectedNode.kind) : null;
 
   if (props.selectedNode && spec) {
-    if (props.selectedNode.kind === "note") {
+    if (isNoteViewModel(props.selectedNode)) {
       return (
         <NoteInspector
           node={props.selectedNode}

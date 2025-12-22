@@ -15,7 +15,18 @@ function createMockDirHandle(
         yield entry;
       }
     },
-  } as unknown as FileSystemDirectoryHandle;
+    getDirectoryHandle: async () => {
+      throw new Error("not implemented");
+    },
+    getFileHandle: async () => {
+      throw new Error("not implemented");
+    },
+    removeEntry: async () => {
+      throw new Error("not implemented");
+    },
+    resolve: async () => null,
+    isSameEntry: async () => false,
+  } as FileSystemDirectoryHandle;
   return handle;
 }
 
@@ -115,8 +126,7 @@ describe("scanFsMeta", () => {
 
     const result = await scanFsMeta(root, "Project");
 
-    // 目录应该在文件之前
-    // 由于排序是在 walk 函数内部进行的，我们验证结果包含所有条目
+    // 目录应该在文件之前，验证结果包含所有条目
     expect(result.meta["fs:/a"]).toBeDefined();
     expect(result.meta["fs:/z"]).toBeDefined();
     expect(result.meta["fs:/a.ts"]).toBeDefined();

@@ -29,6 +29,7 @@ import {
   selectCanvasViewModel,
   type FocusRequest,
 } from "../selectors/workbenchSelectors";
+import { selectInspectorNodeViewModel } from "../selectors/inspectorSelectors";
 
 const FALLBACK_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1, z: 1 };
 
@@ -45,6 +46,9 @@ export function useWorkbenchModel() {
   const fsIndex = useAppStore(selectActiveFsIndex);
   const fsSelectedId = useAppStore(selectActiveFsSelectedId);
   const selectedGraphNode = useAppStore(selectSelectedGraphNode);
+  const inspectorNodeViewModel = useAppStore(
+    useShallow((s) => selectInspectorNodeViewModel(s))
+  );
   
   // CRITICAL: Use useShallow for selectors that return objects/arrays to prevent infinite loops.
   // These selectors return new references on every call, causing React to think state changed.
@@ -145,6 +149,7 @@ export function useWorkbenchModel() {
     viewport,
     focusRequest,
     selectedGraphNode,
+    inspectorNodeViewModel,
 
     onNodesChange,
     onEdgesChange,

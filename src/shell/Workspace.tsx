@@ -15,71 +15,48 @@ import TerminalPanel from "../features/terminal/TerminalPanel";
 
 import { useWorkbenchModel } from "../state/hooks/useWorkbenchModel";
 import { ErrorBoundary } from "../shared/ErrorBoundary";
-import { logger } from "../shared/utils/logger";
 import { useAppStore } from "../state/store";
 import { HorizontalPane, VerticalPane } from "../layout/ResizablePane";
 
 import LeftSidebar from "./workbench/LeftSidebar";
 
+function SaveIndicator({
+  ui,
+}: {
+  ui: ReturnType<typeof useWorkbenchModel>["saveUi"];
+}) {
+  if (!ui) return null;
+  let text = "未保存";
+  if (ui.status === "saving") text = "保存中…";
+  else if (ui.status === "error")
+    text = ui.lastError ? `保存失败: ${ui.lastError}` : "保存失败";
+  else if (ui.lastSavedAt)
+    text = `已保存 ${new Date(ui.lastSavedAt).toLocaleTimeString()}`;
+
+  return (
+    <div
+      className="save-indicator"
+      aria-live="polite"
+      style={{
+        fontSize: 12,
+        color: "var(--text)",
+        padding: "6px 10px",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        background: "rgba(255,255,255,0.9)",
+        display: "inline-flex",
+        gap: 6,
+        alignItems: "center",
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
 export default function Workspace() {
   const vm = useWorkbenchModel();
   const terminalLog = useAppStore((s) => s.terminalLog);
-
-  const formatTime = (iso?: string) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
-    return `${hh}:${mm}:${ss}`;
-  };
-
-  const saveBadge = (() => {
-    const ui = vm.saveUi;
-    if (!ui) return null;
-
-    let text = "已保存";
-    let bg = "rgba(16, 185, 129, 0.14)"; // green
-    let color = "#065f46";
-
-    if (ui.status === "saving") {
-      text = "保存中…";
-      bg = "rgba(59, 130, 246, 0.14)"; // blue
-      color = "#1d4ed8";
-    } else if (ui.status === "error") {
-      text = `保存失败：${ui.lastError ?? "未知错误"}`;
-      bg = "rgba(248, 113, 113, 0.16)"; // red
-      color = "#b91c1c";
-    } else if (ui.dirty) {
-      text = "有未保存的更改";
-      bg = "rgba(234, 179, 8, 0.16)"; // amber
-      color = "#92400e";
-    } else if (ui.lastSavedAt) {
-      text = `已保存 ${formatTime(ui.lastSavedAt)}`;
-    }
-
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: 10,
-          right: 10,
-          padding: "6px 10px",
-          borderRadius: 8,
-          background: bg,
-          color,
-          fontSize: 12,
-          lineHeight: 1.4,
-          border: "1px solid rgba(0,0,0,0.06)",
-          backdropFilter: "blur(4px)",
-          zIndex: 60,
-          maxWidth: 240,
-        }}
-      >
-        {text}
-      </div>
-    );
-  })();
 
   if (!vm.project) return null;
 
@@ -88,7 +65,7 @@ export default function Workspace() {
       "error",
       `Canvas error: ${error.message}. Check console for details.`
     );
-    logger.error("[Workspace] Canvas error:", error, errorInfo);
+    console.error("[Workspace] Canvas error:", error, errorInfo);
   };
 
   // 左侧面板
@@ -108,7 +85,7 @@ export default function Workspace() {
   // 右侧面板
   const rightPanel = vm.panels.inspector ? (
     <InspectorPanel
-      selectedNode={vm.selectedGraphNode}
+      selectedNode={vm.inspectorNodeViewModel}
       selectedFsEntry={vm.selectedInfo}
       saveUi={vm.saveUi}
       onChangeTitle={vm.onUpdateNodeTitle}
@@ -124,8 +101,7 @@ export default function Workspace() {
         <VerticalPane
           top={
             <div className="workbench__canvas" style={{ position: "relative" }}>
-              {saveBadge}
-              <ErrorBoundary context="Canvas" onError={handleCanvasError}>
+              <ErrorBoundary onError={handleCanvasError}>
                 <Canvas
                   nodes={vm.canvasNodes}
                   edges={vm.canvasEdges}
@@ -141,9 +117,16 @@ export default function Workspace() {
                 />
               </ErrorBoundary>
               <BottomToolbar />
+              <div style={{ position: "absolute", right: 16, bottom: 16 }}>
+                <SaveIndicator ui={vm.saveUi} />
+              </div>
             </div>
           }
-          bottom={<TerminalPanel />}
+          bottom={
+            <div className="terminal__wrap">
+              <TerminalPanel />
+            </div>
+          }
           defaultTopHeight={500}
           minTopHeight={200}
           maxTopHeight={2000}
@@ -151,8 +134,7 @@ export default function Workspace() {
         />
       ) : (
         <div className="workbench__canvas" style={{ position: "relative" }}>
-          {saveBadge}
-          <ErrorBoundary context="Canvas" onError={handleCanvasError}>
+          <ErrorBoundary onError={handleCanvasError}>
             <Canvas
               nodes={vm.canvasNodes}
               edges={vm.canvasEdges}
@@ -168,6 +150,9 @@ export default function Workspace() {
             />
           </ErrorBoundary>
           <BottomToolbar />
+          <div style={{ position: "absolute", right: 16, bottom: 16 }}>
+            <SaveIndicator ui={vm.saveUi} />
+          </div>
         </div>
       )}
     </div>

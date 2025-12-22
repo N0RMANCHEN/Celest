@@ -36,7 +36,7 @@ export type ProjectSlice = {
   projects: ProjectState[];
   activeProjectId?: string;
   recents: RecentItem[];
-  openStatus: { state: "idle" | "opening" | "error"; message?: string };
+  openStatus: OpenStatus;
 
   hydrateRecents: () => Promise<void>;
 
@@ -52,6 +52,11 @@ export type ProjectSlice = {
 
   getActiveProject: () => ProjectState | null;
 };
+
+export type OpenStatus =
+  | { state: "idle" }
+  | { state: "opening" }
+  | { state: "error"; message?: string };
 
 export type TerminalLevel = "info" | "warn" | "error";
 

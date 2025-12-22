@@ -14,7 +14,9 @@ import { scanFsMeta } from "../fsIndex/scanFsMeta";
 import type { CodeGraphModel, Vec2 } from "../../entities/graph/types";
 import { createEmptyCodeGraph, upsertNode } from "../../entities/graph/ops";
 
+import type { CanvasViewport } from "../../entities/canvas/canvasEvents";
 import type { ProjectState, ViewState } from "../../entities/project/types";
+import type { ViewportV1 } from "../../core/persistence/nodeideSchema";
 
 import {
   ensureWorkspaceFile,
@@ -23,10 +25,16 @@ import {
 } from "../../core/persistence/loadSave";
 import type { PersistenceError } from "../../core/persistence/errors";
 
-function viewsFromWorkspace(ws: { views: { viewports: { main: { x: number; y: number; zoom: number }; view2: { x: number; y: number; zoom: number } } } }): ViewState[] {
+function normalizeViewport(vp: ViewportV1): CanvasViewport {
+  return { ...vp, z: vp.z ?? vp.zoom };
+}
+
+function viewsFromWorkspace(ws: {
+  views: { viewports: { main: ViewportV1; view2: ViewportV1 } };
+}): ViewState[] {
   return [
-    { id: "main", name: "Main", viewport: ws.views.viewports.main },
-    { id: "view2", name: "View 2", viewport: ws.views.viewports.view2 },
+    { id: "main", name: "Main", viewport: normalizeViewport(ws.views.viewports.main) },
+    { id: "view2", name: "View 2", viewport: normalizeViewport(ws.views.viewports.view2) },
   ];
 }
 

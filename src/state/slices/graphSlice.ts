@@ -83,8 +83,7 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
           ...p,
           graph: nextGraph,
           selectedIds: [id],
-          focusNonce: p.focusNonce + 1,
-          focusNodeId: id,
+          // 不自动调整 viewport，保持用户视图不变
         };
       }),
     }));
@@ -131,12 +130,12 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
 
   onNodesChange: (changes: CanvasNodeChange[]) => {
     if (changes.length === 0) return;
-
+    
     let didChange = false;
     set((s) => {
       const project = s.getActiveProject();
       if (!project) return {};
-
+      
       const nextProjects = mapActiveProject(s.projects, s.activeProjectId, (p) => {
         let g = p.graph;
         for (const ch of changes) {

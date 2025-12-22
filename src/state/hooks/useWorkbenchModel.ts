@@ -30,7 +30,7 @@ import {
   type FocusRequest,
 } from "../selectors/workbenchSelectors";
 
-const FALLBACK_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1 };
+const FALLBACK_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1, z: 1 };
 
 export type { FocusRequest };
 
@@ -100,7 +100,9 @@ export function useWorkbenchModel() {
   );
 
   const activeViewId = activeView?.id ?? "main";
-  const viewport = activeView?.viewport ?? FALLBACK_VIEWPORT;
+  const viewport = activeView
+    ? { ...activeView.viewport, z: activeView.viewport.z ?? activeView.viewport.zoom }
+    : FALLBACK_VIEWPORT;
 
   const handleCreateNote = useCallback(
     (pos: Vec2) => {

@@ -60,7 +60,7 @@ export function useCanvasState(
 
   // Sync viewport to local ref
   useEffect(() => {
-    localViewportRef.current = viewport;
+    localViewportRef.current = { ...viewport, z: viewport.z ?? viewport.zoom };
   }, [viewport]);
 
   // Sync node positions to local ref
@@ -71,6 +71,36 @@ export function useCanvasState(
     }
     localNodePositionsRef.current = newPositions;
   }, [nodes]);
+
+  // 节点删除后清理拖动/选择残留状态，避免异常
+  useEffect(() => {
+    const currentNodeIds = new Set(nodes.map((n) => n.id));
+    const selectedNodeIds = Array.from(selectedIdsRef.current);
+
+    // 如果正在拖动的节点被删除，停止拖动
+    if (dragStateRef.current) {
+      const draggedStillExists = Array.from(dragStateRef.current.draggedNodeIds).some((id) =>
+        currentNodeIds.has(id)
+      );
+
+      if (!draggedStillExists) {
+        setIsDragging(false);
+        dragStateRef.current = null;
+        if (dragAnimationFrameRef.current) {
+          cancelAnimationFrame(dragAnimationFrameRef.current);
+          dragAnimationFrameRef.current = null;
+        }
+      }
+    }
+
+    // 清理不存在节点的选择
+    const validSelection = selectedNodeIds.filter((id) => currentNodeIds.has(id));
+    if (validSelection.length !== selectedNodeIds.length) {
+      const newSelection = new Set(validSelection);
+      setSelectedIds(newSelection);
+      selectedIdsRef.current = newSelection;
+    }
+  }, [nodes, setIsDragging, setSelectedIds]);
 
   // Cleanup animation frames on unmount
   useEffect(() => {

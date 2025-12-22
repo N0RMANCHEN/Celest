@@ -8,6 +8,9 @@
 import { useCallback, useEffect } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
 
+const PINCH_DELTA_MULTIPLIER = 0.03; // 提升缩放灵敏度
+const PINCH_BASE = 1.18;
+
 export function useCanvasPanZoom(
   viewport: CanvasViewport,
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -26,6 +29,12 @@ export function useCanvasPanZoom(
   // 开始平移
   const startPan = useCallback(
     (e: React.MouseEvent) => {
+      // 防止重复启动
+      if (isPanning) {
+        console.warn("[useCanvasPanZoom] Already panning, ignoring");
+        return;
+      }
+      
       setIsPanning(true);
       panStartRef.current = {
         x: e.clientX,
@@ -33,7 +42,7 @@ export function useCanvasPanZoom(
         viewport: { ...viewport },
       };
     },
-    [viewport, setIsPanning, panStartRef]
+    [viewport, isPanning, setIsPanning, panStartRef]
   );
 
   // 平移过程中更新（使用 RAF）
@@ -59,6 +68,7 @@ export function useCanvasPanZoom(
           x: panStartRef.current.viewport.x + deltaX,
           y: panStartRef.current.viewport.y + deltaY,
           zoom: panStartRef.current.viewport.zoom,
+          z: panStartRef.current.viewport.z,
         };
 
         // Update local ref immediately for rendering
@@ -144,8 +154,8 @@ export function useCanvasPanZoom(
         const mouseY = e.clientY - rect.top;
 
         // Calculate zoom factor
-        const zoomDelta = -e.deltaY * 0.01;
-        const zoomFactor = Math.pow(1.1, zoomDelta);
+        const zoomDelta = -e.deltaY * PINCH_DELTA_MULTIPLIER;
+        const zoomFactor = Math.pow(PINCH_BASE, zoomDelta);
         const currentViewport = localViewportRef.current;
         const newZoom = Math.max(0.1, Math.min(5, currentViewport.zoom * zoomFactor));
 
@@ -155,6 +165,7 @@ export function useCanvasPanZoom(
           x: mouseX - (mouseX - currentViewport.x) * scale,
           y: mouseY - (mouseY - currentViewport.y) * scale,
           zoom: newZoom,
+          z: newZoom,
         };
 
         localViewportRef.current = newViewport;
@@ -181,6 +192,7 @@ export function useCanvasPanZoom(
           x: currentViewport.x - e.deltaX,
           y: currentViewport.y - e.deltaY,
           zoom: currentViewport.zoom,
+          z: currentViewport.z,
         };
 
         localViewportRef.current = newViewport;

@@ -16,6 +16,7 @@ describe("nodeide schema", () => {
     expect(ws.graphs.activeGraphId).toBe("main");
     expect(ws.graphs.files.main).toContain("graphs/");
     expect(ws.views.viewports.main.zoom).toBe(1);
+    expect(ws.views.viewports.main.z).toBe(1);
   });
 
   it("wrapGraphFile sets versions and meta timestamps", () => {

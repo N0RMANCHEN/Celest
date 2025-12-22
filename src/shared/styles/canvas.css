@@ -1,0 +1,6 @@
+/* Canvas 专用触控控制：允许 Canvas 内部处理缩放和平移 */
+.canvas-container {
+  touch-action: none;
+}
+
+

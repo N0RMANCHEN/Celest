@@ -23,7 +23,7 @@ export const WORKSPACE_SCHEMA_VERSION = 1 as const;
 /** Schema version for graph files */
 export const GRAPH_SCHEMA_VERSION = 1 as const;
 
-export type ViewportV1 = { x: number; y: number; zoom: number };
+export type ViewportV1 = { x: number; y: number; zoom: number; z?: number };
 
 /**
  * Phase 1 UI state persisted in workspace.json.
@@ -96,8 +96,8 @@ export function defaultWorkspaceFile(): WorkspaceFileV1 {
     views: {
       activeViewId: "main",
       viewports: {
-        main: { x: 0, y: 0, zoom: 1 },
-        view2: { x: 0, y: 0, zoom: 1 },
+        main: { x: 0, y: 0, zoom: 1, z: 1 },
+        view2: { x: 0, y: 0, zoom: 1, z: 1 },
       },
     },
     graphs: {

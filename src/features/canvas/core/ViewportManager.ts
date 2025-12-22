@@ -15,6 +15,7 @@ export type ViewportTransform = {
   x: number;
   y: number;
   zoom: number;
+  z: number;
 };
 
 /**
@@ -24,9 +25,10 @@ export function screenToCanvas(
   screen: { x: number; y: number },
   viewport: CanvasViewport
 ): { x: number; y: number } {
+  const scale = viewport.zoom;
   return {
-    x: (screen.x - viewport.x) / viewport.zoom,
-    y: (screen.y - viewport.y) / viewport.zoom,
+    x: (screen.x - viewport.x) / scale,
+    y: (screen.y - viewport.y) / scale,
   };
 }
 
@@ -37,9 +39,10 @@ export function canvasToScreen(
   canvas: { x: number; y: number },
   viewport: CanvasViewport
 ): { x: number; y: number } {
+  const scale = viewport.zoom;
   return {
-    x: canvas.x * viewport.zoom + viewport.x,
-    y: canvas.y * viewport.zoom + viewport.y,
+    x: canvas.x * scale + viewport.x,
+    y: canvas.y * scale + viewport.y,
   };
 }
 
@@ -50,9 +53,10 @@ export function applyViewport(
   point: { x: number; y: number },
   viewport: CanvasViewport
 ): { x: number; y: number } {
+  const scale = viewport.zoom;
   return {
-    x: point.x * viewport.zoom + viewport.x,
-    y: point.y * viewport.zoom + viewport.y,
+    x: point.x * scale + viewport.x,
+    y: point.y * scale + viewport.y,
   };
 }
 

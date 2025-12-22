@@ -21,12 +21,14 @@ import type { CanvasNode, CanvasEdge } from "./adapters/codeGraphToCanvas";
 import { CanvasNode as CanvasNodeComponent } from "./components/CanvasNode";
 import { CanvasEdge as CanvasEdgeComponent } from "./components/CanvasEdge";
 import { SelectionBox } from "./components/SelectionBox";
+import { ConnectionLine } from "./components/ConnectionLine";
 import { screenToCanvas, getViewportTransform } from "./core/ViewportManager";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasDrag } from "./hooks/useCanvasDrag";
 import { useCanvasPanZoom } from "./hooks/useCanvasPanZoom";
 import { useCanvasSelection } from "./hooks/useCanvasSelection";
 import { useCanvasKeyboard } from "./hooks/useCanvasKeyboard";
+import { useCanvasConnection } from "./hooks/useCanvasConnection";
 
 export type Props = {
   nodes: CanvasNode[];
@@ -51,8 +53,7 @@ export function Canvas(props: Props) {
     edges,
     onNodesChange,
     onEdgesChange,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    onConnect: _onConnect, // TODO: Implement edge connection handling (currently unused)
+    onConnect,
     onSelectionChange,
     viewport,
     onViewportChange,
@@ -62,7 +63,7 @@ export function Canvas(props: Props) {
 
   // 状态管理
   const state = useCanvasState(nodes, edges, viewport);
-
+  
   // Get node size helper
   const getNodeSize = useCallback(
     (nodeId: string): { width: number; height: number } => {
@@ -126,21 +127,51 @@ export function Canvas(props: Props) {
     onSelectionChange
   );
 
+  // 连线逻辑（必须在 useCanvasKeyboard 之前定义）
+  const {
+    connectionState,
+    handleConnectionStart,
+    handleConnectionMove,
+    handleConnectionEnd,
+    handleConnectionCancel,
+  } = useCanvasConnection(edges, state.svgRef, viewport, onConnect);
+
   // 键盘处理
   useCanvasKeyboard(
     nodes,
     edges,
     state.isDragging,
+    connectionState.isConnecting,
     state.selectedIdsRef,
     state.dragStateRef,
     state.setSelectedIds,
     onNodesChange,
     onEdgesChange,
-    onSelectionChange
+    onSelectionChange,
+    handleConnectionCancel
   );
+
+  // 连接时全局监听鼠标移动/抬起
+  useEffect(() => {
+    if (connectionState.isConnecting) {
+      const move = (e: MouseEvent) => handleConnectionMove(e);
+      const up = (e: MouseEvent) => handleConnectionEnd(e);
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+      return () => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+      };
+    }
+  }, [connectionState.isConnecting, handleConnectionMove, handleConnectionEnd]);
 
   // Focus request handling
   useEffect(() => {
+    // 交互中不执行 focus，防止干扰
+    if (state.isDragging || state.isPanning || connectionState.isConnecting) {
+      return;
+    }
+
     if (focusRequest) {
       const node = nodes.find((n) => n.id === focusRequest.nodeId);
       if (node) {
@@ -152,6 +183,7 @@ export function Canvas(props: Props) {
             x: centerX - node.position.x * viewport.zoom,
             y: centerY - node.position.y * viewport.zoom,
             zoom: viewport.zoom,
+            z: viewport.z,
           };
           onViewportChange(newViewport);
         }
@@ -159,46 +191,101 @@ export function Canvas(props: Props) {
     }
   }, [focusRequest, nodes, viewport, onViewportChange, state.containerRef]);
 
+  // 全局阻止非 Canvas 区域的触控板缩放（Ctrl/Cmd + 双指）
+  useEffect(() => {
+    const container = state.containerRef.current;
+    if (!container) return;
+
+    const handleGlobalWheel = (e: WheelEvent) => {
+      const isPinch = e.ctrlKey || e.metaKey;
+      if (!isPinch) return;
+
+      const target = e.target as HTMLElement | null;
+      const insideCanvas =
+        target && (target === container || container.contains(target));
+
+      if (!insideCanvas) {
+        // 阻止浏览器在非 Canvas 区域的缩放
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    window.addEventListener("wheel", handleGlobalWheel, {
+      passive: false,
+      capture: true,
+    });
+
+    return () => {
+      window.removeEventListener("wheel", handleGlobalWheel, { capture: true });
+    };
+  }, [state.containerRef]);
+
   // Handle mousedown on canvas
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      const target = e.target as HTMLElement;
+    const target = e.target as HTMLElement;
+    
+    // Check if clicking on node or edge
+    const isOnNode = target.closest(".canvas-node") || target.closest("foreignObject");
+    const isOnEdge = target.closest(".canvas-edge");
+    const isOnHandle = target.closest(".canvas-handle");
+    
+    if (isOnNode || isOnEdge || isOnHandle) {
+      return;
+    }
 
-      // Check if clicking on node or edge
-      const isOnNode = target.closest(".canvas-node") || target.closest("foreignObject");
-      const isOnEdge = target.closest(".canvas-edge");
-      const isOnHandle = target.closest(".canvas-handle");
+    // 防止多个交互状态冲突
+    if (state.isDragging || state.isPanning || connectionState.isConnecting) {
+      console.warn("[Canvas] Interaction conflict detected, ignoring mouseDown");
+      return;
+    }
 
-      if (isOnNode || isOnEdge || isOnHandle) {
-        return;
-      }
-
-      // Check for panning: Space + left button, or middle button
+    // Check for panning: Space + left button, or middle button
       const isSpacePan = e.button === 0 && state.spaceKeyPressedRef.current;
-      const isMiddleButton = e.button === 1;
-
-      if (isSpacePan || isMiddleButton) {
+    const isMiddleButton = e.button === 1;
+    
+    if (isSpacePan || isMiddleButton) {
         clearBoxSelection();
         startPan(e);
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
 
       // Left click on pane: start box selection (but not on double-click)
       if (e.button === 0 && e.detail === 1) {
         startBoxSelection(e);
       }
     },
-    [state.spaceKeyPressedRef, clearBoxSelection, startPan, startBoxSelection]
+    [
+      state.spaceKeyPressedRef,
+      state.isDragging,
+      state.isPanning,
+      connectionState.isConnecting,
+      clearBoxSelection,
+      startPan,
+      startBoxSelection,
+    ]
   );
 
   // Handle mouseup on canvas
   const handleMouseUp = useCallback(
     (e: React.MouseEvent) => {
-      // If this is part of a double-click, clear box selection state
+      // If this is part of a double-click, clear all interaction states
       if (e.detail >= 2) {
         clearBoxSelection();
+        // 确保清除所有交互状态，防止状态污染
+        if (state.isPanning) {
+          handlePanEnd();
+        }
+        if (state.isDragging) {
+          handleDragEnd();
+        }
+        if (connectionState.isConnecting) {
+          handleConnectionCancel();
+        }
+        return;
       }
 
       if (state.isPanning) {
@@ -208,10 +295,23 @@ export function Canvas(props: Props) {
       if (state.isDragging) {
         handleDragEnd();
       }
-    },
-    [state.isPanning, state.isDragging, clearBoxSelection, handlePanEnd, handleDragEnd]
-  );
 
+      if (connectionState.isConnecting) {
+        handleConnectionEnd(e.nativeEvent);
+      }
+    },
+    [
+      state.isPanning,
+      state.isDragging,
+      connectionState.isConnecting,
+      clearBoxSelection,
+      handlePanEnd,
+      handleDragEnd,
+      handleConnectionEnd,
+      handleConnectionCancel,
+    ]
+          );
+          
   // Handle pane click (clear selection or create node)
   const handlePaneClickInternal = useCallback(
     (e: React.MouseEvent) => {
@@ -225,6 +325,9 @@ export function Canvas(props: Props) {
         e.stopPropagation();
 
         clearBoxSelection();
+        if (connectionState.isConnecting) {
+          handleConnectionCancel();
+        }
 
         const rect = state.svgRef.current?.getBoundingClientRect();
         if (rect) {
@@ -233,9 +336,9 @@ export function Canvas(props: Props) {
             viewport
           );
           onCreateNoteNodeAt(canvasPos);
-        }
-        return;
       }
+      return;
+    }
 
       // Single click clears selection
       const target = e.target as HTMLElement;
@@ -246,7 +349,15 @@ export function Canvas(props: Props) {
         handlePaneClick();
       }
     },
-    [onCreateNoteNodeAt, viewport, state.svgRef, clearBoxSelection, handlePaneClick]
+    [
+      onCreateNoteNodeAt,
+      viewport,
+      state.svgRef,
+      clearBoxSelection,
+      handlePaneClick,
+      connectionState.isConnecting,
+      handleConnectionCancel,
+    ]
   );
 
   // Calculate edge positions
@@ -254,22 +365,22 @@ export function Canvas(props: Props) {
     const positions = new Map<
       string,
       {
-        source: { x: number; y: number };
-        target: { x: number; y: number };
-        sourceHandle?: { x: number; y: number };
-        targetHandle?: { x: number; y: number };
+      source: { x: number; y: number };
+      target: { x: number; y: number };
+      sourceHandle?: { x: number; y: number };
+      targetHandle?: { x: number; y: number };
       }
     >();
-
+    
     for (const edge of edges) {
       const sourceNode = nodes.find((n) => n.id === edge.source);
       const targetNode = nodes.find((n) => n.id === edge.target);
-
+      
       if (!sourceNode || !targetNode) continue;
-
+      
       const sourceSize = getNodeSize(sourceNode.id);
       const targetSize = getNodeSize(targetNode.id);
-
+      
       const sourceHandle = {
         x: sourceNode.position.x + sourceSize.width,
         y: sourceNode.position.y + sourceSize.height / 2,
@@ -278,7 +389,7 @@ export function Canvas(props: Props) {
         x: targetNode.position.x,
         y: targetNode.position.y + targetSize.height / 2,
       };
-
+      
       positions.set(edge.id, {
         source: { x: sourceNode.position.x, y: sourceNode.position.y },
         target: { x: targetNode.position.x, y: targetNode.position.y },
@@ -286,15 +397,22 @@ export function Canvas(props: Props) {
         targetHandle: edge.targetHandle ? targetHandle : undefined,
       });
     }
-
+    
     return positions;
   }, [edges, nodes, getNodeSize]);
 
   const { svgRef, containerRef, selectedIds, boxSelection, isPanning } = state;
+  const depth = viewport.z ?? viewport.zoom;
+  const depthFactor = Math.min(2, Math.max(0.7, depth));
+  const dotSpacing = 20 * depthFactor;
+  const dotRadius = Math.max(0.6, Math.sqrt(depthFactor));
+  const dotOffsetX = ((viewport.x % dotSpacing) + dotSpacing) % dotSpacing;
+  const dotOffsetY = ((viewport.y % dotSpacing) + dotSpacing) % dotSpacing;
 
   return (
     <div
       ref={containerRef}
+      className="canvas-container"
       style={{
         width: "100%",
         height: "100%",
@@ -328,13 +446,13 @@ export function Canvas(props: Props) {
         <defs>
           <pattern
             id="dot-pattern"
-            x={viewport.x % 20}
-            y={viewport.y % 20}
-            width={20}
-            height={20}
+            x={dotOffsetX}
+            y={dotOffsetY}
+            width={dotSpacing}
+            height={dotSpacing}
             patternUnits="userSpaceOnUse"
           >
-            <circle cx="1" cy="1" r="1" fill="#d1d5db" opacity="0.5" />
+            <circle cx={dotRadius} cy={dotRadius} r={dotRadius} fill="#d1d5db" opacity="0.5" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="#ffffff" />
@@ -342,6 +460,17 @@ export function Canvas(props: Props) {
 
         {/* Apply viewport transform */}
         <g transform={getViewportTransform(viewport)}>
+          {/* Temporary connection line */}
+          {connectionState.isConnecting &&
+            connectionState.sourcePosition &&
+            connectionState.currentPosition && (
+              <ConnectionLine
+                start={connectionState.sourcePosition}
+                end={connectionState.currentPosition}
+                isValid={connectionState.isValidTarget}
+              />
+            )}
+
           {/* Edges (render first, behind nodes) */}
           {edges.map((edge) => {
             const pos = edgePositions.get(edge.id);
@@ -371,6 +500,13 @@ export function Canvas(props: Props) {
                   node={nodeWithSelection}
                   onNodeClick={handleNodeClick}
                   onNodeMouseDown={handleNodeMouseDown}
+                onConnectionStart={handleConnectionStart}
+                isConnecting={connectionState.isConnecting}
+                isValidConnectionTarget={
+                  connectionState.isConnecting &&
+                  connectionState.targetNodeId === node.id &&
+                  connectionState.isValidTarget
+                }
                   getNodeSize={getNodeSize}
                 />
               </g>

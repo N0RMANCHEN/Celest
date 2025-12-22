@@ -13,6 +13,14 @@ type Props = {
   onNodeClick: (nodeId: string, shiftKey: boolean) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
   onNodeMouseDown?: (nodeId: string, e: React.MouseEvent) => void;
+  onConnectionStart?: (
+    nodeId: string,
+    handleId: string,
+    handleType: "source" | "target",
+    screenPosition: { x: number; y: number }
+  ) => void;
+  isConnecting?: boolean;
+  isValidConnectionTarget?: boolean;
   getNodeSize: (nodeId: string) => { width: number; height: number } | null;
 };
 
@@ -104,6 +112,9 @@ export function CanvasNode({
   onNodeClick,
   onNodeDoubleClick,
   onNodeMouseDown,
+  onConnectionStart,
+  isConnecting,
+  isValidConnectionTarget,
   getNodeSize,
 }: Props) {
   const spec = getNodeSpec(node.data.kind);
@@ -126,6 +137,12 @@ export function CanvasNode({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // 如果点击的是 handle，不触发节点拖动
+    const target = e.target as HTMLElement;
+    if (target.closest(".canvas-handle")) {
+      return;
+    }
+    
     e.preventDefault();
     e.stopPropagation();
     if (onNodeMouseDown) {
@@ -164,8 +181,18 @@ export function CanvasNode({
       >
         {/* Left handle (input) */}
         <div
-          style={handleLeftStyle}
+          style={{
+            ...handleLeftStyle,
+            border: isValidConnectionTarget
+              ? "2px solid var(--accent)"
+              : handleLeftStyle.border,
+            background: isValidConnectionTarget
+              ? "var(--accent)"
+              : handleLeftStyle.background,
+            opacity: isConnecting ? 0.9 : 1,
+          }}
           className="canvas-handle canvas-handle-left"
+          data-node-id={node.id}
           data-handle-id={spec.ports[0]?.id ?? "in"}
           data-handle-type="target"
         />
@@ -187,10 +214,33 @@ export function CanvasNode({
 
         {/* Right handle (output) */}
         <div
-          style={handleRightStyle}
+          style={{
+            ...handleRightStyle,
+            cursor: "crosshair",
+            opacity: isConnecting ? 0.9 : 1,
+          }}
           className="canvas-handle canvas-handle-right"
+          data-node-id={node.id}
           data-handle-id={spec.ports[1]?.id ?? "out"}
           data-handle-type="source"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!onConnectionStart) return;
+            
+            // 计算 handle 在 canvas 坐标系中的位置（与边的计算一致）
+            const handleCanvasPos = {
+              x: node.position.x + size.width,
+              y: node.position.y + size.height / 2,
+            };
+            
+            onConnectionStart(
+              node.id,
+              spec.ports[1]?.id ?? "out",
+              "source",
+              handleCanvasPos
+            );
+          }}
         />
       </div>
     </foreignObject>

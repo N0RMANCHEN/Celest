@@ -12,6 +12,7 @@ export function useCanvasKeyboard(
   nodes: CanvasNode[],
   edges: CanvasEdge[],
   isDragging: boolean,
+  isConnecting: boolean,
   selectedIdsRef: React.MutableRefObject<Set<string>>,
   dragStateRef: React.MutableRefObject<{
     draggedNodeIds: Set<string>;
@@ -21,7 +22,8 @@ export function useCanvasKeyboard(
   setSelectedIds: (ids: Set<string>) => void,
   onNodesChange: (changes: CanvasNodeChange[]) => void,
   onEdgesChange: (changes: CanvasEdgeChange[]) => void,
-  onSelectionChange: (ids: string[]) => void
+  onSelectionChange: (ids: string[]) => void,
+  onCancelConnection: () => void
 ) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,15 +74,22 @@ export function useCanvasKeyboard(
         onSelectionChange([]);
       }
 
-      // ESC: cancel drag
-      if (e.key === "Escape" && isDragging && dragStateRef.current) {
-        // Restore original positions
-        const changes: CanvasNodeChange[] = [];
-        for (const [nodeId, pos] of dragStateRef.current.dragStartPositions) {
-          changes.push({ id: nodeId, type: "position", position: pos });
+      // ESC: cancel connection or drag
+      if (e.key === "Escape") {
+        if (isConnecting) {
+          onCancelConnection();
+          return;
         }
-        onNodesChange(changes);
+        if (isDragging && dragStateRef.current) {
+          // Restore original positions
+          const changes: CanvasNodeChange[] = [];
+          for (const [nodeId, pos] of dragStateRef.current.dragStartPositions) {
+            changes.push({ id: nodeId, type: "position", position: pos });
+          }
+          onNodesChange(changes);
+        }
       }
+
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -89,12 +98,14 @@ export function useCanvasKeyboard(
     nodes,
     edges,
     isDragging,
+    isConnecting,
     selectedIdsRef,
     dragStateRef,
     setSelectedIds,
     onNodesChange,
     onEdgesChange,
     onSelectionChange,
+    onCancelConnection,
   ]);
 }
 

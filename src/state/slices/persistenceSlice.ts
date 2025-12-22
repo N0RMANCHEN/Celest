@@ -147,12 +147,14 @@ export const createPersistenceSlice: StateCreator<
 
       // 2) Views + UI
       const { file: ws } = await ensureWorkspaceFile(p.dirHandle);
+      const mainFallback = ws.views.viewports.main;
+      const view2Fallback = ws.views.viewports.view2;
       const mainVp =
         p.views.find((v) => v.id === "main")?.viewport ??
-        ws.views.viewports.main;
+        { ...mainFallback, z: mainFallback.z ?? mainFallback.zoom };
       const view2Vp =
         p.views.find((v) => v.id === "view2")?.viewport ??
-        ws.views.viewports.view2;
+        { ...view2Fallback, z: view2Fallback.z ?? view2Fallback.zoom };
 
       // 3) FS Tree UI (expanded/selected) -> persisted into workspace.json
       const expanded = get().fsExpandedByProjectId[projectId] ?? {};

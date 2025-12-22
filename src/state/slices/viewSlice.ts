@@ -46,13 +46,15 @@ export const createViewSlice: StateCreator<AppState, [], [], ViewSlice> = (
         if (
           cur.viewport.x === vp.x &&
           cur.viewport.y === vp.y &&
-          cur.viewport.zoom === vp.zoom
+          cur.viewport.zoom === vp.zoom &&
+          cur.viewport.z === vp.z
         ) {
           return p;
         }
 
+        const nextViewport = { ...vp, z: vp.z ?? vp.zoom };
         const views = p.views.map((v) =>
-          v.id === p.activeViewId ? { ...v, viewport: vp } : v
+          v.id === p.activeViewId ? { ...v, viewport: nextViewport } : v
         );
         didChange = true;
         return { ...p, views };

@@ -13,14 +13,14 @@ vi.mock("../../core/persistence/loadSave", () => ({
   saveMainGraph: vi.fn(async () => {}),
   ensureWorkspaceFile: vi.fn(async () => ({
     file: {
-      version: 1,
-      views: {
-        activeViewId: "main",
-        viewports: {
-          main: { x: 0, y: 0, zoom: 1 },
-          view2: { x: 10, y: 20, zoom: 0.8 },
-        },
+    version: 1,
+    views: {
+      activeViewId: "main",
+      viewports: {
+        main: { x: 0, y: 0, zoom: 1 },
+        view2: { x: 10, y: 20, zoom: 0.8 },
       },
+    },
       graphs: {
         activeGraphId: "main",
         files: { main: `${GRAPHS_DIRNAME}/${MAIN_GRAPH_FILENAME}` },

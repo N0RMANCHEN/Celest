@@ -22,6 +22,10 @@ export type CanvasViewport = {
   x: number;
   y: number;
   zoom: number;
+  /**
+   * 视图深度/缩放的冗余记录，等同于 zoom，用于需要 z 轴感的效果。
+   */
+  z: number;
 };
 
 export type CanvasConnection = {

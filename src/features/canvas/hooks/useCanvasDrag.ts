@@ -42,6 +42,12 @@ export function useCanvasDrag(
         return;
       }
 
+      // 防止与其他交互冲突
+      if (isDragging) {
+        console.warn("[useCanvasDrag] Already dragging, ignoring new drag start");
+        return;
+      }
+
       const rect = svgRef.current?.getBoundingClientRect();
       if (!rect) return;
 
@@ -83,6 +89,7 @@ export function useCanvasDrag(
       nodes,
       viewport,
       svgRef,
+      isDragging,
       selectedIdsRef,
       setSelectedIds,
       setIsDragging,

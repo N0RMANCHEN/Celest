@@ -4,7 +4,7 @@
  * 画布选择逻辑：单选、多选、框选
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
 import type { CanvasNode } from "../adapters/codeGraphToCanvas";
 import { screenToCanvas } from "../core/ViewportManager";
@@ -28,6 +28,8 @@ export function useCanvasSelection(
   getNodeSize: (nodeId: string) => { width: number; height: number },
   onSelectionChange: (ids: string[]) => void
 ) {
+  // 追踪框选开始时的 shiftKey 状态
+  const boxSelectionShiftKeyRef = useRef(false);
   // 处理节点点击
   const handleNodeClick = useCallback(
     (nodeId: string, shiftKey: boolean) => {
@@ -69,8 +71,13 @@ export function useCanvasSelection(
         viewport
       );
 
-      // Clear previous selection when box selection starts
-      handlePaneClick();
+      // 记录 shiftKey 状态，用于完成框选时判断
+      boxSelectionShiftKeyRef.current = e.shiftKey;
+
+      // Figma 行为：不按 Shift 时清除之前的选择，按 Shift 时保留
+      if (!e.shiftKey) {
+        handlePaneClick();
+      }
 
       isBoxSelectingRef.current = true;
       setBoxSelection({ start: canvasPos, end: canvasPos });
@@ -116,15 +123,25 @@ export function useCanvasSelection(
     }
 
     // Select nodes in box
-    const selected = handleBoxSelection(
+    const boxSelected = handleBoxSelection(
       nodes.map((n) => n.id),
       nodeBounds,
       normalizedBox
     );
 
-    setSelectedIds(selected);
-    selectedIdsRef.current = selected;
-    onSelectionChange(Array.from(selected));
+    // Figma 行为：Shift 框选时，与现有选择合并（取并集）
+    let finalSelection: Set<string>;
+    if (boxSelectionShiftKeyRef.current) {
+      // Shift 框选：累加到现有选择
+      finalSelection = new Set([...selectedIdsRef.current, ...boxSelected]);
+    } else {
+      // 普通框选：只选中框选的节点
+      finalSelection = boxSelected;
+    }
+
+    setSelectedIds(finalSelection);
+    selectedIdsRef.current = finalSelection;
+    onSelectionChange(Array.from(finalSelection));
 
     // Clear box selection
     isBoxSelectingRef.current = false;
@@ -134,8 +151,8 @@ export function useCanvasSelection(
     boxSelection,
     nodes,
     getNodeSize,
-    setSelectedIds,
     selectedIdsRef,
+    setSelectedIds,
     onSelectionChange,
     setBoxSelection,
   ]);

@@ -3,7 +3,7 @@ import { createStore } from "zustand/vanilla";
 
 import { createGraphSlice } from "./graphSlice";
 import type { GraphSlice } from "../types";
-import type { ProjectState } from "../../entities/project/types";
+import type { ProjectState } from "../../../entities/project/types";
 import type { StateCreator } from "zustand";
 
 type TestState = {
@@ -67,7 +67,7 @@ function makeStubProject(overrides?: Partial<ProjectState>): ProjectState {
     focusNodeId: undefined,
     focusNonce: 0,
     activeViewId: "main",
-    views: [{ id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1, z: 1 } }],
+    views: [{ id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1 } }],
     treeExpanded: {},
     ...overrides,
   };

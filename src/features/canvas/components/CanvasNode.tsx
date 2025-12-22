@@ -4,9 +4,18 @@
  * Canvas node component (SVG-based).
  */
 
-import type { CSSProperties } from "react";
 import type { CanvasNode as CanvasNodeType } from "../adapters/codeGraphToCanvas";
 import { getNodeSpec } from "../../../entities/graph/registry";
+import { NODE_HEIGHT, NODE_WIDTH, HANDLE_OFFSET } from "../config/constants";
+import {
+  cardStyle,
+  selectedCardStyle,
+  titleStyle,
+  subtitleStyle,
+  portRowStyle,
+  portBadgeStyle,
+} from "../config/styles";
+import { NodeHandle } from "./NodeHandle";
 
 type Props = {
   node: CanvasNodeType;
@@ -17,94 +26,12 @@ type Props = {
     nodeId: string,
     handleId: string,
     handleType: "source" | "target",
-    screenPosition: { x: number; y: number }
+    screenPosition: { x: number; y: number },
+    mode?: "create" | "delete"
   ) => void;
   isConnecting?: boolean;
   isValidConnectionTarget?: boolean;
   getNodeSize: (nodeId: string) => { width: number; height: number } | null;
-};
-
-const cardStyle: CSSProperties = {
-  padding: 10,
-  borderRadius: 12,
-  border: "1px solid var(--border)",
-  background: "var(--panel-2)",
-  minWidth: 180,
-  boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
-  position: "relative",
-  cursor: "grab",
-  userSelect: "none",
-  transition: "box-shadow 0.15s ease, border-color 0.15s ease",
-  willChange: "transform", // Performance hint for GPU acceleration
-};
-
-const SELECT_COLOR = "#B8C0C3";
-
-const selectedCardStyle: CSSProperties = {
-  ...cardStyle,
-  background: "var(--panel)",
-  border: "0.7px solid " + SELECT_COLOR,
-  boxShadow: "0 6px 20px rgba(0,0,0,0.16), 0 0 0 0.7px " + SELECT_COLOR,
-  cursor: "grab",
-};
-
-const titleStyle: CSSProperties = {
-  fontWeight: 800,
-  fontSize: 13,
-  lineHeight: 1.2,
-};
-
-const subtitleStyle: CSSProperties = {
-  marginTop: 6,
-  fontSize: 11,
-  opacity: 0.75,
-  lineHeight: 1.35,
-  wordBreak: "break-word",
-  maxWidth: 260,
-  maxHeight: 42,
-  overflow: "hidden",
-};
-
-const portRowStyle: CSSProperties = {
-  display: "flex",
-  gap: 6,
-  marginTop: 8,
-  flexWrap: "wrap",
-};
-
-const portBadgeStyle: CSSProperties = {
-  fontSize: 10,
-  padding: "3px 6px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "rgba(255,255,255,0.06)",
-};
-
-const handleStyle: CSSProperties = {
-  position: "absolute",
-  width: 12,
-  height: 12,
-  borderRadius: "50%",
-  border: "2px solid var(--border)",
-  background: "var(--panel)",
-  cursor: "crosshair",
-  zIndex: 10,
-  transition: "transform 0.15s ease, border-color 0.15s ease",
-  willChange: "transform", // Performance hint
-};
-
-const handleLeftStyle: CSSProperties = {
-  ...handleStyle,
-  left: -6,
-  top: "50%",
-  transform: "translateY(-50%)",
-};
-
-const handleRightStyle: CSSProperties = {
-  ...handleStyle,
-  right: -6,
-  top: "50%",
-  transform: "translateY(-50%)",
 };
 
 export function CanvasNode({
@@ -118,7 +45,8 @@ export function CanvasNode({
   getNodeSize,
 }: Props) {
   const spec = getNodeSpec(node.data.kind);
-  const size = getNodeSize(node.id) || { width: 180, height: 100 };
+  const size =
+    getNodeSize(node.id) || { width: NODE_WIDTH, height: NODE_HEIGHT };
   
   // No viewport transform needed here - parent <g> already has transform
   // Use canvas coordinates directly
@@ -180,21 +108,14 @@ export function CanvasNode({
         onMouseDown={handleMouseDown}
       >
         {/* Left handle (input) */}
-        <div
-          style={{
-            ...handleLeftStyle,
-            border: isValidConnectionTarget
-              ? "2px solid var(--accent)"
-              : handleLeftStyle.border,
-            background: isValidConnectionTarget
-              ? "var(--accent)"
-              : handleLeftStyle.background,
-            opacity: isConnecting ? 0.9 : 1,
-          }}
-          className="canvas-handle canvas-handle-left"
+        <NodeHandle
+          side="left"
+          className="canvas-handle-left"
           data-node-id={node.id}
           data-handle-id={spec.ports[0]?.id ?? "in"}
           data-handle-type="target"
+          isValid={isValidConnectionTarget}
+          isConnecting={isConnecting}
         />
 
         <div style={titleStyle}>
@@ -213,34 +134,33 @@ export function CanvasNode({
         </div>
 
         {/* Right handle (output) */}
-        <div
-          style={{
-            ...handleRightStyle,
-            cursor: "crosshair",
-            opacity: isConnecting ? 0.9 : 1,
-          }}
-          className="canvas-handle canvas-handle-right"
+        <NodeHandle
+          side="right"
+          className="canvas-handle-right"
           data-node-id={node.id}
           data-handle-id={spec.ports[1]?.id ?? "out"}
           data-handle-type="source"
+          isConnecting={isConnecting}
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
             if (!onConnectionStart) return;
-            
-            // 计算 handle 在 canvas 坐标系中的位置（与边的计算一致）
+            const isDeleteMode = e.ctrlKey || e.button === 2;
+
             const handleCanvasPos = {
-              x: node.position.x + size.width,
+              x: node.position.x + size.width + HANDLE_OFFSET,
               y: node.position.y + size.height / 2,
             };
-            
+
             onConnectionStart(
               node.id,
               spec.ports[1]?.id ?? "out",
               "source",
-              handleCanvasPos
+              handleCanvasPos,
+              isDeleteMode ? "delete" : "create"
             );
           }}
+          onContextMenu={(e) => e.preventDefault()}
         />
       </div>
     </foreignObject>

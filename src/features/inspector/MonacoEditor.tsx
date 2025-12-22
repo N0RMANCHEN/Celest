@@ -283,7 +283,7 @@ type Props = {
   onChange: (value: string) => void;
 };
 
-export default function CodeMirrorEditor({
+export default function MonacoEditor({
   value,
   height = 220,
   onChange,
@@ -333,4 +333,3 @@ export default function CodeMirrorEditor({
     </div>
   );
 }
-

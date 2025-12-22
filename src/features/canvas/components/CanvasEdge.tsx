@@ -6,6 +6,11 @@
 
 import type { CanvasEdge as CanvasEdgeType } from "../adapters/codeGraphToCanvas";
 import { calculateBezierPath } from "../utils/edgeRouting";
+import {
+  EDGE_HIT_STROKE_WIDTH,
+  EDGE_SELECTED_STROKE_WIDTH,
+  EDGE_STROKE_WIDTH,
+} from "../config/constants";
 
 type Props = {
   edge: CanvasEdgeType;
@@ -19,7 +24,7 @@ type Props = {
 const edgeStyle: React.CSSProperties = {
   fill: "none",
   stroke: "var(--border)",
-  strokeWidth: 2,
+  strokeWidth: EDGE_STROKE_WIDTH,
   pointerEvents: "stroke",
   cursor: "pointer",
   transition: "stroke 0.15s ease, stroke-width 0.15s ease",
@@ -29,7 +34,7 @@ const edgeStyle: React.CSSProperties = {
 const selectedEdgeStyle: React.CSSProperties = {
   ...edgeStyle,
   stroke: "var(--accent)",
-  strokeWidth: 3,
+  strokeWidth: EDGE_SELECTED_STROKE_WIDTH,
 };
 
 export function CanvasEdge({
@@ -61,13 +66,26 @@ export function CanvasEdge({
   };
 
   return (
-    <path
-      d={path.d}
-      style={edge.selected ? selectedEdgeStyle : edgeStyle}
-      onClick={handleClick}
-      data-edge-id={edge.id}
-      className="canvas-edge"
-    />
+    <g className="canvas-edge" data-edge-id={edge.id}>
+      {/* 扩大的透明点击区域，提升命中率 */}
+      <path
+        d={path.d}
+        style={{
+          fill: "none",
+          stroke: "transparent",
+          strokeWidth: EDGE_HIT_STROKE_WIDTH,
+          pointerEvents: "stroke",
+          cursor: "pointer",
+        }}
+        onClick={handleClick}
+      />
+      {/* 可见的边 */}
+      <path
+        d={path.d}
+        style={edge.selected ? selectedEdgeStyle : edgeStyle}
+        pointerEvents="none"
+      />
+    </g>
   );
 }
 

@@ -96,8 +96,8 @@ export function defaultWorkspaceFile(): WorkspaceFileV1 {
     views: {
       activeViewId: "main",
       viewports: {
-        main: { x: 0, y: 0, zoom: 1, z: 1 },
-        view2: { x: 0, y: 0, zoom: 1, z: 1 },
+        main: { x: 400, y: 300, zoom: 1, z: 1 },
+        view2: { x: 400, y: 300, zoom: 1, z: 1 },
       },
     },
     graphs: {

@@ -7,13 +7,16 @@
 import { useCallback, useState } from "react";
 import type {
   CanvasConnection,
+  CanvasEdgeChange,
   CanvasViewport,
 } from "../../../entities/canvas/canvasEvents";
 import type { CanvasEdge } from "../adapters/codeGraphToCanvas";
 import { screenToCanvas } from "../core/ViewportManager";
+import { findExistingEdge, isValidConnection } from "../core/connection";
 
 export type ConnectionState = {
   isConnecting: boolean;
+  mode: "create" | "delete";
   sourceNodeId: string | null;
   sourceHandleId: string | null;
   sourceHandleType: "source" | "target" | null;
@@ -23,10 +26,12 @@ export type ConnectionState = {
   targetHandleId: string | null;
   targetHandleType: "source" | "target" | null;
   isValidTarget: boolean;
+  candidateEdgeId?: string | null;
 };
 
 const initialState: ConnectionState = {
   isConnecting: false,
+  mode: "create",
   sourceNodeId: null,
   sourceHandleId: null,
   sourceHandleType: null,
@@ -36,6 +41,7 @@ const initialState: ConnectionState = {
   targetHandleId: null,
   targetHandleType: null,
   isValidTarget: false,
+  candidateEdgeId: null,
 };
 
 type HandleMeta = {
@@ -44,50 +50,12 @@ type HandleMeta = {
   handleType: "source" | "target" | null;
 };
 
-function isValidConnection(
-  sourceNode: string,
-  sourceHandle: string,
-  sourceType: "source" | "target",
-  targetNode: string,
-  targetHandle: string,
-  targetType: "source" | "target",
-  existingEdges: CanvasEdge[]
-): { valid: boolean; reason?: string } {
-  // 1. 必须从输出端口开始
-  if (sourceType !== "source") {
-    return { valid: false, reason: "必须从输出端口开始连线" };
-  }
-
-  // 2. 必须连接到输入端口
-  if (targetType !== "target") {
-    return { valid: false, reason: "只能连接到输入端口" };
-  }
-
-  // 3. 不能自连接
-  if (sourceNode === targetNode) {
-    return { valid: false, reason: "不能连接到同一节点" };
-  }
-
-  // 4. 不能重复连接
-  const isDuplicate = existingEdges.some(
-    (e) =>
-      e.source === sourceNode &&
-      e.target === targetNode &&
-      e.sourceHandle === sourceHandle &&
-      e.targetHandle === targetHandle
-  );
-  if (isDuplicate) {
-    return { valid: false, reason: "连接已存在" };
-  }
-
-  return { valid: true };
-}
-
 export function useCanvasConnection(
   edges: CanvasEdge[],
   svgRef: React.RefObject<SVGSVGElement | null>,
   viewport: CanvasViewport,
-  onConnect: (conn: CanvasConnection) => void
+  onConnect: (conn: CanvasConnection) => void,
+  onEdgesChange: (changes: CanvasEdgeChange[]) => void
 ) {
   const [connectionState, setConnectionState] =
     useState<ConnectionState>(initialState);
@@ -133,7 +101,8 @@ export function useCanvasConnection(
       nodeId: string,
       handleId: string,
       handleType: "source" | "target",
-      canvasPosition: { x: number; y: number }  // 直接接收 canvas 坐标
+      canvasPosition: { x: number; y: number }, // 直接接收 canvas 坐标
+      mode: "create" | "delete" = "create"
     ) => {
       // 只允许从输出端口开始
       if (handleType !== "source") {
@@ -142,6 +111,7 @@ export function useCanvasConnection(
 
       setConnectionState({
         isConnecting: true,
+        mode,
         sourceNodeId: nodeId,
         sourceHandleId: handleId,
         sourceHandleType: handleType,
@@ -151,6 +121,7 @@ export function useCanvasConnection(
         targetHandleId: null,
         targetHandleType: null,
         isValidTarget: false,
+        candidateEdgeId: null,
       });
     },
     []
@@ -174,17 +145,31 @@ export function useCanvasConnection(
         meta.handleType === "target";
 
       let isValidTarget = false;
+      let candidateEdgeId: string | null = null;
       if (hasTarget && connectionState.sourceHandleType === "source") {
-        const res = isValidConnection(
-          connectionState.sourceNodeId!,
-          connectionState.sourceHandleId!,
-          connectionState.sourceHandleType!,
-          meta.nodeId!,
-          meta.handleId!,
-          meta.handleType!,
-          edges
-        );
-        isValidTarget = res.valid;
+        if (connectionState.mode === "create") {
+          const res = isValidConnection(
+            connectionState.sourceNodeId!,
+            connectionState.sourceHandleId!,
+            connectionState.sourceHandleType!,
+            meta.nodeId!,
+            meta.handleId!,
+            meta.handleType!,
+            edges
+          );
+          isValidTarget = res.valid;
+        } else {
+          // 删除模式：寻找现有连线
+          const existing = findExistingEdge(
+            edges,
+            connectionState.sourceNodeId!,
+            meta.nodeId!,
+            connectionState.sourceHandleId!,
+            meta.handleId!
+          );
+          candidateEdgeId = existing?.id ?? null;
+          isValidTarget = Boolean(candidateEdgeId);
+        }
       }
 
       setConnectionState((prev) => ({
@@ -194,9 +179,20 @@ export function useCanvasConnection(
         targetHandleId: hasTarget ? meta.handleId : null,
         targetHandleType: hasTarget ? meta.handleType : null,
         isValidTarget: hasTarget ? isValidTarget : false,
+        candidateEdgeId,
       }));
     },
-    [connectionState.isConnecting, connectionState.sourcePosition, connectionState.sourceHandleType, connectionState.sourceHandleId, connectionState.sourceNodeId, screenPointToCanvas, getHandleMetaFromEvent, edges]
+    [
+      connectionState.isConnecting,
+      connectionState.sourcePosition,
+      connectionState.sourceHandleType,
+      connectionState.sourceHandleId,
+      connectionState.sourceNodeId,
+      connectionState.mode,
+      screenPointToCanvas,
+      getHandleMetaFromEvent,
+      edges,
+    ]
   );
 
   // 完成连线（鼠标松开）
@@ -220,29 +216,45 @@ export function useCanvasConnection(
         targetHandleId &&
         targetHandleType === "target"
       ) {
-        const res = isValidConnection(
-          connectionState.sourceNodeId,
-          connectionState.sourceHandleId,
-          connectionState.sourceHandleType,
-          targetNodeId,
-          targetHandleId,
-          targetHandleType,
-          edges
-        );
+        if (connectionState.mode === "create") {
+          const res = isValidConnection(
+            connectionState.sourceNodeId,
+            connectionState.sourceHandleId,
+            connectionState.sourceHandleType,
+            targetNodeId,
+            targetHandleId,
+            targetHandleType,
+            edges
+          );
 
-        if (res.valid) {
-          onConnect({
-            source: connectionState.sourceNodeId,
-            target: targetNodeId,
-            sourceHandle: connectionState.sourceHandleId,
-            targetHandle: targetHandleId,
-          });
+          if (res.valid) {
+            onConnect({
+              source: connectionState.sourceNodeId,
+              target: targetNodeId,
+              sourceHandle: connectionState.sourceHandleId,
+              targetHandle: targetHandleId,
+            });
+          }
+        } else if (connectionState.mode === "delete") {
+          const edgeId =
+            connectionState.candidateEdgeId ||
+            findExistingEdge(
+              edges,
+              connectionState.sourceNodeId,
+              targetNodeId,
+              connectionState.sourceHandleId,
+              targetHandleId
+            )?.id;
+
+          if (edgeId) {
+            onEdgesChange([{ id: edgeId, type: "remove" }]);
+          }
         }
       }
 
       resetConnection();
     },
-    [connectionState, edges, onConnect, resetConnection, getHandleMetaFromEvent]
+    [connectionState, edges, onConnect, onEdgesChange, resetConnection, getHandleMetaFromEvent]
   );
 
   // 取消连线（ESC 或释放到空白）

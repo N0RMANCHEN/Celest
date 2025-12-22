@@ -4,16 +4,14 @@
  * 画布选择逻辑：单选、多选、框选
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
 import type { CanvasNode } from "../adapters/codeGraphToCanvas";
-import { screenToCanvas } from "../core/ViewportManager";
 import {
   handleNodeClick as handleNodeClickSelection,
-  handleBoxSelection,
   handlePaneClick as clearSelection,
 } from "../core/SelectionManager";
-import { normalizeSelectionBox, getNodeBounds } from "../core/BoxSelection";
+import { useBoxSelection } from "./useBoxSelection";
 
 export function useCanvasSelection(
   nodes: CanvasNode[],
@@ -28,8 +26,6 @@ export function useCanvasSelection(
   getNodeSize: (nodeId: string) => { width: number; height: number },
   onSelectionChange: (ids: string[]) => void
 ) {
-  // 追踪框选开始时的 shiftKey 状态
-  const boxSelectionShiftKeyRef = useRef(false);
   // 处理节点点击
   const handleNodeClick = useCallback(
     (nodeId: string, shiftKey: boolean) => {
@@ -61,126 +57,26 @@ export function useCanvasSelection(
   }, [setSelectedIds, selectedIdsRef, onSelectionChange]);
 
   // 开始框选
-  const startBoxSelection = useCallback(
-    (e: React.MouseEvent) => {
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const canvasPos = screenToCanvas(
-        { x: e.clientX - rect.left, y: e.clientY - rect.top },
-        viewport
-      );
-
-      // 记录 shiftKey 状态，用于完成框选时判断
-      boxSelectionShiftKeyRef.current = e.shiftKey;
-
-      // Figma 行为：不按 Shift 时清除之前的选择，按 Shift 时保留
-      if (!e.shiftKey) {
-        handlePaneClick();
-      }
-
-      isBoxSelectingRef.current = true;
-      setBoxSelection({ start: canvasPos, end: canvasPos });
-    },
-    [svgRef, viewport, isBoxSelectingRef, setBoxSelection, handlePaneClick]
-  );
-
-  // 更新框选（鼠标移动时）
-  const updateBoxSelection = useCallback(
-    (e: MouseEvent) => {
-      if (!isBoxSelectingRef.current || !boxSelection) return;
-
-      const rect = svgRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const canvasPos = screenToCanvas(
-        { x: e.clientX - rect.left, y: e.clientY - rect.top },
-        localViewportRef.current
-      );
-      setBoxSelection({ ...boxSelection, end: canvasPos });
-    },
-    [boxSelection, isBoxSelectingRef, svgRef, localViewportRef, setBoxSelection]
-  );
-
-  // 完成框选
-  const finishBoxSelection = useCallback(() => {
-    if (!isBoxSelectingRef.current || !boxSelection) return;
-
-    // Finalize box selection
-    const normalizedBox = normalizeSelectionBox(boxSelection.start, boxSelection.end);
-
-    // Build node bounds map
-    const nodeBounds = new Map<
-      string,
-      { left: number; top: number; right: number; bottom: number }
-    >();
-    for (const node of nodes) {
-      const size = getNodeSize(node.id);
-      if (size) {
-        const bounds = getNodeBounds(node.position, size);
-        nodeBounds.set(node.id, bounds);
-      }
-    }
-
-    // Select nodes in box
-    const boxSelected = handleBoxSelection(
-      nodes.map((n) => n.id),
-      nodeBounds,
-      normalizedBox
-    );
-
-    // Figma 行为：Shift 框选时，与现有选择合并（取并集）
-    let finalSelection: Set<string>;
-    if (boxSelectionShiftKeyRef.current) {
-      // Shift 框选：累加到现有选择
-      finalSelection = new Set([...selectedIdsRef.current, ...boxSelected]);
-    } else {
-      // 普通框选：只选中框选的节点
-      finalSelection = boxSelected;
-    }
-
-    setSelectedIds(finalSelection);
-    selectedIdsRef.current = finalSelection;
-    onSelectionChange(Array.from(finalSelection));
-
-    // Clear box selection
-    isBoxSelectingRef.current = false;
-    setBoxSelection(null);
-  }, [
-    isBoxSelectingRef,
-    boxSelection,
+  const boxSelectionHandlers = useBoxSelection({
     nodes,
-    getNodeSize,
+    viewport,
+    svgRef,
+    boxSelection,
+    setBoxSelection,
+    isBoxSelectingRef,
+    localViewportRef,
     selectedIdsRef,
     setSelectedIds,
+    getNodeSize,
     onSelectionChange,
-    setBoxSelection,
-  ]);
-
-  // 清除框选状态
-  const clearBoxSelection = useCallback(() => {
-    isBoxSelectingRef.current = false;
-    setBoxSelection(null);
-  }, [isBoxSelectingRef, setBoxSelection]);
-
-  // 全局鼠标监听（框选过程中）
-  useEffect(() => {
-    if (isBoxSelectingRef.current) {
-      window.addEventListener("mousemove", updateBoxSelection);
-      window.addEventListener("mouseup", finishBoxSelection);
-      return () => {
-        window.removeEventListener("mousemove", updateBoxSelection);
-        window.removeEventListener("mouseup", finishBoxSelection);
-      };
-    }
-  }, [isBoxSelectingRef.current, updateBoxSelection, finishBoxSelection]);
+  });
 
   return {
     handleNodeClick,
     handleEdgeClick,
     handlePaneClick,
-    startBoxSelection,
-    clearBoxSelection,
+    startBoxSelection: boxSelectionHandlers.startBoxSelection,
+    clearBoxSelection: boxSelectionHandlers.clearBoxSelection,
   };
 }
 

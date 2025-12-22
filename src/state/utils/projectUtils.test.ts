@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { findActiveProject, mapActiveProject } from "./projectUtils";
-import type { ProjectState } from "../../entities/project/types";
+import type { ProjectState } from "../../../entities/project/types";
 
 function makeStubProject(id: string): ProjectState {
   return {
@@ -17,7 +17,7 @@ function makeStubProject(id: string): ProjectState {
     focusNodeId: undefined,
     focusNonce: 0,
     activeViewId: "main",
-    views: [{ id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1, z: 1 } }],
+    views: [{ id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1 } }],
     treeExpanded: {},
   };
 }

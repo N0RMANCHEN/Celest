@@ -3,16 +3,13 @@ import { useMemo } from "react";
 
 import type { NodeKindSpec } from "../../entities/graph/registry";
 import { getNodeSpec } from "../../entities/graph/registry";
+import type { CodeGraphNode } from "../../entities/graph/types";
 import type { FsMeta } from "../../entities/fsIndex/types";
 import type { SaveUiState } from "../../state/types";
-import type { InspectorNodeViewModel } from "./types";
-import { lazy, Suspense } from "react";
-
-// 动态导入 CodeMirror 编辑器，减少初始 bundle 大小
-const CodeMirrorEditor = lazy(() => import("./CodeMirrorEditor"));
+import MonacoEditor from "./MonacoEditor";
 
 type Props = {
-  selectedNode: InspectorNodeViewModel | null;
+  selectedNode: CodeGraphNode | null;
   selectedFsEntry: FsMeta | null;
   saveUi: SaveUiState | null;
   onChangeTitle: (nodeId: string, title: string) => void;
@@ -124,7 +121,7 @@ function NoteInspector({
   onChangeTitle,
   onChangeNoteText,
 }: {
-  node: InspectorNodeViewModel;
+  node: Extract<CodeGraphNode, { kind: "note" }>;
   spec: NodeKindSpec;
   saveUi: SaveUiState | null;
   onChangeTitle: (nodeId: string, title: string) => void;
@@ -173,9 +170,7 @@ function NoteInspector({
               marginLeft: 0,
             }}
           >
-            <Suspense fallback={<div style={{ padding: "20px", color: "var(--muted)" }}>加载编辑器...</div>}>
-              <CodeMirrorEditor value={node.text ?? ""} onChange={(v) => onChangeNoteText(node.id, v)} height="100%" />
-            </Suspense>
+            <MonacoEditor value={node.text} onChange={(v) => onChangeNoteText(node.id, v)} height="100%" />
           </div>
         </div>
       </div>

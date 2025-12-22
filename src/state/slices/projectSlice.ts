@@ -91,16 +91,6 @@ export const createProjectSlice: StateCreator<
     }
 
     const { project, recents, fsIndex } = out;
-    
-    // Check if project is already open (by ID)
-    const existing = get().projects.find((p) => p.id === project.id);
-    if (existing) {
-      // Project already open: just switch to it
-      set({ activeProjectId: project.id, recents });
-      return;
-    }
-
-    // New project: add it
     set((s) => ({
       projects: [...s.projects, project],
       activeProjectId: project.id,
@@ -160,16 +150,6 @@ export const createProjectSlice: StateCreator<
     }
 
     const { project, recents, fsIndex } = out;
-    
-    // Check if project is already open (by ID)
-    const existing = get().projects.find((p) => p.id === project.id);
-    if (existing) {
-      // Project already open: just switch to it
-      set({ activeProjectId: project.id, recents });
-      return;
-    }
-
-    // New project: add it
     set((s) => ({
       projects: [...s.projects, project],
       activeProjectId: project.id,

@@ -22,6 +22,7 @@ import { CanvasNode as CanvasNodeComponent } from "./components/CanvasNode";
 import { CanvasEdge as CanvasEdgeComponent } from "./components/CanvasEdge";
 import { SelectionBox } from "./components/SelectionBox";
 import { ConnectionLine } from "./components/ConnectionLine";
+import { CanvasBackground } from "./components/CanvasBackground";
 import { screenToCanvas, getViewportTransform } from "./core/ViewportManager";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasDrag } from "./hooks/useCanvasDrag";
@@ -29,6 +30,12 @@ import { useCanvasPanZoom } from "./hooks/useCanvasPanZoom";
 import { useCanvasSelection } from "./hooks/useCanvasSelection";
 import { useCanvasKeyboard } from "./hooks/useCanvasKeyboard";
 import { useCanvasConnection } from "./hooks/useCanvasConnection";
+import {
+  GRID_DOT_SPACING_BASE,
+  HANDLE_OFFSET,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+} from "./config/constants";
 
 export type Props = {
   nodes: CanvasNode[];
@@ -68,10 +75,10 @@ export function Canvas(props: Props) {
   const getNodeSize = useCallback(
     (nodeId: string): { width: number; height: number } => {
       const node = nodes.find((n) => n.id === nodeId);
-      if (!node) return { width: 180, height: 100 };
+      if (!node) return { width: NODE_WIDTH, height: NODE_HEIGHT };
       return node.width && node.height
         ? { width: node.width, height: node.height }
-        : { width: 180, height: 100 };
+        : { width: NODE_WIDTH, height: NODE_HEIGHT };
     },
     [nodes]
   );
@@ -134,7 +141,7 @@ export function Canvas(props: Props) {
     handleConnectionMove,
     handleConnectionEnd,
     handleConnectionCancel,
-  } = useCanvasConnection(edges, state.svgRef, viewport, onConnect);
+  } = useCanvasConnection(edges, state.svgRef, viewport, onConnect, onEdgesChange);
 
   // 键盘处理
   useCanvasKeyboard(
@@ -189,7 +196,16 @@ export function Canvas(props: Props) {
         }
       }
     }
-  }, [focusRequest, nodes, viewport, onViewportChange, state.containerRef]);
+  }, [
+    focusRequest,
+    nodes,
+    viewport,
+    onViewportChange,
+    state.containerRef,
+    state.isDragging,
+    state.isPanning,
+    connectionState.isConnecting,
+  ]);
 
   // 全局阻止非 Canvas 区域的触控板缩放（Ctrl/Cmd + 双指）
   useEffect(() => {
@@ -335,7 +351,13 @@ export function Canvas(props: Props) {
             { x: e.clientX - rect.left, y: e.clientY - rect.top },
             viewport
           );
-          onCreateNoteNodeAt(canvasPos);
+          // 以鼠标为中心创建节点
+          const nodeWidth = NODE_WIDTH;
+          const nodeHeight = NODE_HEIGHT;
+          onCreateNoteNodeAt({
+            x: canvasPos.x - nodeWidth / 2,
+            y: canvasPos.y - nodeHeight / 2,
+          });
       }
       return;
     }
@@ -382,11 +404,11 @@ export function Canvas(props: Props) {
       const targetSize = getNodeSize(targetNode.id);
       
       const sourceHandle = {
-        x: sourceNode.position.x + sourceSize.width,
+        x: sourceNode.position.x + sourceSize.width + HANDLE_OFFSET, // handle 圆心需补偿偏移
         y: sourceNode.position.y + sourceSize.height / 2,
       };
       const targetHandle = {
-        x: targetNode.position.x,
+        x: targetNode.position.x - HANDLE_OFFSET, // handle 圆心需补偿偏移
         y: targetNode.position.y + targetSize.height / 2,
       };
       
@@ -404,8 +426,7 @@ export function Canvas(props: Props) {
   const { svgRef, containerRef, selectedIds, boxSelection, isPanning } = state;
   const depth = viewport.z ?? viewport.zoom;
   const depthFactor = Math.min(2, Math.max(0.7, depth));
-  const dotSpacing = 20 * depthFactor;
-  const dotRadius = Math.max(0.6, Math.sqrt(depthFactor));
+  const dotSpacing = GRID_DOT_SPACING_BASE * depthFactor;
   const dotOffsetX = ((viewport.x % dotSpacing) + dotSpacing) % dotSpacing;
   const dotOffsetY = ((viewport.y % dotSpacing) + dotSpacing) % dotSpacing;
 
@@ -442,19 +463,7 @@ export function Canvas(props: Props) {
           pointerEvents: "all",
         }}
       >
-        {/* Background pattern */}
-        <defs>
-          <pattern
-            id="dot-pattern"
-            x={dotOffsetX}
-            y={dotOffsetY}
-            width={dotSpacing}
-            height={dotSpacing}
-            patternUnits="userSpaceOnUse"
-          >
-            <circle cx={dotRadius} cy={dotRadius} r={dotRadius} fill="#d1d5db" opacity="0.5" />
-          </pattern>
-        </defs>
+        <CanvasBackground depthFactor={depthFactor} offsetX={dotOffsetX} offsetY={dotOffsetY} />
         <rect width="100%" height="100%" fill="#ffffff" />
         <rect width="100%" height="100%" fill="url(#dot-pattern)" />
 

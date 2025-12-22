@@ -7,7 +7,7 @@ import {
   screenToCanvas,
 } from "./ViewportManager";
 
-const vp = { x: 10, y: -5, zoom: 2, z: 2 };
+const vp = { x: 10, y: -5, zoom: 2 };
 
 describe("ViewportManager", () => {
   it("screenToCanvas / canvasToScreen 互为逆变换", () => {

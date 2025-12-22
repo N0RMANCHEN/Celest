@@ -6,7 +6,7 @@
  * Figma-like behavior:
  * - Dragging preserves selection state
  * - Multiple selected nodes move together
- * - Drag start: if dragged node not selected, select it
+ * - Drag start: if dragged node not selected, clear selection and select only that node
  */
 
 export type DragState = {
@@ -38,23 +38,28 @@ export function startDrag(
   draggedNodeIds: Set<string>;
   dragStartPositions: Map<string, { x: number; y: number }>;
 } {
-  // If dragged node is not selected, add it to selection
-  const selectedIds = new Set(currentSelection);
-  if (!selectedIds.has(nodeId)) {
-    selectedIds.add(nodeId);
+  let selectedIds: Set<string>;
+  let draggedNodeIds: Set<string>;
+
+  if (currentSelection.has(nodeId)) {
+    // 拖拽已选中节点 → 保持所有选中，拖拽所有已选节点
+    selectedIds = new Set(currentSelection);
+    draggedNodeIds = new Set(selectedIds);
+  } else {
+    // 拖拽未选中节点 → 清空所有选中，重新选中该节点并拖拽
+    selectedIds = new Set([nodeId]);
+    draggedNodeIds = new Set([nodeId]);
   }
-  
-  // All selected nodes should be dragged together
-  const draggedNodeIds = new Set(selectedIds);
+
   const dragStartPositions = new Map<string, { x: number; y: number }>();
-  
+
   for (const id of draggedNodeIds) {
     const pos = nodePositions.get(id);
     if (pos) {
       dragStartPositions.set(id, { ...pos });
     }
   }
-  
+
   return {
     selectedIds,
     draggedNodeIds,

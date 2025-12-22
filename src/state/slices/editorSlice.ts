@@ -3,7 +3,7 @@
  * ----------------
  * Phase 1 Step3A-C:
  * - Editor slice is intentionally minimal.
- * - We keep the slice boundary so later we can add CodeMirror buffers, file save, etc.
+ * - We keep the slice boundary so later we can add Monaco buffers, file save, etc.
  */
 
 import type { StateCreator } from "zustand";

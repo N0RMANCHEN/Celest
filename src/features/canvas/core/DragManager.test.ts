@@ -10,7 +10,11 @@ describe("DragManager", () => {
     expect(s.dragStartPositions.size).toBe(0);
   });
 
+<<<<<<< HEAD
   it("startDrag 未选中节点会被加入选中，拖拽集合包含全部选中节点", () => {
+=======
+  it("startDrag 未选中节点：只拖拽该节点，选区不变", () => {
+>>>>>>> 2972fc1 (chore: snapshot 12.22.05)
     const selection = new Set<string>(["a", "b"]);
     const positions = new Map([
       ["a", { x: 0, y: 0 }],
@@ -19,9 +23,28 @@ describe("DragManager", () => {
     ]);
 
     const res = startDrag("c", selection, positions);
+<<<<<<< HEAD
     expect(new Set(res.selectedIds)).toEqual(new Set(["a", "b", "c"]));
     expect(new Set(res.draggedNodeIds)).toEqual(new Set(["a", "b", "c"]));
     expect(res.dragStartPositions.get("c")).toEqual({ x: 5, y: 5 });
+=======
+    expect(new Set(res.selectedIds)).toEqual(new Set(["a", "b"]));
+    expect(new Set(res.draggedNodeIds)).toEqual(new Set(["c"]));
+    expect(res.dragStartPositions.get("c")).toEqual({ x: 5, y: 5 });
+  });
+
+  it("startDrag 已选中节点：拖拽所有已选节点", () => {
+    const selection = new Set<string>(["a", "b"]);
+    const positions = new Map([
+      ["a", { x: 0, y: 0 }],
+      ["b", { x: 10, y: 10 }],
+    ]);
+
+    const res = startDrag("a", selection, positions);
+    expect(new Set(res.selectedIds)).toEqual(new Set(["a", "b"]));
+    expect(new Set(res.draggedNodeIds)).toEqual(new Set(["a", "b"]));
+    expect(res.dragStartPositions.get("a")).toEqual({ x: 0, y: 0 });
+>>>>>>> 2972fc1 (chore: snapshot 12.22.05)
   });
 
   it("updateDragPositions 依据 delta 平移所有拖拽节点", () => {

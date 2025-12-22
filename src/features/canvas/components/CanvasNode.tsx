@@ -180,6 +180,7 @@ export function CanvasNode({
         onMouseDown={handleMouseDown}
       >
         {/* Left handle (input) */}
+<<<<<<< HEAD
         <div
           style={{
             ...handleLeftStyle,
@@ -195,6 +196,16 @@ export function CanvasNode({
           data-node-id={node.id}
           data-handle-id={spec.ports[0]?.id ?? "in"}
           data-handle-type="target"
+=======
+        <NodeHandle
+          side="left"
+          className="canvas-handle-left"
+          dataNodeId={node.id}
+          dataHandleId={spec.ports[0]?.id ?? "in"}
+          dataHandleType="target"
+          isValid={isValidConnectionTarget}
+          isConnecting={isConnecting}
+>>>>>>> 2972fc1 (chore: snapshot 12.22.05)
         />
 
         <div style={titleStyle}>
@@ -213,6 +224,7 @@ export function CanvasNode({
         </div>
 
         {/* Right handle (output) */}
+<<<<<<< HEAD
         <div
           style={{
             ...handleRightStyle,
@@ -223,6 +235,15 @@ export function CanvasNode({
           data-node-id={node.id}
           data-handle-id={spec.ports[1]?.id ?? "out"}
           data-handle-type="source"
+=======
+        <NodeHandle
+          side="right"
+          className="canvas-handle-right"
+          dataNodeId={node.id}
+          dataHandleId={spec.ports[1]?.id ?? "out"}
+          dataHandleType="source"
+          isConnecting={isConnecting}
+>>>>>>> 2972fc1 (chore: snapshot 12.22.05)
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();

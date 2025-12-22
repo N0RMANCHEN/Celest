@@ -3,7 +3,7 @@ import { createStore } from "zustand/vanilla";
 
 import { createViewSlice } from "./viewSlice";
 import type { ViewSlice } from "../types";
-import type { ViewState, ProjectState } from "../../../entities/project/types";
+import type { ProjectState } from "../../entities/project/types";
 import type { StateCreator } from "zustand";
 
 type TestState = {
@@ -43,8 +43,8 @@ function makeStubProject(overrides?: Partial<ProjectState>): ProjectState {
     focusNonce: 0,
     activeViewId: "main",
     views: [
-      { id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1 } },
-      { id: "view2", name: "View 2", viewport: { x: 10, y: 20, zoom: 0.8 } },
+      { id: "main", name: "Main", viewport: { x: 0, y: 0, zoom: 1, z: 1 } },
+      { id: "view2", name: "View 2", viewport: { x: 10, y: 20, zoom: 0.8, z: 0.8 } },
     ],
     treeExpanded: {},
     ...overrides,
@@ -93,7 +93,7 @@ describe("viewSlice", () => {
   it("updateActiveViewViewport 更新视口", () => {
     const project = makeStubProject();
     const store = makeStore(project);
-    store.getState().updateActiveViewViewport({ x: 100, y: 200, zoom: 1.5 });
+    store.getState().updateActiveViewViewport({ x: 100, y: 200, zoom: 1.5, z: 1.5 });
     const view = store.getState().getActiveView();
     expect(view?.viewport.x).toBe(100);
     expect(view?.viewport.y).toBe(200);
@@ -104,14 +104,14 @@ describe("viewSlice", () => {
   it("updateActiveViewViewport 视口未改变时不更新", () => {
     const project = makeStubProject();
     const store = makeStore(project);
-    store.getState().updateActiveViewViewport({ x: 0, y: 0, zoom: 1 });
+    store.getState().updateActiveViewViewport({ x: 0, y: 0, zoom: 1, z: 1 });
     expect(store.getState().markActiveProjectDirty).not.toHaveBeenCalled();
   });
 
   it("updateActiveViewViewport 无活动视图时不更新", () => {
     const project = makeStubProject({ activeViewId: "nonexistent" as any });
     const store = makeStore(project);
-    store.getState().updateActiveViewViewport({ x: 100, y: 200, zoom: 1.5 });
+    store.getState().updateActiveViewViewport({ x: 100, y: 200, zoom: 1.5, z: 1.5 });
     expect(store.getState().markActiveProjectDirty).not.toHaveBeenCalled();
   });
 });

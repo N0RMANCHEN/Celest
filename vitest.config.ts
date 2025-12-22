@@ -1,14 +1,12 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 
-/**
- * Unit tests (Step4)
- * - Keep tests focused on pure functions & adapters.
- * - No browser APIs are used.
- */
 export default defineConfig({
+  plugins: [react()],
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
+    environment: "jsdom",
+    globals: true,
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     reporters: ["default"],
   },
 });

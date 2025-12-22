@@ -3,6 +3,8 @@
 > This document defines the **product vision, architecture principles, scope boundaries, and development rules** for **Celest**.  
 > It is written to guide **Codex / GPT / AI agents** to work correctly inside this codebase and product direction.
 
+> **重要**：AI agents 在发现架构问题时，应遵循 `CONTRIBUTING_AI.md` 中的架构决策流程（Section 11），提出建议并说明理由，由用户最终决定。
+
 ---
 
 ## 1. Product Identity

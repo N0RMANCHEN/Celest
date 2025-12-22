@@ -1,12 +1,12 @@
 import type { CSSProperties, ReactElement } from "react";
-import { useMemo } from "react";
+import { useMemo, lazy, Suspense } from "react";
 
 import type { NodeKindSpec } from "../../entities/graph/registry";
 import { getNodeSpec } from "../../entities/graph/registry";
 import type { CodeGraphNode } from "../../entities/graph/types";
 import type { FsMeta } from "../../entities/fsIndex/types";
 import type { SaveUiState } from "../../state/types";
-import MonacoEditor from "./MonacoEditor";
+const LazyEditor = lazy(() => import("./MonacoEditor"));
 
 type Props = {
   selectedNode: CodeGraphNode | null;
@@ -170,7 +170,9 @@ function NoteInspector({
               marginLeft: 0,
             }}
           >
-            <MonacoEditor value={node.text} onChange={(v) => onChangeNoteText(node.id, v)} height="100%" />
+            <Suspense fallback={<div style={{ padding: 12, fontSize: 12 }}>Loading editor…</div>}>
+              <LazyEditor value={node.text} onChange={(v) => onChangeNoteText(node.id, v)} height="100%" />
+            </Suspense>
           </div>
         </div>
       </div>

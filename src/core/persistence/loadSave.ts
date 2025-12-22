@@ -29,6 +29,7 @@ import {
   migrateWorkspaceFile,
   migrateGraphFile,
 } from "./migration";
+import { logger } from "../../shared/utils/logger";
 
 function isNotFoundError(e: unknown): boolean {
   // Browsers typically throw DOMException with name "NotFoundError".
@@ -268,7 +269,7 @@ export async function loadWorkspaceFile(
       return { file: raw, migrated, error: null };
     }
     // Migration failed and validation failed
-    console.warn(`[persistence] ${migrationResult.error.message}`);
+    logger.warn(`[persistence] ${migrationResult.error.message}`);
     return { file: null, migrated, error: migrationResult.error };
   }
 
@@ -291,7 +292,7 @@ export async function saveWorkspaceFile(
     await createBackup(celestDir, WORKSPACE_FILENAME);
   } catch (e) {
     // Backup failure is non-fatal, log and continue
-    console.warn(
+    logger.warn(
       `[persistence] Failed to create backup for ${WORKSPACE_FILENAME}: ${String(e)}`
     );
   }
@@ -323,7 +324,7 @@ export async function ensureWorkspaceFile(
       String(e),
       e
     );
-    console.warn(`[persistence] ${writeError.message}`);
+    logger.warn(`[persistence] ${writeError.message}`);
     return { file: created, migrated, error: writeError };
   }
   return { file: created, migrated, error: null };
@@ -382,7 +383,7 @@ export async function loadMainGraph(
       return { graph: raw.graph, createdAt: raw.meta?.createdAt, error: null };
     }
     // Migration failed and validation failed
-    console.warn(`[persistence] ${migrationResult.error.message}`);
+    logger.warn(`[persistence] ${migrationResult.error.message}`);
     return { graph: null, error: migrationResult.error };
   }
 
@@ -420,7 +421,7 @@ export async function saveMainGraph(
     await createBackup(dir, filename);
   } catch (e) {
     // Backup failure is non-fatal, log and continue
-    console.warn(
+    logger.warn(
       `[persistence] Failed to create backup for ${filename}: ${String(e)}`
     );
   }

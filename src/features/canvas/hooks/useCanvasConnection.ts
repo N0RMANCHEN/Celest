@@ -14,6 +14,7 @@ import { screenToCanvas } from "../core/ViewportManager";
 
 export type ConnectionState = {
   isConnecting: boolean;
+  mode: "create" | "delete";
   sourceNodeId: string | null;
   sourceHandleId: string | null;
   sourceHandleType: "source" | "target" | null;
@@ -27,6 +28,7 @@ export type ConnectionState = {
 
 const initialState: ConnectionState = {
   isConnecting: false,
+  mode: "create",
   sourceNodeId: null,
   sourceHandleId: null,
   sourceHandleType: null,
@@ -83,11 +85,14 @@ function isValidConnection(
   return { valid: true };
 }
 
+type Mode = "create" | "delete";
+
 export function useCanvasConnection(
   edges: CanvasEdge[],
   svgRef: React.RefObject<SVGSVGElement | null>,
   viewport: CanvasViewport,
-  onConnect: (conn: CanvasConnection) => void
+  onConnect: (conn: CanvasConnection) => void,
+  onEdgesChange?: (changes: { id: string; type: "remove" }[]) => void
 ) {
   const [connectionState, setConnectionState] =
     useState<ConnectionState>(initialState);
@@ -133,7 +138,8 @@ export function useCanvasConnection(
       nodeId: string,
       handleId: string,
       handleType: "source" | "target",
-      canvasPosition: { x: number; y: number }  // 直接接收 canvas 坐标
+      canvasPosition: { x: number; y: number }, // 直接接收 canvas 坐标
+      mode: Mode = "create"
     ) => {
       // 只允许从输出端口开始
       if (handleType !== "source") {
@@ -151,6 +157,7 @@ export function useCanvasConnection(
         targetHandleId: null,
         targetHandleType: null,
         isValidTarget: false,
+        mode,
       });
     },
     []
@@ -212,6 +219,8 @@ export function useCanvasConnection(
       const targetHandleId = meta.handleId ?? connectionState.targetHandleId;
       const targetHandleType = meta.handleType ?? connectionState.targetHandleType;
 
+      const isDeleteMode = connectionState.mode === "delete";
+
       if (
         connectionState.sourceNodeId &&
         connectionState.sourceHandleId &&
@@ -220,29 +229,43 @@ export function useCanvasConnection(
         targetHandleId &&
         targetHandleType === "target"
       ) {
-        const res = isValidConnection(
-          connectionState.sourceNodeId,
-          connectionState.sourceHandleId,
-          connectionState.sourceHandleType,
-          targetNodeId,
-          targetHandleId,
-          targetHandleType,
-          edges
-        );
+        if (isDeleteMode) {
+          // 删除模式：查找并删除既有边
+          const existing = edges.find(
+            (e) =>
+              e.source === connectionState.sourceNodeId &&
+              e.target === targetNodeId &&
+              e.sourceHandle === connectionState.sourceHandleId &&
+              e.targetHandle === targetHandleId
+          );
+          if (existing && onEdgesChange) {
+            onEdgesChange([{ id: existing.id, type: "remove" }]);
+          }
+        } else {
+          const res = isValidConnection(
+            connectionState.sourceNodeId,
+            connectionState.sourceHandleId,
+            connectionState.sourceHandleType,
+            targetNodeId,
+            targetHandleId,
+            targetHandleType,
+            edges
+          );
 
-        if (res.valid) {
-          onConnect({
-            source: connectionState.sourceNodeId,
-            target: targetNodeId,
-            sourceHandle: connectionState.sourceHandleId,
-            targetHandle: targetHandleId,
-          });
+          if (res.valid) {
+            onConnect({
+              source: connectionState.sourceNodeId,
+              target: targetNodeId,
+              sourceHandle: connectionState.sourceHandleId,
+              targetHandle: targetHandleId,
+            });
+          }
         }
       }
 
       resetConnection();
     },
-    [connectionState, edges, onConnect, resetConnection, getHandleMetaFromEvent]
+    [connectionState, edges, onConnect, resetConnection, getHandleMetaFromEvent, onEdgesChange]
   );
 
   // 取消连线（ESC 或释放到空白）

@@ -10,6 +10,7 @@ import type { CanvasNodeChange, CanvasViewport } from "../../../entities/canvas/
 import type { CanvasNode } from "../adapters/codeGraphToCanvas";
 import { screenToCanvas } from "../core/ViewportManager";
 import { startDrag, updateDragPositions } from "../core/DragManager";
+import { logger } from "../../../shared/utils/logger";
 
 export function useCanvasDrag(
   nodes: CanvasNode[],
@@ -44,7 +45,7 @@ export function useCanvasDrag(
 
       // 防止与其他交互冲突
       if (isDragging) {
-        console.warn("[useCanvasDrag] Already dragging, ignoring new drag start");
+      logger.warn("[useCanvasDrag] Already dragging, ignoring new drag start");
         return;
       }
 

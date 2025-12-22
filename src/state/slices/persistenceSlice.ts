@@ -88,20 +88,28 @@ export const createPersistenceSlice: StateCreator<
       get().initProjectPersistence(projectId);
     }
 
-    set((s) => {
-      const prev = s.saveUiByProjectId[projectId] ?? defaultUi();
-      const next: SaveUiState = {
-        ...prev,
-        dirty: true,
-        status: prev.status === "saving" ? "saving" : "idle",
-        seq: prev.seq + 1,
-        // user edited after an error -> clear lastError so UI isn't stuck
-        ...(prev.lastError ? { lastError: undefined } : {}),
-      };
-      return {
-        saveUiByProjectId: { ...s.saveUiByProjectId, [projectId]: next },
-      };
-    });
+    const currentUi = get().saveUiByProjectId[projectId] ?? defaultUi();
+    const isSaving = currentUi.status === "saving";
+    const hasError = Boolean(currentUi.lastError);
+
+    // 如果已是 dirty 且未在保存且无错误，则不重复 set 状态，避免拖拽时频繁 set。
+    const shouldUpdateState = !currentUi.dirty || isSaving || hasError;
+
+    if (shouldUpdateState) {
+      set((s) => {
+        const prev = s.saveUiByProjectId[projectId] ?? defaultUi();
+        const next: SaveUiState = {
+          ...prev,
+          dirty: true,
+          status: isSaving ? "saving" : "idle",
+          seq: prev.seq + 1,
+          ...(prev.lastError ? { lastError: undefined } : {}),
+        };
+        return {
+          saveUiByProjectId: { ...s.saveUiByProjectId, [projectId]: next },
+        };
+      });
+    }
 
     // Debounced autosave
     clearAutosaveTimer(projectId);

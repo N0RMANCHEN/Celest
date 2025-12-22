@@ -16,6 +16,7 @@
 import type { AppState } from "../types";
 import type { CodeGraphNode } from "../../entities/graph/types";
 import { codeGraphToCanvas } from "../../features/canvas/adapters/codeGraphToCanvas";
+import { logger } from "../../shared/utils/logger";
 
 export type FocusRequest = { nodeId: string; nonce: number };
 
@@ -176,7 +177,7 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   );
 
   if (missingNodeIds.length > 0) {
-    console.warn(
+    logger.warn(
       "[selectCanvasViewModel] Missing nodes in conversion:",
       missingNodeIds
     );

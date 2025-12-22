@@ -38,23 +38,11 @@ export function startDrag(
   draggedNodeIds: Set<string>;
   dragStartPositions: Map<string, { x: number; y: number }>;
 } {
-<<<<<<< HEAD
-  // If dragged node is not selected, add it to selection
-  const selectedIds = new Set(currentSelection);
-  if (!selectedIds.has(nodeId)) {
-    selectedIds.add(nodeId);
-  }
-  
-  // All selected nodes should be dragged together
-  const draggedNodeIds = new Set(selectedIds);
-=======
   // 选区保持不变；拖拽集合依据当前是否已选
   const selectedIds = new Set(currentSelection);
   const draggedNodeIds = selectedIds.has(nodeId)
     ? new Set(selectedIds)
     : new Set([nodeId]);
-
->>>>>>> 2972fc1 (chore: snapshot 12.22.05)
   const dragStartPositions = new Map<string, { x: number; y: number }>();
   
   for (const id of draggedNodeIds) {

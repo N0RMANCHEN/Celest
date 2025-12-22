@@ -13,6 +13,7 @@
 
 import type { CodeGraphModel, CodeGraphNode } from "../../../entities/graph/types";
 import type { CanvasNodeData } from "../types";
+import { logger } from "../../../shared/utils/logger";
 
 export type CanvasNode = {
   id: string;
@@ -84,7 +85,7 @@ export function codeGraphToCanvas(
   for (const key of nodeKeys) {
     const n = graph.nodes[key];
     if (!n) {
-      console.warn(
+      logger.warn(
         "[codeGraphToCanvas] Node key exists but node is null/undefined:",
         key
       );
@@ -94,7 +95,7 @@ export function codeGraphToCanvas(
     const id = key || n.id;
     if (!id || seenNodeIds.has(id)) {
       if (seenNodeIds.has(id)) {
-        console.warn("[codeGraphToCanvas] Duplicate node ID:", id);
+        logger.warn("[codeGraphToCanvas] Duplicate node ID:", id);
       }
       continue;
     }

@@ -16,6 +16,7 @@ function makeMockState(project: AppState["projects"][0] | null): AppState {
     projects: project ? [project] : [],
     activeProjectId: project?.id,
     recents: [],
+    openStatus: { state: "idle" },
     hydrateRecents: async () => {},
     goHome: () => {},
     setActiveProject: () => {},

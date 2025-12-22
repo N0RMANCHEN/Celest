@@ -36,6 +36,7 @@ export type ProjectSlice = {
   projects: ProjectState[];
   activeProjectId?: string;
   recents: RecentItem[];
+  openStatus: { state: "idle" | "opening" | "error"; message?: string };
 
   hydrateRecents: () => Promise<void>;
 

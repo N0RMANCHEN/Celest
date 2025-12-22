@@ -31,8 +31,11 @@ export default function Home() {
   const openProjectFolder = useAppStore((s) => s.openProjectFolder);
   const recents = useAppStore((s) => s.recents);
   const reopenRecent = useAppStore((s) => s.reopenRecent);
+  const openStatus = useAppStore((s) => s.openStatus);
 
   const { canUse, isSecure, hasPicker } = getFsApiStatus();
+  const isOpening = openStatus.state === "opening";
+  const openError = openStatus.state === "error" ? openStatus.message : null;
 
   return (
     <div className="home">
@@ -67,8 +70,8 @@ export default function Home() {
 
         <button
           className="okx-btn okx-btn--primary"
-          disabled={!canUse}
-          aria-disabled={!canUse}
+          disabled={!canUse || isOpening}
+          aria-disabled={!canUse || isOpening}
           onClick={() => {
             // double-guard: even if button is enabled, keep runtime safe
             if (!canUse) {
@@ -85,8 +88,22 @@ export default function Home() {
               : "当前环境不支持打开本地文件夹（建议 Chrome/Edge + HTTPS/localhost）"
           }
         >
-          Open Project Folder
+          {isOpening ? "Opening..." : "Open Project Folder"}
         </button>
+
+        {isOpening ? (
+          <div className="home__desc" style={{ marginTop: 10 }}>
+            正在打开并扫描项目，请稍候…
+          </div>
+        ) : null}
+        {openError ? (
+          <div
+            className="home__desc"
+            style={{ marginTop: 8, color: "#b91c1c", fontWeight: 600 }}
+          >
+            {openError}
+          </div>
+        ) : null}
       </div>
 
       <div className="home__section">
@@ -105,6 +122,8 @@ export default function Home() {
                 key={r.key}
                 className="home__item"
                 onClick={() => reopenRecent(r.key)}
+                disabled={isOpening}
+                aria-disabled={isOpening}
                 title={r.name}
               >
                 <div className="home__itemName">{r.name}</div>

@@ -7,6 +7,7 @@
 import type { CSSProperties } from "react";
 import type { CanvasNode as CanvasNodeType } from "../adapters/codeGraphToCanvas";
 import { getNodeSpec } from "../../../entities/graph/registry";
+import { NodeHandle } from "./NodeHandle";
 
 type Props = {
   node: CanvasNodeType;
@@ -78,33 +79,6 @@ const portBadgeStyle: CSSProperties = {
   borderRadius: 8,
   border: "1px solid var(--border)",
   background: "rgba(255,255,255,0.06)",
-};
-
-const handleStyle: CSSProperties = {
-  position: "absolute",
-  width: 12,
-  height: 12,
-  borderRadius: "50%",
-  border: "2px solid var(--border)",
-  background: "var(--panel)",
-  cursor: "crosshair",
-  zIndex: 10,
-  transition: "transform 0.15s ease, border-color 0.15s ease",
-  willChange: "transform", // Performance hint
-};
-
-const handleLeftStyle: CSSProperties = {
-  ...handleStyle,
-  left: -6,
-  top: "50%",
-  transform: "translateY(-50%)",
-};
-
-const handleRightStyle: CSSProperties = {
-  ...handleStyle,
-  right: -6,
-  top: "50%",
-  transform: "translateY(-50%)",
 };
 
 export function CanvasNode({
@@ -180,23 +154,6 @@ export function CanvasNode({
         onMouseDown={handleMouseDown}
       >
         {/* Left handle (input) */}
-<<<<<<< HEAD
-        <div
-          style={{
-            ...handleLeftStyle,
-            border: isValidConnectionTarget
-              ? "2px solid var(--accent)"
-              : handleLeftStyle.border,
-            background: isValidConnectionTarget
-              ? "var(--accent)"
-              : handleLeftStyle.background,
-            opacity: isConnecting ? 0.9 : 1,
-          }}
-          className="canvas-handle canvas-handle-left"
-          data-node-id={node.id}
-          data-handle-id={spec.ports[0]?.id ?? "in"}
-          data-handle-type="target"
-=======
         <NodeHandle
           side="left"
           className="canvas-handle-left"
@@ -205,7 +162,6 @@ export function CanvasNode({
           dataHandleType="target"
           isValid={isValidConnectionTarget}
           isConnecting={isConnecting}
->>>>>>> 2972fc1 (chore: snapshot 12.22.05)
         />
 
         <div style={titleStyle}>
@@ -224,18 +180,6 @@ export function CanvasNode({
         </div>
 
         {/* Right handle (output) */}
-<<<<<<< HEAD
-        <div
-          style={{
-            ...handleRightStyle,
-            cursor: "crosshair",
-            opacity: isConnecting ? 0.9 : 1,
-          }}
-          className="canvas-handle canvas-handle-right"
-          data-node-id={node.id}
-          data-handle-id={spec.ports[1]?.id ?? "out"}
-          data-handle-type="source"
-=======
         <NodeHandle
           side="right"
           className="canvas-handle-right"
@@ -243,7 +187,6 @@ export function CanvasNode({
           dataHandleId={spec.ports[1]?.id ?? "out"}
           dataHandleType="source"
           isConnecting={isConnecting}
->>>>>>> 2972fc1 (chore: snapshot 12.22.05)
           onMouseDown={(e) => {
             e.preventDefault();
             e.stopPropagation();

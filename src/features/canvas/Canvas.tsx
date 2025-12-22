@@ -17,6 +17,8 @@ import type {
   CanvasNodeChange,
   CanvasViewport,
 } from "../../entities/canvas/canvasEvents";
+import { logger } from "../../shared/utils/logger";
+import { NODE_HEIGHT, NODE_WIDTH } from "./config/constants";
 import type { CanvasNode, CanvasEdge } from "./adapters/codeGraphToCanvas";
 import { CanvasNode as CanvasNodeComponent } from "./components/CanvasNode";
 import { CanvasEdge as CanvasEdgeComponent } from "./components/CanvasEdge";
@@ -189,7 +191,16 @@ export function Canvas(props: Props) {
         }
       }
     }
-  }, [focusRequest, nodes, viewport, onViewportChange, state.containerRef]);
+  }, [
+    focusRequest,
+    nodes,
+    viewport,
+    onViewportChange,
+    state.containerRef,
+    state.isDragging,
+    state.isPanning,
+    connectionState.isConnecting,
+  ]);
 
   // 全局阻止非 Canvas 区域的触控板缩放（Ctrl/Cmd + 双指）
   useEffect(() => {
@@ -237,7 +248,7 @@ export function Canvas(props: Props) {
 
     // 防止多个交互状态冲突
     if (state.isDragging || state.isPanning || connectionState.isConnecting) {
-      console.warn("[Canvas] Interaction conflict detected, ignoring mouseDown");
+      logger.warn("[Canvas] Interaction conflict detected, ignoring mouseDown");
       return;
     }
 
@@ -335,10 +346,13 @@ export function Canvas(props: Props) {
             { x: e.clientX - rect.left, y: e.clientY - rect.top },
             viewport
           );
-          onCreateNoteNodeAt(canvasPos);
+          onCreateNoteNodeAt({
+            x: canvasPos.x - NODE_WIDTH / 2,
+            y: canvasPos.y - NODE_HEIGHT / 2,
+          });
+        }
+        return;
       }
-      return;
-    }
 
       // Single click clears selection
       const target = e.target as HTMLElement;

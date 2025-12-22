@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
+import { logger } from "../../../shared/utils/logger";
 
 const PINCH_DELTA_MULTIPLIER = 0.03; // 提升缩放灵敏度
 const PINCH_BASE = 1.18;
@@ -31,7 +32,7 @@ export function useCanvasPanZoom(
     (e: React.MouseEvent) => {
       // 防止重复启动
       if (isPanning) {
-        console.warn("[useCanvasPanZoom] Already panning, ignoring");
+        logger.warn("[useCanvasPanZoom] Already panning, ignoring");
         return;
       }
       

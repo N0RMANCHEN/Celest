@@ -24,6 +24,7 @@ import {
   saveMainGraph,
 } from "../../core/persistence/loadSave";
 import type { PersistenceError } from "../../core/persistence/errors";
+import { logger } from "../../shared/utils/logger";
 
 function normalizeViewport(vp: ViewportV1): CanvasViewport {
   return { ...vp, z: vp.z ?? vp.zoom };
@@ -106,15 +107,15 @@ export async function buildProjectFromDirectoryHandle(
     // Log errors if any (non-fatal)
     if (loaded.error) {
       if (isRestoredFromBackup(loaded.error)) {
-        console.warn(
+        logger.warn(
           `[openProject] Graph file restored from backup. Original file may be corrupted: ${loaded.error.filePath}`
         );
       } else {
-        console.warn(`[openProject] loadMainGraph error: ${loaded.error.message}`);
+        logger.warn(`[openProject] loadMainGraph error: ${loaded.error.message}`);
       }
     }
   } catch (e) {
-    console.warn(`[openProject] loadMainGraph failed: ${String(e)}`);
+    logger.warn(`[openProject] loadMainGraph failed: ${String(e)}`);
   }
 
   // Phase 1 UI restore: Canvas selection (FS tree UI restore is handled by fsIndexSlice).

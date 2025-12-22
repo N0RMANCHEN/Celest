@@ -38,18 +38,11 @@ export function startDrag(
   draggedNodeIds: Set<string>;
   dragStartPositions: Map<string, { x: number; y: number }>;
 } {
-  let selectedIds: Set<string>;
-  let draggedNodeIds: Set<string>;
-
-  if (currentSelection.has(nodeId)) {
-    // 拖拽已选中节点 → 保持所有选中，拖拽所有已选节点
-    selectedIds = new Set(currentSelection);
-    draggedNodeIds = new Set(selectedIds);
-  } else {
-    // 拖拽未选中节点 → 清空所有选中，重新选中该节点并拖拽
-    selectedIds = new Set([nodeId]);
-    draggedNodeIds = new Set([nodeId]);
-  }
+  // 选区保持不变；拖拽集合依据当前是否已选
+  const selectedIds = new Set(currentSelection);
+  const draggedNodeIds = selectedIds.has(nodeId)
+    ? new Set(selectedIds)
+    : new Set([nodeId]);
 
   const dragStartPositions = new Map<string, { x: number; y: number }>();
 

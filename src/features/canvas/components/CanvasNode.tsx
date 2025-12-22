@@ -111,9 +111,9 @@ export function CanvasNode({
         <NodeHandle
           side="left"
           className="canvas-handle-left"
-          data-node-id={node.id}
-          data-handle-id={spec.ports[0]?.id ?? "in"}
-          data-handle-type="target"
+          dataNodeId={node.id}
+          dataHandleId={spec.ports[0]?.id ?? "in"}
+          dataHandleType="target"
           isValid={isValidConnectionTarget}
           isConnecting={isConnecting}
         />
@@ -137,9 +137,9 @@ export function CanvasNode({
         <NodeHandle
           side="right"
           className="canvas-handle-right"
-          data-node-id={node.id}
-          data-handle-id={spec.ports[1]?.id ?? "out"}
-          data-handle-type="source"
+          dataNodeId={node.id}
+          dataHandleId={spec.ports[1]?.id ?? "out"}
+          dataHandleType="source"
           isConnecting={isConnecting}
           onMouseDown={(e) => {
             e.preventDefault();

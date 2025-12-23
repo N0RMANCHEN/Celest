@@ -139,11 +139,6 @@ export function useCanvasDrag(
     (e: MouseEvent) => {
       if (!isDragging || !dragStateRef.current) return;
 
-      // 标记选择已在拖动中处理，避免 click 事件重复处理
-      if (selectionHandledInMouseDownRef) {
-        selectionHandledInMouseDownRef.current = true;
-      }
-
       const rect = svgRef.current?.getBoundingClientRect();
       if (!rect) return;
 
@@ -167,6 +162,14 @@ export function useCanvasDrag(
           x: currentMouse.x - dragStateRef.current.dragStartMouse.x,
           y: currentMouse.y - dragStateRef.current.dragStartMouse.y,
         };
+
+        // 只有当移动距离超过阈值时，才标记选择已在拖动中处理
+        // 这样，如果只是轻微抖动（移动距离很小），handleNodeClick 仍然会被调用
+        const DRAG_THRESHOLD = 5; // 拖动阈值（像素）
+        const dragDistance = Math.sqrt(delta.x * delta.x + delta.y * delta.y);
+        if (selectionHandledInMouseDownRef && dragDistance > DRAG_THRESHOLD) {
+          selectionHandledInMouseDownRef.current = true;
+        }
 
         const newPositions = updateDragPositions(
           dragStateRef.current.draggedNodeIds,

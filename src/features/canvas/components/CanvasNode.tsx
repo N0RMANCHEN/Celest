@@ -20,6 +20,7 @@ type Props = {
     handleType: "source" | "target",
     screenPosition: { x: number; y: number }
   ) => void;
+  getHandleCanvasPosition?: (nodeId: string, handleId: string) => { x: number; y: number } | null;
   isConnecting?: boolean;
   isValidConnectionTarget?: boolean;
   getNodeSize: (nodeId: string) => { width: number; height: number } | null;
@@ -87,6 +88,7 @@ export function CanvasNode({
   onNodeDoubleClick,
   onNodeMouseDown,
   onConnectionStart,
+  getHandleCanvasPosition,
   isConnecting,
   isValidConnectionTarget,
   getNodeSize,
@@ -199,11 +201,20 @@ export function CanvasNode({
               e.stopPropagation();
               if (!onConnectionStart) return;
               
-              // 计算 handle 在 canvas 坐标系中的位置（与边的计算一致）
-              const handleCanvasPos = {
-                x: node.position.x + size.width,
-                y: node.position.y + size.height / 2,
-              };
+              // 计算 handle 在 canvas 坐标系中的位置
+              // 优先使用 DOM 真实位置（传入的 getHandleCanvasPosition）
+              let handleCanvasPos: { x: number; y: number } | null = null;
+              if (getHandleCanvasPosition) {
+                handleCanvasPos = getHandleCanvasPosition(node.id, outPort.id);
+              }
+              // 回退：使用静态计算（与 NodeHandle 偏移一致）
+              if (!handleCanvasPos) {
+                const HANDLE_OFFSET = 6;
+                handleCanvasPos = {
+                  x: node.position.x + size.width + HANDLE_OFFSET,
+                  y: node.position.y + size.height / 2,
+                };
+              }
               
               onConnectionStart(node.id, outPort.id, "source", handleCanvasPos);
             }}

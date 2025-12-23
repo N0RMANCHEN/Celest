@@ -49,6 +49,38 @@ export type Props = {
   onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void;
 };
 
+// 计算 handle 的中心点（canvas 坐标）
+function getHandleCanvasPosition(
+  svgRef: React.RefObject<SVGSVGElement | null>,
+  viewport: CanvasViewport,
+  nodeId: string,
+  handleId: string
+): { x: number; y: number } | null {
+  const svgEl = svgRef.current;
+  if (!svgEl) return null;
+
+  const svgRect = svgEl.getBoundingClientRect();
+  // 选择器：匹配当前 nodeId 和 handleId 的 handle 元素
+  // 未来有多个端口时，依靠 data-handle-id 精确匹配
+  const selector = `.canvas-handle[data-node-id="${nodeId}"][data-handle-id="${handleId}"]`;
+  const handleEl = svgEl.querySelector(selector) as HTMLElement | null;
+  if (!handleEl) return null;
+
+  const rect = handleEl.getBoundingClientRect();
+  const centerScreen = {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  };
+
+  // 转换为相对 svg 的坐标，再转换为 canvas 坐标
+  const relativeToSvg = {
+    x: centerScreen.x - svgRect.left,
+    y: centerScreen.y - svgRect.top,
+  };
+
+  return screenToCanvas(relativeToSvg, viewport);
+}
+
 export function Canvas(props: Props) {
   const {
     nodes,
@@ -421,15 +453,42 @@ export function Canvas(props: Props) {
       
       const sourceSize = getNodeSize(sourceNode.id);
       const targetSize = getNodeSize(targetNode.id);
-      
-      const sourceHandle = {
-        x: sourceNode.position.x + sourceSize.width,
-        y: sourceNode.position.y + sourceSize.height / 2,
-      };
-      const targetHandle = {
-        x: targetNode.position.x,
-        y: targetNode.position.y + targetSize.height / 2,
-      };
+      // 优先使用 DOM 真实位置（支持未来多个 handle）
+      let sourceHandle = null as { x: number; y: number } | null;
+      let targetHandle = null as { x: number; y: number } | null;
+
+      if (edge.sourceHandle) {
+        sourceHandle = getHandleCanvasPosition(
+          state.svgRef,
+          viewport,
+          sourceNode.id,
+          edge.sourceHandle
+        );
+      }
+      if (edge.targetHandle) {
+        targetHandle = getHandleCanvasPosition(
+          state.svgRef,
+          viewport,
+          targetNode.id,
+          edge.targetHandle
+        );
+      }
+
+      // 回退：如果 DOM 未准备好，使用静态计算（与 handle 偏移一致）
+      if (!sourceHandle) {
+        const HANDLE_OFFSET = 6;
+        sourceHandle = {
+          x: sourceNode.position.x + sourceSize.width + HANDLE_OFFSET,
+          y: sourceNode.position.y + sourceSize.height / 2,
+        };
+      }
+      if (!targetHandle) {
+        const HANDLE_OFFSET = 6;
+        targetHandle = {
+          x: targetNode.position.x - HANDLE_OFFSET,
+          y: targetNode.position.y + targetSize.height / 2,
+        };
+      }
       
       positions.set(edge.id, {
         source: { x: sourceNode.position.x, y: sourceNode.position.y },
@@ -440,7 +499,7 @@ export function Canvas(props: Props) {
     }
     
     return positions;
-  }, [edges, nodes, getNodeSize]);
+  }, [edges, nodes, getNodeSize, viewport]);
 
   const { svgRef, containerRef, selectedIds, boxSelection, isPanning } = state;
   const depth = viewport.z ?? viewport.zoom;
@@ -542,6 +601,9 @@ export function Canvas(props: Props) {
                   onNodeClick={handleNodeClick}
                   onNodeMouseDown={handleNodeMouseDown}
                 onConnectionStart={handleConnectionStart}
+          getHandleCanvasPosition={(nId, hId) =>
+            getHandleCanvasPosition(state.svgRef, viewport, nId, hId)
+          }
                 isConnecting={connectionState.isConnecting}
                 isValidConnectionTarget={
                   connectionState.isConnecting &&

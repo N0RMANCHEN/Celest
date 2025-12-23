@@ -32,6 +32,14 @@ const selectedEdgeStyle: React.CSSProperties = {
   strokeWidth: 3,
 };
 
+// 扩大可点击/可选中区域的“热区”样式（视觉透明）
+const hitAreaStyle: React.CSSProperties = {
+  fill: "none",
+  stroke: "transparent",
+  strokeWidth: 10, // 更宽的点击热区
+  pointerEvents: "stroke",
+};
+
 export function CanvasEdge({
   edge,
   sourcePos,
@@ -61,13 +69,24 @@ export function CanvasEdge({
   };
 
   return (
-    <path
-      d={path.d}
-      style={edge.selected ? selectedEdgeStyle : edgeStyle}
-      onClick={handleClick}
-      data-edge-id={edge.id}
-      className="canvas-edge"
-    />
+    <>
+      {/* 扩大的透明热区，提升选中/点击容错，不影响视觉 */}
+      <path
+        d={path.d}
+        style={hitAreaStyle}
+        onClick={handleClick}
+        data-edge-id={edge.id}
+        className="canvas-edge-hit"
+      />
+      {/* 实际可见的路径 */}
+      <path
+        d={path.d}
+        style={edge.selected ? selectedEdgeStyle : edgeStyle}
+        onClick={handleClick}
+        data-edge-id={edge.id}
+        className="canvas-edge"
+      />
+    </>
   );
 }
 

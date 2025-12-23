@@ -272,6 +272,39 @@ Shell（布局与交互）：
 - 无错误和性能问题
 - 用户体验流畅自然
 
+#### P0-3 修复连线校验问题
+
+**问题**：
+- Frame/Group 节点 ports 为空但仍可连线（CanvasNode 硬编码了 left/right handle）
+- 连接校验未使用 NodeSpec 的 `accepts` 规则（如 fileRef.out 只接受 note）
+
+**交付**：
+- CanvasNode 根据 `spec.ports` 动态渲染 handles，ports 为空时不渲染
+- `useCanvasConnection` 连接校验升级为基于 NodeSpec（检查 `direction` 和 `accepts`）
+- Frame/Group 节点无法连线（符合设计：非连接节点）
+
+**DoD**：
+- Frame/Group 节点无 handles，无法连线
+- fileRef.out 只能连接到 note.in（符合 accepts 规则）
+- 连接校验逻辑完整且可扩展
+
+#### P0-4 对齐命名与文档口径
+
+**问题**：
+- 代码使用 CodeMirror 但命名/文档都叫 "MonacoEditor"
+- 代码已移除 ReactFlow 但注释/文档仍有残留引用
+- `recentStore.ts` 中 DB_NAME 仍为 "node_ide"，应改为 "celest"
+
+**交付**：
+- 统一命名：CodeMirror 相关组件/文件/文档统一为 "CodeMirror" 或 "Editor"
+- 清理 ReactFlow 残留：注释、文档、测试中的 ReactFlow 引用
+- 更新 DB_NAME：`recentStore.ts` 中 `DB_NAME = "celest"`（需处理数据迁移）
+
+**DoD**：
+- 命名一致：代码、文档、注释统一
+- 无 ReactFlow 残留引用
+- IndexedDB 数据库名统一为 "celest"（向后兼容迁移）
+
 
 ---
 
@@ -298,6 +331,38 @@ Shell（布局与交互）：
 - 交互：列表/任务续写、Tab 缩进、任务勾选、``` 补全已保留，需最终验证
 - 符号：当前版本符号全显且无抖动；如需再次隐藏，需重新设计占位方案以保持行高稳定
 - 占位符：placeholder 文案可调整/关闭
+
+#### P1-B5 真实文件编辑闭环（最小 .md 读写）
+
+**问题**：
+- Inspector 中编辑 Note 节点的 text 只更新了 graph，未写回真实文件
+- 缺少文件写入逻辑
+
+**交付**：
+- 实现最小文件读写闭环：编辑 Note 节点时，如果节点有 `path` 字段，写回对应文件
+- 支持 `.md` 文件的读取和保存（使用 File System Access API）
+- 文件路径映射：Note 节点可关联到工作区文件路径
+
+**DoD**：
+- 编辑 Note 节点内容可写回真实 `.md` 文件
+- 打开文件时自动加载内容到 Note 节点
+- 文件保存有明确的成功/失败反馈
+
+#### P1-B6 Canvas handles 可扩展化
+
+**问题**：
+- CanvasNode 硬编码了 left/right 两个固定位置的 handles
+- 无法支持多端口节点（如 subgraphInstance 有 input/output 两个端口）
+
+**交付**：
+- CanvasNode 根据 `spec.ports` 动态渲染所有 handles
+- 支持任意数量和位置的 ports（in/out 分别渲染在左右两侧）
+- 保持现有连线逻辑兼容
+
+**DoD**：
+- 节点 handles 数量/位置由 NodeSpec 决定
+- subgraphInstance 等多端口节点正确渲染
+- 连线逻辑支持任意 port ID
 
 ---
 

@@ -275,7 +275,8 @@ export function Canvas(props: Props) {
     
     // Check if clicking on node or edge
     const isOnNode = target.closest(".canvas-node") || target.closest("foreignObject");
-    const isOnEdge = target.closest(".canvas-edge");
+    const isOnEdge =
+      target.closest(".canvas-edge") || target.closest(".canvas-edge-hit");
     const isOnHandle = target.closest(".canvas-handle");
     
     if (isOnNode || isOnEdge || isOnHandle) {

@@ -34,7 +34,12 @@ export function handleNodeClick(
     }
     return next;
   } else {
-    // Normal click: select only this node
+    // Normal click:
+    // - If already selected (in any selection size), deselect all (toggle off)
+    // - Otherwise select only this node
+    if (currentSelection.has(nodeId)) {
+      return new Set();
+    }
     return new Set([nodeId]);
   }
 }

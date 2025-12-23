@@ -12,6 +12,14 @@ describe("SelectionManager", () => {
     expect(Array.from(next)).toEqual(["a"]);
   });
 
+  it("handleNodeClick 非 shift 点击已选中则取消选中", () => {
+    const next = handleNodeClick("a", new Set(["a"]), false);
+    expect(Array.from(next)).toEqual([]);
+
+    const next2 = handleNodeClick("a", new Set(["a", "b"]), false);
+    expect(Array.from(next2)).toEqual([]);
+  });
+
   it("handleNodeClick Shift 点击切换选中状态（toggle）", () => {
     // Shift+点击已选中的节点：从选择中移除，其他节点保持选中
     const next = handleNodeClick("a", new Set(["a", "b"]), true);

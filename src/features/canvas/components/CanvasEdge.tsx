@@ -36,7 +36,7 @@ const selectedEdgeStyle: React.CSSProperties = {
 const hitAreaStyle: React.CSSProperties = {
   fill: "none",
   stroke: "transparent",
-  strokeWidth: 10, // 更宽的点击热区
+  strokeWidth: 16, // 更宽的点击热区，提升选中容差
   pointerEvents: "stroke",
 };
 
@@ -81,8 +81,10 @@ export function CanvasEdge({
       {/* 实际可见的路径 */}
       <path
         d={path.d}
-        style={edge.selected ? selectedEdgeStyle : edgeStyle}
-        onClick={handleClick}
+        style={{
+          ...(edge.selected ? selectedEdgeStyle : edgeStyle),
+          pointerEvents: "none", // 仅热区参与交互，避免重复触发
+        }}
         data-edge-id={edge.id}
         className="canvas-edge"
       />

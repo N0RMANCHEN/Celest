@@ -5,6 +5,7 @@
  */
 
 import { useEffect } from "react";
+import { HOTKEYS, matchAnyHotkey } from "../../../config/hotkeys";
 import type { CanvasNodeChange, CanvasEdgeChange } from "../../../entities/canvas/canvasEvents";
 import type { CanvasNode, CanvasEdge } from "../adapters/codeGraphToCanvas";
 
@@ -38,7 +39,10 @@ export function useCanvasKeyboard(
       if (isTypingElement) return;
 
       // Delete/Backspace: remove selected nodes/edges
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.size > 0) {
+      if (
+        matchAnyHotkey(e, HOTKEYS.canvasDelete.bindings) &&
+        selectedIdsRef.current.size > 0
+      ) {
         e.preventDefault();
         const changes: (CanvasNodeChange | CanvasEdgeChange)[] = [];
         for (const id of selectedIdsRef.current) {
@@ -75,7 +79,7 @@ export function useCanvasKeyboard(
       }
 
       // ESC: cancel connection or drag
-      if (e.key === "Escape") {
+      if (matchAnyHotkey(e, HOTKEYS.canvasEscape.bindings)) {
         if (isConnecting) {
           onCancelConnection();
           return;

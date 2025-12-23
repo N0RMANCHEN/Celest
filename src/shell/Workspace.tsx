@@ -20,40 +20,6 @@ import { HorizontalPane, VerticalPane } from "../layout/ResizablePane";
 
 import LeftSidebar from "./workbench/LeftSidebar";
 
-function SaveIndicator({
-  ui,
-}: {
-  ui: ReturnType<typeof useWorkbenchModel>["saveUi"];
-}) {
-  if (!ui) return null;
-  let text = "未保存";
-  if (ui.status === "saving") text = "保存中…";
-  else if (ui.status === "error")
-    text = ui.lastError ? `保存失败: ${ui.lastError}` : "保存失败";
-  else if (ui.lastSavedAt)
-    text = `已保存 ${new Date(ui.lastSavedAt).toLocaleTimeString()}`;
-
-  return (
-    <div
-      className="save-indicator"
-      aria-live="polite"
-      style={{
-        fontSize: 12,
-        color: "var(--text)",
-        padding: "6px 10px",
-        border: "1px solid var(--border)",
-        borderRadius: 10,
-        background: "rgba(255,255,255,0.9)",
-        display: "inline-flex",
-        gap: 6,
-        alignItems: "center",
-      }}
-    >
-      {text}
-    </div>
-  );
-}
-
 export default function Workspace() {
   const vm = useWorkbenchModel();
   const terminalLog = useAppStore((s) => s.terminalLog);
@@ -87,7 +53,6 @@ export default function Workspace() {
     <InspectorPanel
       selectedNode={vm.inspectorNodeViewModel}
       selectedFsEntry={vm.selectedInfo}
-      saveUi={vm.saveUi}
       onChangeTitle={vm.onUpdateNodeTitle}
       onChangeNoteText={vm.onUpdateNoteText}
       onChangeFilePath={vm.onUpdateFilePath}
@@ -117,9 +82,6 @@ export default function Workspace() {
                 />
               </ErrorBoundary>
               <BottomToolbar />
-              <div style={{ position: "absolute", right: 16, bottom: 16 }}>
-                <SaveIndicator ui={vm.saveUi} />
-              </div>
             </div>
           }
           bottom={
@@ -150,9 +112,6 @@ export default function Workspace() {
             />
           </ErrorBoundary>
           <BottomToolbar />
-          <div style={{ position: "absolute", right: 16, bottom: 16 }}>
-            <SaveIndicator ui={vm.saveUi} />
-          </div>
         </div>
       )}
     </div>

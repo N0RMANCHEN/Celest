@@ -7,6 +7,7 @@
  */
 
 import { useAppStore } from "../state/store";
+import { HOTKEYS, matchAnyHotkey } from "../config/hotkeys";
 
 declare global {
   interface Window {
@@ -23,11 +24,7 @@ export function bootstrap() {
   if (!window.__celest_save_hotkey_bound) {
     window.__celest_save_hotkey_bound = true;
     window.addEventListener("keydown", (e) => {
-      const isMac = navigator.platform.toLowerCase().includes("mac");
-      const mod = isMac ? e.metaKey : e.ctrlKey;
-      if (!mod) return;
-      if ((e.key || "").toLowerCase() !== "s") return;
-
+      if (!matchAnyHotkey(e, HOTKEYS.globalSave.bindings)) return;
       // Prevent browser save dialog.
       e.preventDefault();
       void useAppStore.getState().flushActiveProjectSave({ reason: "hotkey" });

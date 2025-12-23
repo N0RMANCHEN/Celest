@@ -179,14 +179,6 @@ export function CanvasNode({
           <div style={subtitleStyle}>{node.data.subtitle}</div>
         ) : null}
 
-        <div style={portRowStyle}>
-          {spec.ports.map((p) => (
-            <span key={p.id} style={portBadgeStyle}>
-              {p.direction === "in" ? "⬅" : "➡"} {p.label}
-            </span>
-          ))}
-        </div>
-
         {/* Right handle (output) */}
         {outPort && (
           <NodeHandle

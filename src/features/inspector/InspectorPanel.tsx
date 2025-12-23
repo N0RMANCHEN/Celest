@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import type { NodeKindSpec } from "../../entities/graph/registry";
 import { getNodeSpec } from "../../entities/graph/registry";
 import type { FsMeta } from "../../entities/fsIndex/types";
-import type { SaveUiState } from "../../state/types";
 import type { InspectorNodeViewModel } from "./types";
 import CodeMirrorEditor from "./CodeMirrorEditor";
 
@@ -17,7 +16,6 @@ function isNoteViewModel(
 type Props = {
   selectedNode: InspectorNodeViewModel | null;
   selectedFsEntry: FsMeta | null;
-  saveUi: SaveUiState | null;
   onChangeTitle: (nodeId: string, title: string) => void;
   onChangeNoteText: (nodeId: string, text: string) => void;
   onChangeFilePath: (nodeId: string, path: string) => void;
@@ -94,36 +92,9 @@ function PortList({ spec }: { spec: NodeKindSpec }) {
   );
 }
 
-function SaveStatus({ ui }: { ui: SaveUiState | null }) {
-  if (!ui) return null;
-  const badge = ui.status === "saving" ? "Saving…" : ui.lastSavedAt ? "Saved" : "Idle";
-  const color = ui.status === "saving" ? "var(--accent)" : "var(--border)";
-  return (
-    <div style={{ fontSize: 11, display: "flex", gap: 10, alignItems: "center" }}>
-      <span
-        style={{
-          padding: "2px 8px",
-          borderRadius: 0,
-          border: `1px solid ${color}`,
-          color,
-        }}
-      >
-        {badge}
-      </span>
-      {ui.lastSavedAt ? (
-        <span className="muted">Last saved: {new Date(ui.lastSavedAt).toLocaleTimeString()}</span>
-      ) : null}
-      {ui.status === "error" && ui.lastError ? (
-        <span style={{ color: "#f87171" }}>Save failed: {ui.lastError}</span>
-      ) : null}
-    </div>
-  );
-}
-
 type NoteInspectorProps = {
   node: InspectorNodeViewModel & { kind: "note"; text: string };
   spec: NodeKindSpec;
-  saveUi: SaveUiState | null;
   onChangeTitle: (nodeId: string, title: string) => void;
   onChangeNoteText: (nodeId: string, text: string) => void;
 };
@@ -131,7 +102,6 @@ type NoteInspectorProps = {
 function NoteInspector({
   node,
   spec,
-  saveUi,
   onChangeTitle,
   onChangeNoteText,
 }: NoteInspectorProps): ReactElement {
@@ -200,7 +170,6 @@ function NoteInspector({
         <div style={{ minHeight: 28 }}>
           <PortList spec={spec} />
         </div>
-        <SaveStatus ui={saveUi} />
       </div>
     </div>
   );
@@ -243,7 +212,6 @@ export default function InspectorPanel(props: Props) {
         <NoteInspector
           node={props.selectedNode}
           spec={spec}
-          saveUi={props.saveUi}
           onChangeTitle={props.onChangeTitle}
           onChangeNoteText={props.onChangeNoteText}
         />

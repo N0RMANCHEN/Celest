@@ -8,6 +8,7 @@
 import { useCallback, useEffect } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
 import { logger } from "../../../shared/utils/logger";
+import { HOTKEYS, matchAnyHotkey } from "../../../config/hotkeys";
 
 const PINCH_DELTA_MULTIPLIER = 0.03; // 提升缩放灵敏度
 const PINCH_BASE = 1.18;
@@ -109,7 +110,7 @@ export function useCanvasPanZoom(
   // Space 键监听（用于 Space + 拖拽）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !e.repeat) {
+      if (matchAnyHotkey(e, HOTKEYS.viewportSpacePan.bindings) && !e.repeat) {
         spaceKeyPressedRef.current = true;
         if (e.target === document.body || (e.target as HTMLElement).tagName === "BODY") {
           e.preventDefault();
@@ -118,7 +119,7 @@ export function useCanvasPanZoom(
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
+      if (matchAnyHotkey(e, HOTKEYS.viewportSpacePan.bindings)) {
         spaceKeyPressedRef.current = false;
         // If we were panning with Space, stop panning
         if (isPanning) {

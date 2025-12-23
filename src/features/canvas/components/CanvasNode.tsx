@@ -88,7 +88,6 @@ export function CanvasNode({
   onNodeMouseDown,
   onNodeResizeStart,
   onConnectionStart,
-  getHandleCanvasPosition,
   onNodeSizeChange,
   isConnecting,
   isValidConnectionTarget,
@@ -114,11 +113,17 @@ export function CanvasNode({
     const subtitlePaddingBottom = 10;
     const available =
       size.height - paddingY - titleH - subtitleMarginTop - subtitlePaddingBottom;
-    const lineH = 15; // 与 subtitleStyle 的 lineHeight 保持一致，防止半行
+    const lineH = 15; // 与 subtitleStyle 的 lineHeight 保持一致
     const clamp = Math.max(1, Math.floor(available / lineH));
-    setSubtitleMaxHeight(clamp * lineH);
-    setSubtitleClamp(clamp);
-  }, [size.height]);
+    const nextMaxH = clamp * lineH;
+    // 仅在数值变化时 setState，避免同步触发
+    if (subtitleClamp !== clamp || subtitleMaxHeight !== nextMaxH) {
+      requestAnimationFrame(() => {
+        setSubtitleClamp((prev) => (prev === clamp ? prev : clamp));
+        setSubtitleMaxHeight((prev) => (prev === nextMaxH ? prev : nextMaxH));
+      });
+    }
+  }, [size.height, subtitleClamp, subtitleMaxHeight]);
   
   // 根据 NodeSpec 动态查找端口（Frame/Group 的 ports 为空，不会渲染 handles）
   const inPort = spec.ports.find((p) => p.direction === "in");
@@ -182,7 +187,7 @@ export function CanvasNode({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const EDGE_T = 16; // 边缘命中阈值（px）— 放宽，靠近边缘的一大片区域都可拖
+    const EDGE_T = 6.5; // 边缘命中阈值（px）— 收紧，降低误触概率
     const HANDLE_AVOID_R = 16; // 避开左右 in/out 圆点区域（围绕垂直中线）
     const midY = rect.height / 2;
 
@@ -322,20 +327,12 @@ export function CanvasNode({
               e.stopPropagation();
               if (!onConnectionStart) return;
               
-              // 计算 handle 在 canvas 坐标系中的位置
-              // 优先使用 DOM 真实位置（传入的 getHandleCanvasPosition）
-              let handleCanvasPos: { x: number; y: number } | null = null;
-              if (getHandleCanvasPosition) {
-                handleCanvasPos = getHandleCanvasPosition(node.id, outPort.id);
-              }
-              // 回退：使用静态计算（与 NodeHandle 偏移一致）
-              if (!handleCanvasPos) {
-                handleCanvasPos = {
-                  x: node.position.x + size.width,
-                  y: node.position.y + size.height / 2,
-                };
-              }
-              
+              // 纯几何计算 handle 圆心（已与 NodeHandle 布局一致）
+              const handleCanvasPos = {
+                x: node.position.x + size.width,
+                y: node.position.y + size.height / 2,
+              };
+
               onConnectionStart(node.id, outPort.id, "source", handleCanvasPos);
             }}
           />
@@ -374,7 +371,7 @@ function useNodeSizeReporter(
 
     report();
 
-    const RO = (globalThis as any).ResizeObserver as typeof ResizeObserver | undefined;
+    const RO = (globalThis as unknown as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
     if (!RO) return;
 
     const ro = new RO(() => report());

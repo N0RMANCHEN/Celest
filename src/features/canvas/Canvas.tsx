@@ -29,7 +29,6 @@ import {
   rectFromCenterSize,
   unionRect,
 } from "./core/canvasBounds";
-import { getHandleCanvasPosition } from "./utils/handlePosition";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasDrag } from "./hooks/useCanvasDrag";
 import { useCanvasPanZoom } from "./hooks/useCanvasPanZoom";
@@ -409,7 +408,7 @@ export function Canvas(props: Props) {
   // 全局 wheel 事件处理
   useCanvasWheel(state.containerRef);
 
-  const { svgRef, containerRef, selectedIds, boxSelection, isPanning } = state;
+  const { svgRef, containerRef, selectedIds, boxSelection } = state;
   const depth = viewport.z ?? viewport.zoom;
   const depthFactor = Math.min(2, Math.max(0.7, depth));
   const dotSpacing = 20 * depthFactor;
@@ -509,17 +508,14 @@ export function Canvas(props: Props) {
                   onNodeClick={handleNodeClick}
                   onNodeMouseDown={handleNodeMouseDown}
                   onNodeResizeStart={handleNodeResizeStart}
-                onConnectionStart={handleConnectionStart}
-                getHandleCanvasPosition={(nId, hId) =>
-                  getHandleCanvasPosition(state.svgRef, viewport, nId, hId)
-                }
+                  onConnectionStart={handleConnectionStart}
                   onNodeSizeChange={handleNodeSizeChange}
-                isConnecting={connectionState.isConnecting}
-                isValidConnectionTarget={
-                  connectionState.isConnecting &&
-                  connectionState.targetNodeId === node.id &&
-                  connectionState.isValidTarget
-                }
+                  isConnecting={connectionState.isConnecting}
+                  isValidConnectionTarget={
+                    connectionState.isConnecting &&
+                    connectionState.targetNodeId === node.id &&
+                    connectionState.isValidTarget
+                  }
                   getNodeSize={getNodeSize}
                 />
               </g>

@@ -186,6 +186,18 @@ describe("graphSlice", () => {
       expect(store.getState().markActiveProjectDirty).toHaveBeenCalledWith("graph");
     });
 
+    it("处理尺寸变更", () => {
+      const project = makeStubProject();
+      const store = makeStore(project);
+      store.getState().onNodesChange([
+        { id: "n1", type: "dimensions", dimensions: { width: 320, height: 180 } },
+      ]);
+      const updated = store.getState().projects[0];
+      expect((updated.graph.nodes.n1 as any).width).toBe(320);
+      expect((updated.graph.nodes.n1 as any).height).toBe(180);
+      expect(store.getState().markActiveProjectDirty).toHaveBeenCalledWith("graph");
+    });
+
     it("处理节点删除", () => {
       const project = makeStubProject();
       const store = makeStore(project);

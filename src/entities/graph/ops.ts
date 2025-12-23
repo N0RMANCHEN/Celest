@@ -47,6 +47,23 @@ export function updateNodePosition(
   };
 }
 
+export function updateNodeDimensions(
+  graph: CodeGraphModel,
+  nodeId: string,
+  dimensions: { width: number; height: number }
+): CodeGraphModel {
+  const cur = graph.nodes[nodeId];
+  if (!cur) return graph;
+  if (cur.width === dimensions.width && cur.height === dimensions.height) return graph;
+  return {
+    ...graph,
+    nodes: {
+      ...graph.nodes,
+      [nodeId]: { ...cur, width: dimensions.width, height: dimensions.height },
+    },
+  };
+}
+
 export function removeNode(graph: CodeGraphModel, nodeId: string): CodeGraphModel {
   if (!graph.nodes[nodeId]) return graph;
 

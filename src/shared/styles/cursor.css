@@ -16,6 +16,25 @@ body * {
   cursor: default !important;
 }
 
+/* 3) Canvas interactions: allow contextual cursors (resize/drag/pan) */
+.canvas-container[data-cursor="default"] {
+  cursor: default !important;
+}
+
+/* Node-level cursors (we drive via data-cursor to beat the global !important rule) */
+.canvas-container [data-cursor="ew-resize"] {
+  cursor: ew-resize !important;
+}
+.canvas-container [data-cursor="ns-resize"] {
+  cursor: ns-resize !important;
+}
+.canvas-container [data-cursor="nwse-resize"] {
+  cursor: nwse-resize !important;
+}
+.canvas-container [data-cursor="nesw-resize"] {
+  cursor: nesw-resize !important;
+}
+
 /* 2) Typing areas: keep I-beam */
 input[type="text"],
 input[type="search"],

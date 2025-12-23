@@ -27,6 +27,12 @@ export type CodeGraphNodeBase = {
   kind: CodeNodeKind;
   title: string;
   position: Vec2;
+  /**
+   * Optional manual sizing for UI (resizable cards).
+   * If absent, Canvas may measure DOM size for layout/edge routing.
+   */
+  width?: number;
+  height?: number;
 };
 
 export type NoteNode = CodeGraphNodeBase & {

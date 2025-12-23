@@ -43,6 +43,11 @@ export type CanvasNodeChange =
     }
   | {
       id: string;
+      type: "dimensions";
+      dimensions?: { width: number; height: number };
+    }
+  | {
+      id: string;
       type: "remove";
     };
 

@@ -110,10 +110,16 @@ export function codeGraphToCanvas(
       selected: selected.has(id),
     };
 
-    // Add size for frame nodes
+    // Size (resizable cards):
+    // - frame has required width/height in domain
+    // - other nodes may optionally carry width/height after user resize
+    if (typeof (n as any).width === "number") node.width = (n as any).width;
+    if (typeof (n as any).height === "number") node.height = (n as any).height;
+
+    // Add default size for frame nodes if missing (legacy safety)
     if (n.kind === "frame") {
-      node.width = n.width ?? 200;
-      node.height = n.height ?? 150;
+      node.width = node.width ?? 200;
+      node.height = node.height ?? 150;
     }
 
     nodes.push(node);

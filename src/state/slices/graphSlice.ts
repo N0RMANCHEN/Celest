@@ -26,6 +26,7 @@ import type { Vec2 } from "../../entities/graph/types";
 import {
   removeEdge,
   removeNode,
+  updateNodeDimensions,
   updateNodePosition,
   upsertEdge,
   upsertNode,
@@ -147,6 +148,11 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
               x: ch.position.x,
               y: ch.position.y,
             });
+          } else if (ch.type === "dimensions") {
+            if (!ch.dimensions) continue;
+            const w = Math.max(80, ch.dimensions.width);
+            const h = Math.max(50, ch.dimensions.height);
+            g = updateNodeDimensions(g, ch.id, { width: w, height: h });
           } else if (ch.type === "remove") {
             g = removeNode(g, ch.id);
           }

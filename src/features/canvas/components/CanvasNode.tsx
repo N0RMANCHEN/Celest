@@ -5,7 +5,7 @@
  */
 
 import type { CSSProperties } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CanvasNode as CanvasNodeType } from "../adapters/codeGraphToCanvas";
 import { getNodeSpec } from "../../../entities/graph/registry";
 import { NodeHandle } from "./NodeHandle";
@@ -15,6 +15,11 @@ type Props = {
   onNodeClick: (nodeId: string, shiftKey: boolean) => void;
   onNodeDoubleClick?: (nodeId: string) => void;
   onNodeMouseDown?: (nodeId: string, e: React.MouseEvent) => void;
+  onNodeResizeStart?: (
+    nodeId: string,
+    dir: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw",
+    e: React.MouseEvent
+  ) => void;
   onConnectionStart?: (
     nodeId: string,
     handleId: string,
@@ -29,6 +34,8 @@ type Props = {
 };
 
 const cardStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
   padding: 10,
   borderRadius: 12,
   border: "1px solid var(--border)",
@@ -36,10 +43,11 @@ const cardStyle: CSSProperties = {
   minWidth: 180,
   boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
   position: "relative",
-  cursor: "grab",
+  boxSizing: "border-box",
   userSelect: "none",
   transition: "box-shadow 0.15s ease, border-color 0.15s ease",
   willChange: "transform", // Performance hint for GPU acceleration
+  overflow: "hidden",
 };
 
 const SELECT_COLOR = "#B8C0C3";
@@ -62,11 +70,15 @@ const subtitleStyle: CSSProperties = {
   marginTop: 6,
   fontSize: 11,
   opacity: 0.75,
-  lineHeight: 1.35,
+  lineHeight: "15px", // 固定行高，避免半行泄漏
   wordBreak: "break-word",
-  maxWidth: 260,
-  maxHeight: 42,
+  paddingBottom: 10, // 与卡片 padding 一致的底部间距
+  flex: 1,
+  maxWidth: "100%",
   overflow: "hidden",
+  textOverflow: "ellipsis",
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
 };
 
 export function CanvasNode({
@@ -74,6 +86,7 @@ export function CanvasNode({
   onNodeClick,
   onNodeDoubleClick,
   onNodeMouseDown,
+  onNodeResizeStart,
   onConnectionStart,
   getHandleCanvasPosition,
   onNodeSizeChange,
@@ -85,8 +98,27 @@ export function CanvasNode({
   const size = getNodeSize(node.id) || { width: 180, height: 100 };
   const rootRef = useRef<HTMLDivElement | null>(null);
   const lastReportedRef = useRef<{ width: number; height: number } | null>(null);
+  const hoverResizeDirRef = useRef<
+    null | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
+  >(null);
+  const lastCursorRef = useRef<string>("default");
+  const [subtitleClamp, setSubtitleClamp] = useState(5);
+  const [subtitleMaxHeight, setSubtitleMaxHeight] = useState<number | undefined>(undefined);
 
   useNodeSizeReporter(node.id, rootRef, onNodeSizeChange, lastReportedRef);
+  // 根据卡片高度估算可展示的整行数，避免底部半行被截断
+  useEffect(() => {
+    const paddingY = 10 * 2; // card padding top + bottom
+    const titleH = 13 * 1.2; // title font-size * line-height
+    const subtitleMarginTop = 6;
+    const subtitlePaddingBottom = 10;
+    const available =
+      size.height - paddingY - titleH - subtitleMarginTop - subtitlePaddingBottom;
+    const lineH = 15; // 与 subtitleStyle 的 lineHeight 保持一致，防止半行
+    const clamp = Math.max(1, Math.floor(available / lineH));
+    setSubtitleMaxHeight(clamp * lineH);
+    setSubtitleClamp(clamp);
+  }, [size.height]);
   
   // 根据 NodeSpec 动态查找端口（Frame/Group 的 ports 为空，不会渲染 handles）
   const inPort = spec.ports.find((p) => p.direction === "in");
@@ -114,11 +146,97 @@ export function CanvasNode({
     if (target.closest(".canvas-handle")) {
       return;
     }
+
+    // 如果鼠标在边缘/角落缩放区域，优先触发 resize（不触发拖动）
+    if (onNodeResizeStart && hoverResizeDirRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      onNodeResizeStart(node.id, hoverResizeDirRef.current, e);
+      return;
+    }
     
     e.preventDefault();
     e.stopPropagation();
     if (onNodeMouseDown) {
       onNodeMouseDown(node.id, e);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!onNodeResizeStart) return;
+    const el = rootRef.current;
+    if (!el) return;
+
+    // 如果鼠标在连接点上，让连接点自己处理（不显示 resize 光标）
+    const target = e.target as HTMLElement;
+    if (target.closest(".canvas-handle")) {
+      hoverResizeDirRef.current = null;
+      if (lastCursorRef.current !== "default") {
+        el.dataset.cursor = "default";
+        lastCursorRef.current = "default";
+      }
+      return;
+    }
+
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const EDGE_T = 16; // 边缘命中阈值（px）— 放宽，靠近边缘的一大片区域都可拖
+    const HANDLE_AVOID_R = 16; // 避开左右 in/out 圆点区域（围绕垂直中线）
+    const midY = rect.height / 2;
+
+    const nearLeft = x <= EDGE_T;
+    const nearRight = x >= rect.width - EDGE_T;
+    const nearTop = y <= EDGE_T;
+    const nearBottom = y >= rect.height - EDGE_T;
+
+    // 避开 in/out 圆点所在的左右中线区域，避免抢连线交互
+    if ((nearLeft || nearRight) && Math.abs(y - midY) <= HANDLE_AVOID_R) {
+      hoverResizeDirRef.current = null;
+      if (lastCursorRef.current !== "default") {
+        el.dataset.cursor = "default";
+        lastCursorRef.current = "default";
+      }
+      return;
+    }
+
+    let dir: typeof hoverResizeDirRef.current = null;
+    if (nearTop && nearLeft) dir = "nw";
+    else if (nearTop && nearRight) dir = "ne";
+    else if (nearBottom && nearLeft) dir = "sw";
+    else if (nearBottom && nearRight) dir = "se";
+    else if (nearTop) dir = "n";
+    else if (nearBottom) dir = "s";
+    else if (nearLeft) dir = "w";
+    else if (nearRight) dir = "e";
+
+    hoverResizeDirRef.current = dir;
+
+    const cursor =
+      dir === "nw" || dir === "se"
+        ? "nwse-resize"
+        : dir === "ne" || dir === "sw"
+          ? "nesw-resize"
+          : dir === "n" || dir === "s"
+            ? "ns-resize"
+            : dir === "e" || dir === "w"
+              ? "ew-resize"
+              : "default";
+
+    if (cursor !== lastCursorRef.current) {
+      el.dataset.cursor = cursor;
+      lastCursorRef.current = cursor;
+    }
+  };
+
+  const handleMouseLeave = () => {
+    const el = rootRef.current;
+    if (!el) return;
+    hoverResizeDirRef.current = null;
+    if (lastCursorRef.current !== "default") {
+      el.dataset.cursor = "default";
+      lastCursorRef.current = "default";
     }
   };
 
@@ -151,9 +269,15 @@ export function CanvasNode({
           ...(node.selected ? selectedCardStyle : cardStyle),
           // Keep width stable; height should be content-driven (dynamic).
           width: size.width,
+          ...(typeof node.height === "number"
+            ? { height: size.height }
+            : {}),
         }}
+        data-cursor="default"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         onMouseDown={handleMouseDown}
       >
         {/* Left handle (input) */}
@@ -173,7 +297,15 @@ export function CanvasNode({
           {getTitle()} {node.data.title}
         </div>
         {node.data.subtitle ? (
-          <div style={subtitleStyle}>{node.data.subtitle}</div>
+          <div
+            style={{
+              ...subtitleStyle,
+              WebkitLineClamp: subtitleClamp,
+              maxHeight: subtitleMaxHeight,
+            }}
+          >
+            {node.data.subtitle}
+          </div>
         ) : null}
 
         {/* Right handle (output) */}

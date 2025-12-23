@@ -10,7 +10,7 @@
  * - 更易于维护和测试
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CanvasConnection,
   CanvasEdgeChange,
@@ -123,6 +123,9 @@ export function Canvas(props: Props) {
 
   const handleNodeSizeChange = useCallback(
     (nodeId: string, size: { width: number; height: number }) => {
+      // If user manually set size, do not override with DOM measurement.
+      const n = nodes.find((x) => x.id === nodeId);
+      if (n && (typeof n.width === "number" || typeof n.height === "number")) return;
       setMeasuredNodeSizes((prev) => {
         const cur = prev[nodeId];
         if (
@@ -135,18 +138,16 @@ export function Canvas(props: Props) {
         return { ...prev, [nodeId]: size };
       });
     },
-    []
+    [nodes]
   );
 
   const getNodeSize = useCallback(
     (nodeId: string): { width: number; height: number } => {
-      const measured = measuredNodeSizes[nodeId];
-      if (measured) return measured;
       const node = nodes.find((n) => n.id === nodeId);
-      if (!node) return { width: 180, height: 100 };
-      return node.width && node.height
-        ? { width: node.width, height: node.height }
-        : { width: 180, height: 100 };
+      const measured = measuredNodeSizes[nodeId];
+      const width = node?.width ?? measured?.width ?? 180;
+      const height = node?.height ?? measured?.height ?? 100;
+      return { width, height };
     },
     [nodes, measuredNodeSizes]
   );
@@ -262,6 +263,122 @@ export function Canvas(props: Props) {
       onCreateNoteNodeAt
     );
 
+  // Resize (node dimensions) - drag edges/corners to resize cards
+  const resizeStateRef = useRef<null | {
+    nodeId: string;
+    dir: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+    startMouse: { x: number; y: number };
+    startPos: { x: number; y: number };
+    startSize: { width: number; height: number };
+  }>(null);
+  const resizeRafRef = useRef<number | null>(null);
+  const resizeLatestRef = useRef<
+    | null
+    | {
+        nodeId: string;
+        nextX: number;
+        nextY: number;
+        nextW: number;
+        nextH: number;
+      }
+  >(null);
+
+  const handleNodeResizeStart = useCallback(
+    (
+      nodeId: string,
+      dir: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw",
+      e: React.MouseEvent
+    ) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      const startSize = getNodeSize(nodeId);
+      resizeStateRef.current = {
+        nodeId,
+        dir,
+        startMouse: { x: e.clientX, y: e.clientY },
+        startPos: { x: node.position.x, y: node.position.y },
+        startSize,
+      };
+
+      const handleMove = (ev: MouseEvent) => {
+        const st = resizeStateRef.current;
+        if (!st) return;
+        const dx = (ev.clientX - st.startMouse.x) / viewport.zoom;
+        const dy = (ev.clientY - st.startMouse.y) / viewport.zoom;
+
+        const minW = 120;
+        const minH = 60;
+
+        let nextX = st.startPos.x;
+        let nextY = st.startPos.y;
+        let nextW = st.startSize.width;
+        let nextH = st.startSize.height;
+
+        const affectsE = st.dir.includes("e");
+        const affectsW = st.dir.includes("w");
+        const affectsS = st.dir.includes("s");
+        const affectsN = st.dir.includes("n");
+
+        if (affectsE) nextW = Math.max(minW, st.startSize.width + dx);
+        if (affectsS) nextH = Math.max(minH, st.startSize.height + dy);
+
+        if (affectsW) {
+          const w = Math.max(minW, st.startSize.width - dx);
+          nextX = st.startPos.x + (st.startSize.width - w);
+          nextW = w;
+        }
+        if (affectsN) {
+          const h = Math.max(minH, st.startSize.height - dy);
+          nextY = st.startPos.y + (st.startSize.height - h);
+          nextH = h;
+        }
+
+        // Coalesce updates to once per frame for smooth resizing
+        resizeLatestRef.current = {
+          nodeId: st.nodeId,
+          nextX,
+          nextY,
+          nextW,
+          nextH,
+        };
+        if (resizeRafRef.current == null) {
+          resizeRafRef.current = window.requestAnimationFrame(() => {
+            resizeRafRef.current = null;
+            const latest = resizeLatestRef.current;
+            if (!latest) return;
+            onNodesChange([
+              {
+                id: latest.nodeId,
+                type: "position",
+                position: { x: latest.nextX, y: latest.nextY },
+              },
+              {
+                id: latest.nodeId,
+                type: "dimensions",
+                dimensions: { width: latest.nextW, height: latest.nextH },
+              },
+            ]);
+          });
+        }
+      };
+
+      const handleUp = () => {
+        resizeStateRef.current = null;
+        resizeLatestRef.current = null;
+        if (resizeRafRef.current != null) {
+          window.cancelAnimationFrame(resizeRafRef.current);
+          resizeRafRef.current = null;
+        }
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [nodes, getNodeSize, onNodesChange, viewport.zoom]
+  );
+
   // 连接时全局监听鼠标移动/抬起
   useEffect(() => {
     if (connectionState.isConnecting) {
@@ -304,12 +421,12 @@ export function Canvas(props: Props) {
     <div
       ref={containerRef}
       className="canvas-container"
+      data-cursor="default"
       style={{
         width: "100%",
         height: "100%",
         position: "relative",
         overflow: "hidden",
-        cursor: isPanning ? "grabbing" : "default",
       }}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -391,6 +508,7 @@ export function Canvas(props: Props) {
                   node={nodeWithSelection}
                   onNodeClick={handleNodeClick}
                   onNodeMouseDown={handleNodeMouseDown}
+                  onNodeResizeStart={handleNodeResizeStart}
                 onConnectionStart={handleConnectionStart}
                 getHandleCanvasPosition={(nId, hId) =>
                   getHandleCanvasPosition(state.svgRef, viewport, nId, hId)

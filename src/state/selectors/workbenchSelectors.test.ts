@@ -208,5 +208,50 @@ describe("workbenchSelectors", () => {
     expect(vm.nodes[0].selected).toBe(true);
     expect(vm.nodes[0].position).toEqual({ x: 10, y: 20 });
   });
+
+  it("selectCanvasViewModel updates when only width/height change", () => {
+    const graph = createEmptyCodeGraph();
+    const nodeId = "n1";
+    const graphWithNode = upsertNode(graph, {
+      id: nodeId,
+      kind: "note",
+      title: "Test Note",
+      position: { x: 10, y: 20 },
+      text: "content",
+    });
+    const baseProject = {
+      id: "p1",
+      name: "test",
+      workspaceMeta: { createdAt: "", updatedAt: "" },
+      dirHandle: {} as FileSystemDirectoryHandle,
+      handles: {},
+      rootDirId: "fs:/",
+      meta: {},
+      graph: graphWithNode,
+      selectedIds: [],
+      focusNodeId: undefined,
+      focusNonce: 0,
+      activeViewId: "main" as const,
+      views: [],
+      treeExpanded: {},
+    };
+    const state = makeMockState(baseProject);
+    const vm1 = selectCanvasViewModel(state);
+    expect(vm1.nodes[0].width).toBeUndefined();
+    expect(vm1.nodes[0].height).toBeUndefined();
+
+    // mutate graph with dimensions only
+    const graphWithSize = upsertNode(graphWithNode, {
+      ...graphWithNode.nodes[nodeId],
+      width: 300,
+      height: 180,
+    } as any);
+    const state2 = makeMockState({ ...baseProject, graph: graphWithSize } as any);
+    const vm2 = selectCanvasViewModel(state2);
+
+    expect(vm2.nodes[0].width).toBe(300);
+    expect(vm2.nodes[0].height).toBe(180);
+    expect(vm2).not.toBe(vm1); // should not reuse cached vm
+  });
 });
 

@@ -71,10 +71,10 @@ export function CanvasEdge({
   return (
     <>
       {/* 扩大的透明热区，提升选中/点击容错，不影响视觉 */}
-      <path
-        d={path.d}
+    <path
+      d={path.d}
         style={hitAreaStyle}
-        onClick={handleClick}
+      onClick={handleClick}
         data-edge-id={edge.id}
         className="canvas-edge-hit"
       />
@@ -85,9 +85,9 @@ export function CanvasEdge({
           ...(edge.selected ? selectedEdgeStyle : edgeStyle),
           pointerEvents: "none", // 仅热区参与交互，避免重复触发
         }}
-        data-edge-id={edge.id}
-        className="canvas-edge"
-      />
+      data-edge-id={edge.id}
+      className="canvas-edge"
+    />
     </>
   );
 }

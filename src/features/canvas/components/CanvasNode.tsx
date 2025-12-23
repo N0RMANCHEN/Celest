@@ -5,6 +5,7 @@
  */
 
 import type { CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import type { CanvasNode as CanvasNodeType } from "../adapters/codeGraphToCanvas";
 import { getNodeSpec } from "../../../entities/graph/registry";
 import { NodeHandle } from "./NodeHandle";
@@ -21,6 +22,7 @@ type Props = {
     screenPosition: { x: number; y: number }
   ) => void;
   getHandleCanvasPosition?: (nodeId: string, handleId: string) => { x: number; y: number } | null;
+  onNodeSizeChange?: (nodeId: string, size: { width: number; height: number }) => void;
   isConnecting?: boolean;
   isValidConnectionTarget?: boolean;
   getNodeSize: (nodeId: string) => { width: number; height: number } | null;
@@ -74,12 +76,17 @@ export function CanvasNode({
   onNodeMouseDown,
   onConnectionStart,
   getHandleCanvasPosition,
+  onNodeSizeChange,
   isConnecting,
   isValidConnectionTarget,
   getNodeSize,
 }: Props) {
   const spec = getNodeSpec(node.data.kind);
   const size = getNodeSize(node.id) || { width: 180, height: 100 };
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const lastReportedRef = useRef<{ width: number; height: number } | null>(null);
+
+  useNodeSizeReporter(node.id, rootRef, onNodeSizeChange, lastReportedRef);
   
   // 根据 NodeSpec 动态查找端口（Frame/Group 的 ports 为空，不会渲染 handles）
   const inPort = spec.ports.find((p) => p.direction === "in");
@@ -139,7 +146,12 @@ export function CanvasNode({
       style={{ overflow: "visible" }}
     >
       <div
-        style={node.selected ? selectedCardStyle : cardStyle}
+        ref={rootRef}
+        style={{
+          ...(node.selected ? selectedCardStyle : cardStyle),
+          // Keep width stable; height should be content-driven (dynamic).
+          width: size.width,
+        }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleMouseDown}
@@ -186,9 +198,8 @@ export function CanvasNode({
               }
               // 回退：使用静态计算（与 NodeHandle 偏移一致）
               if (!handleCanvasPos) {
-                const HANDLE_OFFSET = 6;
                 handleCanvasPos = {
-                  x: node.position.x + size.width + HANDLE_OFFSET,
+                  x: node.position.x + size.width,
                   y: node.position.y + size.height / 2,
                 };
               }
@@ -200,5 +211,43 @@ export function CanvasNode({
       </div>
     </foreignObject>
   );
+}
+
+// Observe dynamic DOM size and report to Canvas so edges can use accurate midline.
+// Note: ResizeObserver may be unavailable in some test envs; we guard accordingly.
+function useNodeSizeReporter(
+  nodeId: string,
+  ref: React.RefObject<HTMLDivElement | null>,
+  onNodeSizeChange?: (nodeId: string, size: { width: number; height: number }) => void,
+  lastReportedRef?: React.MutableRefObject<{ width: number; height: number } | null>
+) {
+  useEffect(() => {
+    if (!onNodeSizeChange) return;
+    const el = ref.current;
+    if (!el) return;
+
+    const report = () => {
+      const rect = el.getBoundingClientRect();
+      const next = { width: rect.width, height: rect.height };
+      // Guard against 0x0 in test envs (JSDOM) or transient layout moments
+      if (next.width < 1 || next.height < 1) return;
+      const prev = lastReportedRef?.current;
+      // Avoid noisy updates
+      if (prev && Math.abs(prev.width - next.width) < 0.5 && Math.abs(prev.height - next.height) < 0.5) {
+        return;
+      }
+      if (lastReportedRef) lastReportedRef.current = next;
+      onNodeSizeChange(nodeId, next);
+    };
+
+    report();
+
+    const RO = (globalThis as any).ResizeObserver as typeof ResizeObserver | undefined;
+    if (!RO) return;
+
+    const ro = new RO(() => report());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [nodeId, ref, onNodeSizeChange, lastReportedRef]);
 }
 

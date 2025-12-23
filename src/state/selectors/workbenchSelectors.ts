@@ -96,7 +96,8 @@ export function selectFocusRequest(state: AppState): FocusRequest | null {
  */
 function createCacheKey(
   graph: NonNullable<ReturnType<AppState["getActiveProject"]>>["graph"],
-  selectedIds: string[]
+  selectedIds: string[],
+  viewId: string
 ): string {
   if (!graph) return "empty";
   
@@ -120,7 +121,7 @@ function createCacheKey(
     })
     .join("|");
   
-  return `${nodeKeys}||${edgeKeys}`;
+  return `${nodeKeys}||${edgeKeys}||view:${viewId}`;
 }
 
 /**
@@ -164,7 +165,8 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   }
 
   const selectedIds = project?.selectedIds ?? [];
-  const cacheKey = createCacheKey(graph, selectedIds);
+  const activeViewId = project?.activeViewId ?? "main";
+  const cacheKey = createCacheKey(graph, selectedIds, activeViewId);
 
   // IMPORTANT: project selection is projected back onto Canvas nodes/edges
   const vm = codeGraphToCanvas(graph, selectedIds);

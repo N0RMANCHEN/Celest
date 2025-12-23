@@ -39,18 +39,19 @@ function viewsFromWorkspace(ws: {
   ];
 }
 
-function seedGraph(): CodeGraphModel {
+function seedGraph(): { graph: CodeGraphModel; seedNodeId: string } {
   // A small starting node so users can see the canvas is alive.
   const g0 = createEmptyCodeGraph();
   const id = `n_${nanoid()}`;
   const pos: Vec2 = { x: 0, y: 0 };
-  return upsertNode(g0, {
+  const graph = upsertNode(g0, {
     id,
     kind: "note",
     title: "Canvas (CodeGraph)",
     position: pos,
     text: "Double-click empty space to create a note node.",
   });
+  return { graph, seedNodeId: id };
 }
 
 function sanitizeSelectedNodeIds(
@@ -95,7 +96,9 @@ export async function buildProjectFromDirectoryHandle(
   // Non-fatal: if the browser denies write access, project still opens.
   const { file: ws } = await ensureWorkspaceFile(dirHandle);
 
-  let graph: CodeGraphModel = seedGraph();
+  const seeded = seedGraph();
+  let graph: CodeGraphModel = seeded.graph;
+  let shouldAutoFocusSeed = false;
   try {
     const loaded = await loadMainGraph(dirHandle);
     if (loaded.graph) {
@@ -103,6 +106,7 @@ export async function buildProjectFromDirectoryHandle(
     } else {
       // First run: persist the seeded graph as a convenience.
       await saveMainGraph(dirHandle, graph);
+      shouldAutoFocusSeed = true;
     }
     // Log errors if any (non-fatal)
     if (loaded.error) {
@@ -137,8 +141,10 @@ export async function buildProjectFromDirectoryHandle(
     graph,
 
     selectedIds,
-    focusNodeId: undefined,
-    focusNonce: 0,
+    // New project first run: auto center to the seed node at (0,0).
+    // Existing projects keep their saved viewport and won't be disturbed.
+    focusNodeId: shouldAutoFocusSeed ? seeded.seedNodeId : undefined,
+    focusNonce: shouldAutoFocusSeed ? 1 : 0,
 
     activeViewId: ws.views.activeViewId,
     views: viewsFromWorkspace(ws),

@@ -10,7 +10,7 @@
  * - 更易于维护和测试
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   CanvasConnection,
   CanvasEdgeChange,
@@ -22,7 +22,13 @@ import { CanvasNode as CanvasNodeComponent } from "./components/CanvasNode";
 import { CanvasEdge as CanvasEdgeComponent } from "./components/CanvasEdge";
 import { SelectionBox } from "./components/SelectionBox";
 import { ConnectionLine } from "./components/ConnectionLine";
-import { getViewportTransform } from "./core/ViewportManager";
+import { clampViewportToBounds, getViewportTransform } from "./core/ViewportManager";
+import {
+  computeBoundsFromItems,
+  expandRect,
+  rectFromCenterSize,
+  unionRect,
+} from "./core/canvasBounds";
 import { getHandleCanvasPosition } from "./utils/handlePosition";
 import { useCanvasState } from "./hooks/useCanvasState";
 import { useCanvasDrag } from "./hooks/useCanvasDrag";
@@ -34,6 +40,12 @@ import { useCanvasEdgePositions } from "./hooks/useCanvasEdgePositions";
 import { useCanvasFocus } from "./hooks/useCanvasFocus";
 import { useCanvasWheel } from "./hooks/useCanvasWheel";
 import { useCanvasMouseEvents } from "./hooks/useCanvasMouseEvents";
+import {
+  CANVAS_CONTENT_BOUNDS_PADDING,
+  CANVAS_FIXED_HEIGHT,
+  CANVAS_FIXED_WIDTH,
+} from "../../config/canvas";
+import { NODE_HEIGHT, NODE_WIDTH } from "./config/constants";
 
 export type Props = {
   nodes: CanvasNode[];
@@ -68,17 +80,75 @@ export function Canvas(props: Props) {
 
   // 状态管理
   const state = useCanvasState(nodes, edges, viewport);
+
+  // Compute canvas bounds in world coords:
+  // - base fixed bounds (configurable)
+  // - auto expand to include all existing nodes (safety for old projects)
+  const boundsRect = useMemo(() => {
+    const fixed = rectFromCenterSize(
+      { x: 0, y: 0 },
+      { width: CANVAS_FIXED_WIDTH, height: CANVAS_FIXED_HEIGHT }
+    );
+
+    const items = nodes.map((n) => ({
+      x: n.position.x,
+      y: n.position.y,
+      width: n.width ?? NODE_WIDTH,
+      height: n.height ?? NODE_HEIGHT,
+    }));
+    const content = computeBoundsFromItems(items);
+    if (!content) return fixed;
+    return unionRect(fixed, expandRect(content, CANVAS_CONTENT_BOUNDS_PADDING));
+  }, [nodes]);
+
+  // Ensure loaded/initial viewport is inside bounds once container size is known.
+  // This prevents users from starting "lost" after we introduced finite bounds.
+  useEffect(() => {
+    const el = state.containerRef.current;
+    if (!el) return;
+    const clamped = clampViewportToBounds(
+      viewport,
+      { width: el.clientWidth, height: el.clientHeight },
+      boundsRect
+    );
+    if (clamped !== viewport) {
+      onViewportChange(clamped);
+    }
+  }, [viewport, boundsRect, onViewportChange, state.containerRef]);
   
   // Get node size helper
+  const [measuredNodeSizes, setMeasuredNodeSizes] = useState<
+    Record<string, { width: number; height: number }>
+  >({});
+
+  const handleNodeSizeChange = useCallback(
+    (nodeId: string, size: { width: number; height: number }) => {
+      setMeasuredNodeSizes((prev) => {
+        const cur = prev[nodeId];
+        if (
+          cur &&
+          Math.abs(cur.width - size.width) < 0.5 &&
+          Math.abs(cur.height - size.height) < 0.5
+        ) {
+          return prev;
+        }
+        return { ...prev, [nodeId]: size };
+      });
+    },
+    []
+  );
+
   const getNodeSize = useCallback(
     (nodeId: string): { width: number; height: number } => {
+      const measured = measuredNodeSizes[nodeId];
+      if (measured) return measured;
       const node = nodes.find((n) => n.id === nodeId);
       if (!node) return { width: 180, height: 100 };
       return node.width && node.height
         ? { width: node.width, height: node.height }
         : { width: 180, height: 100 };
     },
-    [nodes]
+    [nodes, measuredNodeSizes]
   );
 
   // 拖动逻辑
@@ -109,7 +179,8 @@ export function Canvas(props: Props) {
     state.localViewportRef,
     state.panAnimationFrameRef,
     state.spaceKeyPressedRef,
-    onViewportChange
+    onViewportChange,
+    boundsRect
   );
 
   // 选择逻辑
@@ -214,7 +285,8 @@ export function Canvas(props: Props) {
     state.isDragging,
     state.isPanning,
     connectionState.isConnecting,
-    onViewportChange
+    onViewportChange,
+    boundsRect
   );
 
   // 全局 wheel 事件处理
@@ -323,6 +395,7 @@ export function Canvas(props: Props) {
                 getHandleCanvasPosition={(nId, hId) =>
                   getHandleCanvasPosition(state.svgRef, viewport, nId, hId)
                 }
+                  onNodeSizeChange={handleNodeSizeChange}
                 isConnecting={connectionState.isConnecting}
                 isValidConnectionTarget={
                   connectionState.isConnecting &&

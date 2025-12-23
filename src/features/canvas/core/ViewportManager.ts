@@ -10,6 +10,7 @@
  */
 
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
+import { rectCenter, type Rect } from "./canvasBounds";
 
 export type ViewportTransform = {
   x: number;
@@ -17,6 +18,51 @@ export type ViewportTransform = {
   zoom: number;
   z: number;
 };
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, v));
+}
+
+/**
+ * Clamp viewport translation so the visible rect (in canvas coords) stays within bounds.
+ *
+ * Notes:
+ * - Bounds are in CANVAS coords (world space), independent of zoom.
+ * - viewport.x/y are SCREEN-space translate (pixels) applied before scale in SVG.
+ */
+export function clampViewportToBounds(
+  viewport: CanvasViewport,
+  containerSize: { width: number; height: number },
+  bounds: Rect
+): CanvasViewport {
+  const zoom = viewport.zoom > 0 ? viewport.zoom : 1;
+  const W = Math.max(1, containerSize.width);
+  const H = Math.max(1, containerSize.height);
+  const normalizedZ = viewport.z ?? viewport.zoom;
+
+  // Allowed viewport translate range derived from:
+  // left = (0 - vx)/zoom  >= minX   => vx <= -minX*zoom
+  // right = (W - vx)/zoom <= maxX  => vx >= W - maxX*zoom
+  const minVx = W - bounds.maxX * zoom;
+  const maxVx = -bounds.minX * zoom;
+  const minVy = H - bounds.maxY * zoom;
+  const maxVy = -bounds.minY * zoom;
+
+  // If visible area is larger than bounds, lock to center (Figma-like).
+  const tooWide = minVx > maxVx;
+  const tooTall = minVy > maxVy;
+  const c = rectCenter(bounds);
+  const centeredX = W / 2 - c.x * zoom;
+  const centeredY = H / 2 - c.y * zoom;
+
+  const nextX = tooWide ? centeredX : clamp(viewport.x, minVx, maxVx);
+  const nextY = tooTall ? centeredY : clamp(viewport.y, minVy, maxVy);
+
+  if (nextX === viewport.x && nextY === viewport.y) {
+    return viewport;
+  }
+  return { ...viewport, x: nextX, y: nextY, z: normalizedZ };
+}
 
 /**
  * Convert screen coordinates to canvas coordinates

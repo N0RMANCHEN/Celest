@@ -101,42 +101,42 @@ export function useCanvasSelection(
   // 实时更新框选选择（提取为独立函数，供 updateBoxSelection 和 finishBoxSelection 使用）
   const updateSelectionFromBox = useCallback(
     (currentBoxSelection: { start: { x: number; y: number }; end: { x: number; y: number } }) => {
-      // Finalize box selection
+    // Finalize box selection
       const normalizedBox = normalizeSelectionBox(currentBoxSelection.start, currentBoxSelection.end);
 
-      // Build node bounds map
-      const nodeBounds = new Map<
-        string,
-        { left: number; top: number; right: number; bottom: number }
-      >();
-      for (const node of nodes) {
-        const size = getNodeSize(node.id);
-        if (size) {
-          const bounds = getNodeBounds(node.position, size);
-          nodeBounds.set(node.id, bounds);
-        }
+    // Build node bounds map
+    const nodeBounds = new Map<
+      string,
+      { left: number; top: number; right: number; bottom: number }
+    >();
+    for (const node of nodes) {
+      const size = getNodeSize(node.id);
+      if (size) {
+        const bounds = getNodeBounds(node.position, size);
+        nodeBounds.set(node.id, bounds);
       }
+    }
 
-      // Select nodes in box
-      const boxSelected = handleBoxSelection(
-        nodes.map((n) => n.id),
-        nodeBounds,
-        normalizedBox
-      );
+    // Select nodes in box
+    const boxSelected = handleBoxSelection(
+      nodes.map((n) => n.id),
+      nodeBounds,
+      normalizedBox
+    );
 
       // Figma 行为：Shift 框选时，与初始选择合并（取并集）
-      let finalSelection: Set<string>;
-      if (boxSelectionShiftKeyRef.current) {
+    let finalSelection: Set<string>;
+    if (boxSelectionShiftKeyRef.current) {
         // Shift 框选：累加到框选开始时的选择（而不是实时更新的选择）
         finalSelection = new Set([...boxSelectionInitialSelectionRef.current, ...boxSelected]);
-      } else {
-        // 普通框选：只选中框选的节点
-        finalSelection = boxSelected;
-      }
+    } else {
+      // 普通框选：只选中框选的节点
+      finalSelection = boxSelected;
+    }
 
-      setSelectedIds(finalSelection);
-      selectedIdsRef.current = finalSelection;
-      onSelectionChange(Array.from(finalSelection));
+    setSelectedIds(finalSelection);
+    selectedIdsRef.current = finalSelection;
+    onSelectionChange(Array.from(finalSelection));
     },
     [nodes, getNodeSize, selectedIdsRef, setSelectedIds, onSelectionChange]
   );

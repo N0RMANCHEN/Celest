@@ -9,6 +9,9 @@ import { useCallback, useEffect } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
 import { logger } from "../../../shared/utils/logger";
 import { HOTKEYS, matchAnyHotkey } from "../../../config/hotkeys";
+import { CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM } from "../../../config/canvas";
+import { clampViewportToBounds } from "../core/ViewportManager";
+import type { Rect } from "../core/canvasBounds";
 
 const PINCH_DELTA_MULTIPLIER = 0.03; // 提升缩放灵敏度
 const PINCH_BASE = 1.18;
@@ -26,8 +29,22 @@ export function useCanvasPanZoom(
   localViewportRef: React.MutableRefObject<CanvasViewport>,
   panAnimationFrameRef: React.MutableRefObject<number | null>,
   spaceKeyPressedRef: React.MutableRefObject<boolean>,
-  onViewportChange: (viewport: CanvasViewport) => void
+  onViewportChange: (viewport: CanvasViewport) => void,
+  boundsRect: Rect
 ) {
+  const clampWithContainer = useCallback(
+    (vp: CanvasViewport): CanvasViewport => {
+      const el = containerRef.current;
+      if (!el) return vp;
+      return clampViewportToBounds(
+        vp,
+        { width: el.clientWidth, height: el.clientHeight },
+        boundsRect
+      );
+    },
+    [containerRef, boundsRect]
+  );
+
   // 开始平移
   const startPan = useCallback(
     (e: React.MouseEvent) => {
@@ -66,20 +83,29 @@ export function useCanvasPanZoom(
 
         const deltaX = mouseX - panStartRef.current.x;
         const deltaY = mouseY - panStartRef.current.y;
-        const newViewport = {
+        const newViewport: CanvasViewport = {
           x: panStartRef.current.viewport.x + deltaX,
           y: panStartRef.current.viewport.y + deltaY,
           zoom: panStartRef.current.viewport.zoom,
           z: panStartRef.current.viewport.z,
         };
 
+        const clamped = clampWithContainer(newViewport);
+
         // Update local ref immediately for rendering
-        localViewportRef.current = newViewport;
-        onViewportChange(newViewport);
+        localViewportRef.current = clamped;
+        onViewportChange(clamped);
         panAnimationFrameRef.current = null;
       });
     },
-    [isPanning, panStartRef, panAnimationFrameRef, localViewportRef, onViewportChange]
+    [
+      isPanning,
+      panStartRef,
+      panAnimationFrameRef,
+      localViewportRef,
+      onViewportChange,
+      clampWithContainer,
+    ]
   );
 
   // 结束平移
@@ -159,7 +185,10 @@ export function useCanvasPanZoom(
         const zoomDelta = -e.deltaY * PINCH_DELTA_MULTIPLIER;
         const zoomFactor = Math.pow(PINCH_BASE, zoomDelta);
         const currentViewport = localViewportRef.current;
-        const newZoom = Math.max(0.1, Math.min(5, currentViewport.zoom * zoomFactor));
+        const newZoom = Math.max(
+          CANVAS_MIN_ZOOM,
+          Math.min(CANVAS_MAX_ZOOM, currentViewport.zoom * zoomFactor)
+        );
 
         // Zoom towards mouse position (Figma behavior)
         const scale = newZoom / currentViewport.zoom;
@@ -170,8 +199,14 @@ export function useCanvasPanZoom(
           z: newZoom,
         };
 
-        localViewportRef.current = newViewport;
-        onViewportChange(newViewport);
+        const clamped = clampViewportToBounds(
+          newViewport,
+          { width: rect.width, height: rect.height },
+          boundsRect
+        );
+
+        localViewportRef.current = clamped;
+        onViewportChange(clamped);
 
         return false;
       }
@@ -197,8 +232,9 @@ export function useCanvasPanZoom(
           z: currentViewport.z,
         };
 
-        localViewportRef.current = newViewport;
-        onViewportChange(newViewport);
+        const clamped = clampWithContainer(newViewport);
+        localViewportRef.current = clamped;
+        onViewportChange(clamped);
 
         return false;
       }
@@ -221,7 +257,7 @@ export function useCanvasPanZoom(
         element.removeEventListener("wheel", handleWheel, { capture: true });
       };
     }
-  }, [containerRef, localViewportRef, onViewportChange]);
+  }, [containerRef, localViewportRef, onViewportChange, boundsRect, clampWithContainer]);
 
   return {
     startPan,

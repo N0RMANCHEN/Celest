@@ -92,7 +92,8 @@ export function Canvas(props: Props) {
     state.selectedIdsRef,
     state.setSelectedIds,
     onNodesChange,
-    onSelectionChange
+    onSelectionChange,
+    state.selectionHandledInMouseDownRef
   );
 
   // 平移和缩放逻辑
@@ -126,7 +127,8 @@ export function Canvas(props: Props) {
     state.selectedIdsRef,
     state.setSelectedIds,
     getNodeSize,
-    onSelectionChange
+    onSelectionChange,
+    state.selectionHandledInMouseDownRef
   );
 
   // 连线逻辑（必须在 useCanvasKeyboard 之前定义）

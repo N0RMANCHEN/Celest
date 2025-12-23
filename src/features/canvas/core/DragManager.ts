@@ -28,6 +28,9 @@ export function initDragState(): DragState {
 
 /**
  * Start drag operation
+ * 
+ * Note: Selection logic is handled in useCanvasDrag.handleNodeMouseDown before calling this function.
+ * This function assumes the nodeId is already in currentSelection (or will be added for backward compatibility).
  */
 export function startDrag(
   nodeId: string,
@@ -38,12 +41,12 @@ export function startDrag(
   draggedNodeIds: Set<string>;
   dragStartPositions: Map<string, { x: number; y: number }>;
 } {
-  // 如果未选中，被拖拽节点应加入选区（Figma 行为）
+  // 确保被拖拽节点在选择中（向后兼容，上层已处理选择逻辑）
   const selectedIds = new Set(currentSelection);
   if (!selectedIds.has(nodeId)) {
     selectedIds.add(nodeId);
   }
-  // 拖拽集合 = 当前选区
+  // 拖拽集合 = 当前选区（所有选中的节点一起拖动）
   const draggedNodeIds = new Set(selectedIds);
   const dragStartPositions = new Map<string, { x: number; y: number }>();
   

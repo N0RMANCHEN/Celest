@@ -177,53 +177,6 @@ Shell（布局与交互）：
 
 ### P0（稳定性与可靠性：高优先级）
 
-#### P0-1 修复 CanvasNodeType 类型定义缺失
-
-**问题**：
-- `CanvasNodeType` 类型定义中缺少 `"frameNode"`
-- `codeGraphToCanvas.ts` 会返回 `"frameNode"`，但类型定义不包含，导致类型不匹配
-
-**交付**：
-- 在 `src/features/canvas/types.ts` 的 `CanvasNodeType` 中添加 `"frameNode"`
-- 确保所有节点类型都有对应的 Canvas 类型定义
-
-**DoD**：
-- `CanvasNodeType` 包含所有节点类型（noteNode, fileRefNode, groupNode, subgraphNode, frameNode）
-- 类型检查通过，无 TypeScript 错误
-- 运行时 `codeGraphToCanvas` 返回的类型都能匹配
-
-#### P0-2 修复连线校验问题
-
-**问题**：
-- Frame/Group 节点 ports 为空但仍可连线（CanvasNode 硬编码了 left/right handle）
-- 连接校验未使用 NodeSpec 的 `accepts` 规则（如 fileRef.out 只接受 note）
-
-**交付**：
-- CanvasNode 根据 `spec.ports` 动态渲染 handles，ports 为空时不渲染
-- `useCanvasConnection` 连接校验升级为基于 NodeSpec（检查 `direction` 和 `accepts`）
-- Frame/Group 节点无法连线（符合设计：非连接节点）
-
-**DoD**：
-- Frame/Group 节点无 handles，无法连线
-- fileRef.out 只能连接到 note.in（符合 accepts 规则）
-- 连接校验逻辑完整且可扩展
-
-#### P0-3 对齐命名与文档口径
-
-**问题**：
-- 代码使用 CodeMirror 但命名/文档都叫 "MonacoEditor"
-- 代码已移除 ReactFlow 但注释/文档仍有残留引用
-- `recentStore.ts` 中 DB_NAME 仍为 "node_ide"，应改为 "celest"
-
-**交付**：
-- 统一命名：CodeMirror 相关组件/文件/文档统一为 "CodeMirror" 或 "Editor"
-- 清理 ReactFlow 残留：注释、文档、测试中的 ReactFlow 引用
-- 更新 DB_NAME：`recentStore.ts` 中 `DB_NAME = "celest"`（需处理数据迁移）
-
-**DoD**：
-- 命名一致：代码、文档、注释统一
-- 无 ReactFlow 残留引用
-- IndexedDB 数据库名统一为 "celest"（向后兼容迁移）
 
 
 ---

@@ -5,7 +5,7 @@
  * 
  * Figma-like behavior:
  * - Click node: select only that node (clear others)
- * - Shift+click: toggle selection
+ * - Shift+click: toggle node selection (add if not selected, remove if selected)
  * - Box selection: nodes partially overlapping are selected
  * - Box selection start: clear previous selection
  */
@@ -24,6 +24,8 @@ export function handleNodeClick(
 ): Set<string> {
   if (shiftKey) {
     // Shift+click: toggle selection
+    // 如果节点已选中，从选择中移除；如果未选中，添加到选择中
+    // 其他已选中的节点保持不变
     const next = new Set(currentSelection);
     if (next.has(nodeId)) {
       next.delete(nodeId);

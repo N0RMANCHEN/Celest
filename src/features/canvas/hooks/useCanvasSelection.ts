@@ -26,19 +26,27 @@ export function useCanvasSelection(
   selectedIdsRef: React.MutableRefObject<Set<string>>,
   setSelectedIds: (ids: Set<string>) => void,
   getNodeSize: (nodeId: string) => { width: number; height: number },
-  onSelectionChange: (ids: string[]) => void
+  onSelectionChange: (ids: string[]) => void,
+  selectionHandledInMouseDownRef?: React.MutableRefObject<boolean>
 ) {
   // 追踪框选开始时的 shiftKey 状态
   const boxSelectionShiftKeyRef = useRef(false);
   // 处理节点点击
   const handleNodeClick = useCallback(
     (nodeId: string, shiftKey: boolean) => {
+      // 如果选择已在 mousedown 中处理（拖动逻辑），则跳过，避免重复处理
+      if (selectionHandledInMouseDownRef?.current) {
+        // 清除标志，为下次点击做准备
+        selectionHandledInMouseDownRef.current = false;
+        return;
+      }
+      
       const newSelection = handleNodeClickSelection(nodeId, selectedIdsRef.current, shiftKey);
       setSelectedIds(newSelection);
       selectedIdsRef.current = newSelection;
       onSelectionChange(Array.from(newSelection));
     },
-    [selectedIdsRef, setSelectedIds, onSelectionChange]
+    [selectedIdsRef, setSelectedIds, onSelectionChange, selectionHandledInMouseDownRef]
   );
 
   // 处理边点击

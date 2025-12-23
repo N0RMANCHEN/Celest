@@ -29,7 +29,8 @@ export function useCanvasDrag(
   selectedIdsRef: React.MutableRefObject<Set<string>>,
   setSelectedIds: (ids: Set<string>) => void,
   onNodesChange: (changes: CanvasNodeChange[]) => void,
-  onSelectionChange: (ids: string[]) => void
+  onSelectionChange: (ids: string[]) => void,
+  selectionHandledInMouseDownRef?: React.MutableRefObject<boolean>
 ) {
   // 开始拖动节点
   const handleNodeMouseDown = useCallback(
@@ -58,18 +59,51 @@ export function useCanvasDrag(
         viewport
       );
 
+      // 修复选择逻辑（Figma 行为）：
+      // - 正常点击：如果节点未选中，则清空并只选中该节点，便于拖动；已选中则保持
+      // - Shift+点击：toggle 选择；若未选中则加入并准备拖动，若已选中则留给 click 阶段取消（不在此改动）
+      const isNodeSelected = selectedIdsRef.current.has(nodeId);
+      const shiftKey = e.shiftKey;
+      
+      let finalSelection = selectedIdsRef.current;
+      
+      if (shiftKey) {
+        if (!isNodeSelected) {
+          // Shift+点击且未选中：加入选择，便于拖动
+          finalSelection = new Set(selectedIdsRef.current);
+          finalSelection.add(nodeId);
+          setSelectedIds(finalSelection);
+          selectedIdsRef.current = finalSelection;
+          onSelectionChange(Array.from(finalSelection));
+          if (selectionHandledInMouseDownRef) {
+            selectionHandledInMouseDownRef.current = true;
+          }
+        }
+        // Shift+点击且已选中：不在此处理，让 click 阶段执行取消
+      } else if (!isNodeSelected) {
+        // 正常点击且节点未选中：清除选择，只选中该节点
+        finalSelection = new Set([nodeId]);
+        setSelectedIds(finalSelection);
+        selectedIdsRef.current = finalSelection;
+        onSelectionChange(Array.from(finalSelection));
+        if (selectionHandledInMouseDownRef) {
+          selectionHandledInMouseDownRef.current = true;
+        }
+      }
+      // 如果节点已选中且未按 Shift，保持当前选择不变
+
       // Start drag - use current node positions from props
       const nodePositions = new Map<string, { x: number; y: number }>();
       for (const node of nodes) {
         nodePositions.set(node.id, { ...node.position });
       }
 
-      const dragResult = startDrag(nodeId, selectedIdsRef.current, nodePositions);
+      const dragResult = startDrag(nodeId, finalSelection, nodePositions);
 
-      // Update selection if needed
+      // dragResult.selectedIds 应该和 finalSelection 一致，但为了安全还是检查一下
       if (
-        dragResult.selectedIds.size !== selectedIdsRef.current.size ||
-        !Array.from(dragResult.selectedIds).every((id) => selectedIdsRef.current.has(id))
+        dragResult.selectedIds.size !== finalSelection.size ||
+        !Array.from(dragResult.selectedIds).every((id) => finalSelection.has(id))
       ) {
         setSelectedIds(dragResult.selectedIds);
         selectedIdsRef.current = dragResult.selectedIds;
@@ -96,6 +130,7 @@ export function useCanvasDrag(
       setIsDragging,
       dragStateRef,
       onSelectionChange,
+      selectionHandledInMouseDownRef,
     ]
   );
 
@@ -103,6 +138,11 @@ export function useCanvasDrag(
   const handleDragMove = useCallback(
     (e: MouseEvent) => {
       if (!isDragging || !dragStateRef.current) return;
+
+      // 标记选择已在拖动中处理，避免 click 事件重复处理
+      if (selectionHandledInMouseDownRef) {
+        selectionHandledInMouseDownRef.current = true;
+      }
 
       const rect = svgRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -156,6 +196,7 @@ export function useCanvasDrag(
       localNodePositionsRef,
       localViewportRef,
       onNodesChange,
+      selectionHandledInMouseDownRef,
     ]
   );
 
@@ -184,6 +225,16 @@ export function useCanvasDrag(
 
     setIsDragging(false);
     dragStateRef.current = null;
+    
+    // 清除选择处理标志（延迟清除，确保 click 事件能检查到）
+    // click 事件在 mouseup 之后触发，所以需要延迟清除
+    if (selectionHandledInMouseDownRef) {
+      setTimeout(() => {
+        if (selectionHandledInMouseDownRef) {
+          selectionHandledInMouseDownRef.current = false;
+        }
+      }, 100);
+    }
   }, [
     isDragging,
     dragAnimationFrameRef,
@@ -191,6 +242,7 @@ export function useCanvasDrag(
     localNodePositionsRef,
     setIsDragging,
     onNodesChange,
+    selectionHandledInMouseDownRef,
   ]);
 
   // 全局鼠标移动监听（拖动过程中）

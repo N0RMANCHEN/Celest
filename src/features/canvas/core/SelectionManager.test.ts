@@ -12,12 +12,18 @@ describe("SelectionManager", () => {
     expect(Array.from(next)).toEqual(["a"]);
   });
 
-  it("handleNodeClick Shift 点击切换选中状态", () => {
+  it("handleNodeClick Shift 点击切换选中状态（toggle）", () => {
+    // Shift+点击已选中的节点：从选择中移除，其他节点保持选中
     const next = handleNodeClick("a", new Set(["a", "b"]), true);
-    expect(Array.from(next)).toEqual(["b"]);
+    expect(new Set(next)).toEqual(new Set(["b"]));
 
+    // Shift+点击未选中的节点：添加到选择中，其他节点保持选中
     const next2 = handleNodeClick("c", new Set(["a", "b"]), true);
     expect(new Set(next2)).toEqual(new Set(["a", "b", "c"]));
+    
+    // 再次 Shift+点击已选中的节点：从选择中移除
+    const next3 = handleNodeClick("c", new Set(["a", "b", "c"]), true);
+    expect(new Set(next3)).toEqual(new Set(["a", "b"]));
   });
 
   it("handleBoxSelection 部分重叠即选中（Figma 行为）", () => {

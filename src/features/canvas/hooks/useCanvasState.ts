@@ -58,6 +58,9 @@ export function useCanvasState(
   // Space key state
   const spaceKeyPressedRef = useRef(false);
 
+  // Track if selection was handled in mousedown (to avoid duplicate handling in click)
+  const selectionHandledInMouseDownRef = useRef(false);
+
   // Sync viewport to local ref
   useEffect(() => {
     localViewportRef.current = { ...viewport, z: viewport.z ?? viewport.zoom };
@@ -165,6 +168,9 @@ export function useCanvasState(
 
     // Space key state
     spaceKeyPressedRef,
+
+    // Selection handling flag
+    selectionHandledInMouseDownRef,
   };
 }
 

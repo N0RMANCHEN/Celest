@@ -128,7 +128,9 @@ export function Canvas(props: Props) {
     state.setSelectedIds,
     getNodeSize,
     onSelectionChange,
-    state.selectionHandledInMouseDownRef
+    state.selectionHandledInMouseDownRef,
+    state.doubleClickWasDragRef,
+    state.boxSelectionJustFinishedRef
   );
 
   // 连线逻辑（必须在 useCanvasKeyboard 之前定义）
@@ -266,8 +268,13 @@ export function Canvas(props: Props) {
       return;
     }
 
-      // Left click on pane: start box selection (but not on double-click)
-      if (e.button === 0 && e.detail === 1) {
+      // Left click on pane: start box selection
+      // 即使是双击的第二下（e.detail === 2），如果是拖动，也应该启动框选
+      if (e.button === 0) {
+        // 如果是双击的第二下，重置拖动标志
+        if (e.detail === 2) {
+          state.doubleClickWasDragRef.current = false;
+        }
         startBoxSelection(e);
       }
     },
@@ -286,8 +293,8 @@ export function Canvas(props: Props) {
   const handleMouseUp = useCallback(
     (e: React.MouseEvent) => {
       // If this is part of a double-click, clear all interaction states
+      // 但不立即清除框选，让 handlePaneClickInternal 检查框选框大小来判断是点击还是拖动
       if (e.detail >= 2) {
-        clearBoxSelection();
         // 确保清除所有交互状态，防止状态污染
         if (state.isPanning) {
           handlePanEnd();
@@ -298,6 +305,7 @@ export function Canvas(props: Props) {
         if (connectionState.isConnecting) {
           handleConnectionCancel();
         }
+        // 不在这里清除框选，让 handlePaneClickInternal 处理
         return;
       }
 
@@ -333,7 +341,16 @@ export function Canvas(props: Props) {
       }
 
       // Double-click creates note node
+      // 但如果双击的第二下是拖动，则不创建 node
       if (e.detail >= 2 && onCreateNoteNodeAt) {
+        // 检查是否发生了拖动（通过 finishBoxSelection 设置的标志）
+        if (state.doubleClickWasDragRef.current) {
+          // 如果是拖动，不创建 node（框选已经在 finishBoxSelection 中处理了）
+          state.doubleClickWasDragRef.current = false; // 重置标志
+          return;
+        }
+        
+        // 如果是点击（没有拖动），创建 node
         e.preventDefault();
         e.stopPropagation();
 
@@ -357,6 +374,12 @@ export function Canvas(props: Props) {
       }
 
       // Single click clears selection
+      // 但如果框选刚刚完成，不清除选择（因为框选完成后，click 事件会触发，但此时选择应该保持）
+      if (state.boxSelectionJustFinishedRef.current) {
+        // 框选刚刚完成，不清除选择
+        return;
+      }
+      
       const target = e.target as HTMLElement;
       const isOnNode = target.closest(".canvas-node") || target.closest("foreignObject");
       const isOnEdge = target.closest(".canvas-edge");
@@ -369,6 +392,8 @@ export function Canvas(props: Props) {
       onCreateNoteNodeAt,
       viewport,
       state.svgRef,
+      state.doubleClickWasDragRef,
+      state.boxSelectionJustFinishedRef,
       clearBoxSelection,
       handlePaneClick,
       connectionState.isConnecting,

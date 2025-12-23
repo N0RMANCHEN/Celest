@@ -61,6 +61,12 @@ export function useCanvasState(
   // Track if selection was handled in mousedown (to avoid duplicate handling in click)
   const selectionHandledInMouseDownRef = useRef(false);
 
+  // Track if double-click second click was a drag (to prevent creating node)
+  const doubleClickWasDragRef = useRef(false);
+
+  // Track if box selection just finished (to prevent clearing selection on click)
+  const boxSelectionJustFinishedRef = useRef(false);
+
   // Sync viewport to local ref
   useEffect(() => {
     localViewportRef.current = { ...viewport, z: viewport.z ?? viewport.zoom };
@@ -171,6 +177,12 @@ export function useCanvasState(
 
     // Selection handling flag
     selectionHandledInMouseDownRef,
+
+    // Double-click drag flag
+    doubleClickWasDragRef,
+
+    // Box selection just finished flag
+    boxSelectionJustFinishedRef,
   };
 }
 

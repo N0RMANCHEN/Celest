@@ -27,10 +27,13 @@ export function useCanvasSelection(
   setSelectedIds: (ids: Set<string>) => void,
   getNodeSize: (nodeId: string) => { width: number; height: number },
   onSelectionChange: (ids: string[]) => void,
-  selectionHandledInMouseDownRef?: React.MutableRefObject<boolean>
+  selectionHandledInMouseDownRef?: React.MutableRefObject<boolean>,
+  doubleClickWasDragRef?: React.MutableRefObject<boolean>,
+  boxSelectionJustFinishedRef?: React.MutableRefObject<boolean>
 ) {
-  // 追踪框选开始时的 shiftKey 状态
+  // 追踪框选开始时的 shiftKey 状态和初始选择
   const boxSelectionShiftKeyRef = useRef(false);
+  const boxSelectionInitialSelectionRef = useRef<Set<string>>(new Set());
   // 处理节点点击
   const handleNodeClick = useCallback(
     (nodeId: string, shiftKey: boolean) => {
@@ -79,18 +82,63 @@ export function useCanvasSelection(
         viewport
       );
 
-      // 记录 shiftKey 状态，用于完成框选时判断
+      // 记录 shiftKey 状态和初始选择，用于完成框选时判断
       boxSelectionShiftKeyRef.current = e.shiftKey;
+      boxSelectionInitialSelectionRef.current = new Set(selectedIdsRef.current);
 
       // Figma 行为：不按 Shift 时清除之前的选择，按 Shift 时保留
       if (!e.shiftKey) {
         handlePaneClick();
+        boxSelectionInitialSelectionRef.current = new Set(); // 清除后初始选择为空
       }
 
       isBoxSelectingRef.current = true;
       setBoxSelection({ start: canvasPos, end: canvasPos });
     },
-    [svgRef, viewport, isBoxSelectingRef, setBoxSelection, handlePaneClick]
+    [svgRef, viewport, isBoxSelectingRef, selectedIdsRef, setBoxSelection, handlePaneClick]
+  );
+
+  // 实时更新框选选择（提取为独立函数，供 updateBoxSelection 和 finishBoxSelection 使用）
+  const updateSelectionFromBox = useCallback(
+    (currentBoxSelection: { start: { x: number; y: number }; end: { x: number; y: number } }) => {
+      // Finalize box selection
+      const normalizedBox = normalizeSelectionBox(currentBoxSelection.start, currentBoxSelection.end);
+
+      // Build node bounds map
+      const nodeBounds = new Map<
+        string,
+        { left: number; top: number; right: number; bottom: number }
+      >();
+      for (const node of nodes) {
+        const size = getNodeSize(node.id);
+        if (size) {
+          const bounds = getNodeBounds(node.position, size);
+          nodeBounds.set(node.id, bounds);
+        }
+      }
+
+      // Select nodes in box
+      const boxSelected = handleBoxSelection(
+        nodes.map((n) => n.id),
+        nodeBounds,
+        normalizedBox
+      );
+
+      // Figma 行为：Shift 框选时，与初始选择合并（取并集）
+      let finalSelection: Set<string>;
+      if (boxSelectionShiftKeyRef.current) {
+        // Shift 框选：累加到框选开始时的选择（而不是实时更新的选择）
+        finalSelection = new Set([...boxSelectionInitialSelectionRef.current, ...boxSelected]);
+      } else {
+        // 普通框选：只选中框选的节点
+        finalSelection = boxSelected;
+      }
+
+      setSelectedIds(finalSelection);
+      selectedIdsRef.current = finalSelection;
+      onSelectionChange(Array.from(finalSelection));
+    },
+    [nodes, getNodeSize, selectedIdsRef, setSelectedIds, onSelectionChange]
   );
 
   // 更新框选（鼠标移动时）
@@ -105,51 +153,44 @@ export function useCanvasSelection(
         { x: e.clientX - rect.left, y: e.clientY - rect.top },
         localViewportRef.current
       );
-      setBoxSelection({ ...boxSelection, end: canvasPos });
+      
+      const newBoxSelection = { ...boxSelection, end: canvasPos };
+      setBoxSelection(newBoxSelection);
+      
+      // 实时更新选择（鼠标移动时）
+      updateSelectionFromBox(newBoxSelection);
     },
-    [boxSelection, isBoxSelectingRef, svgRef, localViewportRef, setBoxSelection]
+    [boxSelection, isBoxSelectingRef, svgRef, localViewportRef, setBoxSelection, updateSelectionFromBox]
   );
 
   // 完成框选
   const finishBoxSelection = useCallback(() => {
     if (!isBoxSelectingRef.current || !boxSelection) return;
 
-    // Finalize box selection
-    const normalizedBox = normalizeSelectionBox(boxSelection.start, boxSelection.end);
-
-    // Build node bounds map
-    const nodeBounds = new Map<
-      string,
-      { left: number; top: number; right: number; bottom: number }
-    >();
-    for (const node of nodes) {
-      const size = getNodeSize(node.id);
-      if (size) {
-        const bounds = getNodeBounds(node.position, size);
-        nodeBounds.set(node.id, bounds);
-      }
+    // 检查框选框大小，判断是否是拖动（用于双击场景）
+    const DRAG_THRESHOLD = 5; // 拖动阈值（像素）
+    const boxWidth = Math.abs(boxSelection.end.x - boxSelection.start.x);
+    const boxHeight = Math.abs(boxSelection.end.y - boxSelection.start.y);
+    const wasDrag = boxWidth > DRAG_THRESHOLD || boxHeight > DRAG_THRESHOLD;
+    
+    // 如果是拖动，设置标志（用于双击场景，防止创建 node）
+    if (doubleClickWasDragRef && wasDrag) {
+      doubleClickWasDragRef.current = true;
     }
 
-    // Select nodes in box
-    const boxSelected = handleBoxSelection(
-      nodes.map((n) => n.id),
-      nodeBounds,
-      normalizedBox
-    );
+    // 使用统一的更新逻辑（已经在 updateBoxSelection 中实时更新过了，这里确保最终状态正确）
+    updateSelectionFromBox(boxSelection);
 
-    // Figma 行为：Shift 框选时，与现有选择合并（取并集）
-    let finalSelection: Set<string>;
-    if (boxSelectionShiftKeyRef.current) {
-      // Shift 框选：累加到现有选择
-      finalSelection = new Set([...selectedIdsRef.current, ...boxSelected]);
-    } else {
-      // 普通框选：只选中框选的节点
-      finalSelection = boxSelected;
+    // 标记框选刚刚完成，防止 click 事件清除选择
+    if (boxSelectionJustFinishedRef) {
+      boxSelectionJustFinishedRef.current = true;
+      // 延迟清除标志，确保 click 事件能检查到
+      setTimeout(() => {
+        if (boxSelectionJustFinishedRef) {
+          boxSelectionJustFinishedRef.current = false;
+        }
+      }, 100);
     }
-
-    setSelectedIds(finalSelection);
-    selectedIdsRef.current = finalSelection;
-    onSelectionChange(Array.from(finalSelection));
 
     // Clear box selection
     isBoxSelectingRef.current = false;
@@ -157,12 +198,10 @@ export function useCanvasSelection(
   }, [
     isBoxSelectingRef,
     boxSelection,
-    nodes,
-    getNodeSize,
-    selectedIdsRef,
-    setSelectedIds,
-    onSelectionChange,
     setBoxSelection,
+    updateSelectionFromBox,
+    doubleClickWasDragRef,
+    boxSelectionJustFinishedRef,
   ]);
 
   // 清除框选状态

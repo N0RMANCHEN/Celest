@@ -9,7 +9,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:quality": "node scripts/check-code-quality.js",
+    "check:architecture": "node scripts/check-architecture.js",
+    "check:all": "npm run check:quality && npm run check:architecture"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",

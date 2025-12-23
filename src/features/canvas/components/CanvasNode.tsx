@@ -67,21 +67,6 @@ const subtitleStyle: CSSProperties = {
   overflow: "hidden",
 };
 
-const portRowStyle: CSSProperties = {
-  display: "flex",
-  gap: 6,
-  marginTop: 8,
-  flexWrap: "wrap",
-};
-
-const portBadgeStyle: CSSProperties = {
-  fontSize: 10,
-  padding: "3px 6px",
-  borderRadius: 8,
-  border: "1px solid var(--border)",
-  background: "rgba(255,255,255,0.06)",
-};
-
 export function CanvasNode({
   node,
   onNodeClick,

@@ -13,6 +13,7 @@
 import type { StateCreator } from "zustand";
 
 import type { AppState, PersistenceSlice, SaveUiState } from "../types";
+import { AUTOSAVE_INTERVAL_MS } from "../../config/app";
 
 import {
   ensureWorkspaceFile,
@@ -21,7 +22,7 @@ import {
 } from "../../core/persistence/loadSave";
 import { PersistenceErrors, formatErrorForUser, type PersistenceError } from "../../core/persistence/errors";
 
-const AUTOSAVE_DEBOUNCE_MS = 900;
+const AUTOSAVE_DEBOUNCE_MS = AUTOSAVE_INTERVAL_MS;
 
 type Timer = ReturnType<typeof setTimeout>;
 

@@ -3,7 +3,7 @@
  * ----------------
  * Global cursor policy (product requirement):
  * - Default is always arrow (cursor: default), even on clickable elements.
- * - Typing areas keep the I-beam cursor (inputs/textarea/contenteditable/Monaco).
+ * - Typing areas keep the I-beam cursor (inputs/textarea/contenteditable/CodeMirror).
  *
  * IMPORTANT:
  * - This file should be imported LAST, so it can override any scattered cursor rules.
@@ -30,8 +30,8 @@ textarea,
   cursor: text !important;
 }
 
-/* Monaco editor should stay as text (covers nested spans) */
-.monaco-editor,
-.monaco-editor * {
+/* CodeMirror editor should stay as text (covers nested spans) */
+.cm-editor,
+.cm-editor * {
   cursor: text !important;
 }

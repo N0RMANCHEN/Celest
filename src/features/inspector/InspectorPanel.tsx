@@ -6,7 +6,7 @@ import { getNodeSpec } from "../../entities/graph/registry";
 import type { FsMeta } from "../../entities/fsIndex/types";
 import type { SaveUiState } from "../../state/types";
 import type { InspectorNodeViewModel } from "./types";
-import MonacoEditor from "./MonacoEditor";
+import CodeMirrorEditor from "./CodeMirrorEditor";
 
 function isNoteViewModel(
   node: InspectorNodeViewModel | null
@@ -178,7 +178,7 @@ function NoteInspector({
               marginLeft: 0,
             }}
           >
-            <MonacoEditor
+            <CodeMirrorEditor
             value={node.text ?? ""}
               onChange={(v: string) => onChangeNoteText(node.id, v)}
             height="100%"

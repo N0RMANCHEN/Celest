@@ -175,7 +175,7 @@ describe("workbenchSelectors", () => {
     expect(vm.edges).toEqual([]);
   });
 
-  it("selectCanvasViewModel converts graph to ReactFlow format", () => {
+  it("selectCanvasViewModel converts graph to Canvas view model", () => {
     const graph = createEmptyCodeGraph();
     const nodeId = "n1";
     const updatedGraph = upsertNode(graph, {

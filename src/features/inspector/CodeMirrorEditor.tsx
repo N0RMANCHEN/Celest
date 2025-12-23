@@ -1,3 +1,11 @@
+/**
+ * features/inspector/CodeMirrorEditor.tsx
+ * ----------------
+ * CodeMirror-based editor component for Inspector panel.
+ * 
+ * Uses @uiw/react-codemirror with markdown support.
+ */
+
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { EditorView, keymap } from "@codemirror/view";
@@ -283,7 +291,7 @@ type Props = {
   onChange: (value: string) => void;
 };
 
-export default function MonacoEditor({
+export default function CodeMirrorEditor({
   value,
   height = 220,
   onChange,
@@ -333,3 +341,4 @@ export default function MonacoEditor({
     </div>
   );
 }
+

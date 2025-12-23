@@ -7,7 +7,7 @@
  * - Left Tree uses FsIndexSnapshot.
  * - Canvas uses CodeGraphModel (converted to custom Canvas view model).
  *
- * P0-1.5: ReactFlow has been replaced with custom Canvas implementation.
+ * P0-1.5: Custom Canvas implementation (replaced ReactFlow).
  */
 
 import { useCallback } from "react";
@@ -64,7 +64,7 @@ export function useWorkbenchModel() {
     useShallow((s) => selectFocusRequest(s))
   );
   
-  // P0-1.5: Use custom Canvas implementation (replaces ReactFlow)
+  // P0-1.5: Use custom Canvas implementation
   // CRITICAL: selectCanvasViewModel returns a stable object reference when content is unchanged.
   // We don't need useShallow here because the selector itself handles reference stability.
   const canvasVM = useAppStore(selectCanvasViewModel);

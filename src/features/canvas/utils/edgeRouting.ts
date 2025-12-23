@@ -16,7 +16,7 @@ export type EdgePath = {
 
 /**
  * Calculate Bezier curve path for edge
- * Similar to ReactFlow's SmoothStep
+ * Similar to ReactFlow's SmoothStep (reference implementation)
  */
 export function calculateBezierPath(
   source: Point,

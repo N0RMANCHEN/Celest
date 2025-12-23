@@ -136,7 +136,7 @@ export function Canvas(props: Props) {
     handleConnectionMove,
     handleConnectionEnd,
     handleConnectionCancel,
-  } = useCanvasConnection(edges, state.svgRef, viewport, onConnect);
+  } = useCanvasConnection(edges, nodes, state.svgRef, viewport, onConnect);
 
   // 键盘处理
   useCanvasKeyboard(

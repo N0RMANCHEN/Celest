@@ -6,7 +6,7 @@
  *
  * IMPORTANT:
  * - Keep this layer React-free.
- * - Do not depend on ReactFlow types here.
+ * - Do not depend on UI engine types here (pure domain logic).
  */
 
 import type {

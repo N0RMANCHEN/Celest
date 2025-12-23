@@ -3,7 +3,7 @@
  * ----------------
  * Step4C:
  * - Scan a directory handle to produce runtime FS metadata + handles.
- * - NO ReactFlow nodes/edges are created here.
+ * - NO Canvas nodes/edges are created here (only FS Index).
  * - This data powers:
  *   - FsIndexSnapshot (left tree navigation)
  *   - file open operations (via handle lookup)

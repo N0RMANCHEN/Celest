@@ -153,6 +153,88 @@ Rules:
 - Node-based
 - Plugin-driven node types
 
+#### 6.2.1 Node Port System (节点端口系统)
+
+- **Default Ports**: Nodes have default in/out ports (e.g., `note` and `fileRef` both have `in` and `out` ports)
+- **Extensibility**: Ports are defined via `NodeSpec` and can be extended dynamically
+- **Type Validation**: Ports support `accepts` rules for type checking (e.g., `fileRef.out` only accepts `note` nodes)
+- **Future**: Ports can be added and recognized dynamically
+
+#### 6.2.2 Container Types (容器类型)
+
+Celest defines three container types with distinct purposes:
+
+**1. Group (打组)**
+- **Purpose**: Logical grouping for selection and organization
+- **Behavior**: Similar to Figma's Group concept
+- **Properties**:
+  - No ports (`ports: []`) — cannot be connected
+  - Pure visual/logical grouping
+  - Does NOT create folders in file system
+- **FS Index**: Can be displayed as virtual nodes (🧩) for navigation and selection, but does NOT create actual folders
+- **Use Case**: Organize nodes on canvas for easier selection and categorization
+
+**2. Frame (容器/画板)**
+- **Purpose**: Visual container that maps to file system folders
+- **Behavior**: Similar to Figma's Frame/Section
+- **Properties**:
+  - No ports (`ports: []`) — cannot be connected directly
+  - Can be collapsed/expanded
+  - Can be resized
+  - When collapsed, edges can aggregate to frame's in/out badges (P2-3)
+- **FS Mapping**: Folder → Frame (P2-1 FS Mirror Graph Mode)
+- **FS Index**: Displays as folder icon (📁), clickable to expand/collapse
+- **Use Case**: 
+  - FS Mirror Graph Mode: visualize project structure
+  - Visual grouping with frame boundaries
+
+**3. Subgraph (子图/打包节点)**
+- **Purpose**: Functional encapsulation and reuse
+- **Behavior**: Similar to Grasshopper and Blender geometry nodes
+- **Properties**:
+  - Has IO ports (`input` and `output`) — can be connected
+  - Can be opened to view/edit internal graph (separate viewport)
+  - Can create multiple instances from one definition
+  - Encapsulates a group of nodes into a single node
+- **FS Storage**: Subgraph definitions stored in folders (e.g., `/.celest/subgraphs/<name>/`)
+- **FS Index**: Displays as special icon (🪐) indicating subgraph definition storage location
+- **Use Case**: 
+  - Package reusable logic modules
+  - Create composable graph components
+  - Similar to function definitions in programming
+
+#### 6.2.3 Three-Layer Relationship (三层关系定义)
+
+Celest maintains a clear separation between three layers:
+
+**1. File System (文件系统)**
+- Real files and folders in the project root
+- Source of truth for actual project structure
+
+**2. FS Index (文件系统索引)**
+- Purpose: Navigation tree in left sidebar
+- Content: Snapshot/index of file system
+- Behavior: Navigation only (not for canvas editing)
+- Never rendered as canvas graph by default
+
+**3. Canvas Nodes (画布节点)**
+- Visual representation on canvas
+- Can map to file system (Frame) or be independent (Group, Subgraph)
+
+**Relationship Mapping:**
+
+| Node Type | File System Relation | FS Index Display | Canvas Behavior |
+|-----------|---------------------|------------------|-----------------|
+| **Frame** | ✅ Maps to real folder | 📁 Folder icon (expandable) | 🖼️ Visual container, can collapse |
+| **Subgraph** | ✅ Definition stored in folder (`/.celest/subgraphs/`) | 🪐 Special icon (definition storage) | 🪐 Reusable node with IO ports |
+| **Group** | ❌ No folder created | 🧩 Virtual node (navigation only, optional) | 🧩 Logical grouping, no ports |
+
+**Key Principles:**
+- **FS Index ≠ CodeGraph ≠ Knowledge Tree** (strict separation)
+- **Frame**: File system structure visualization (mapping)
+- **Subgraph**: Functional encapsulation (definition storage)
+- **Group**: Pure logical grouping (no file system impact)
+
 ### 6.3 Knowledge Graph (MD Skill Tree)
 
 - Purpose: learning, research, synthesis

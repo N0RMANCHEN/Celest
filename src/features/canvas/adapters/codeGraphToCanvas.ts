@@ -8,16 +8,16 @@
  * IMPORTANT:
  * - This is the boundary between domain model and Canvas renderer
  * - We project selection state (selectedIds) onto nodes/edges
- * - Returns canvas-specific view model (not ReactFlow types)
+ * - Returns canvas-specific view model (custom Canvas implementation)
  */
 
 import type { CodeGraphModel, CodeGraphNode } from "../../../entities/graph/types";
-import type { CanvasNodeData } from "../types";
+import type { CanvasNodeData, CanvasNodeType } from "../types";
 import { logger } from "../../../shared/utils/logger";
 
 export type CanvasNode = {
   id: string;
-  type: string;
+  type: CanvasNodeType;
   position: { x: number; y: number };
   data: CanvasNodeData;
   selected: boolean;
@@ -34,7 +34,7 @@ export type CanvasEdge = {
   selected: boolean;
 };
 
-function mapNodeType(kind: CodeGraphNode["kind"]): string {
+function mapNodeType(kind: CodeGraphNode["kind"]): CanvasNodeType {
   switch (kind) {
     case "fileRef":
       return "fileRefNode";

@@ -157,7 +157,7 @@ Shell（布局与交互）：
 
 ---
 
-# Celest Roadmap（最新版，合并：已完成 + 待办）
+# Celest Roadmap
 
 > 依据：仓库 `AGENT.md` / `CONTRIBUTING_AI.md` 的分层原则
 >
@@ -171,108 +171,28 @@ Shell（布局与交互）：
 
 ---
 
-## 0) 现状摘要（当前已跑通的能力）
-
-- Phase 1：纯 Web（浏览器），打开项目使用 File System Access API
-- 项目持久化固定写入项目根目录：`/.celest/`
-- Canvas 已实现自定义画布系统（SVG 渲染，Figma 级交互），完全替换 ReactFlow
-- FS Index 与 CodeGraph 分离（左侧树 ≠ 画布资产）
-- 自动迁移：从 `.nodeide/` 迁移到 `.celest/`
-
----
-
-## 1) 已完成（✅）
-
-### P0（稳定基座）
-
-- ✅ 清理 `_legacy` 编译期依赖（已完全移除 ReactFlow 和 `_legacy` 目录）
-- ✅ 面板开关驱动布局（Left / Inspector / Terminal 可隐藏，Canvas 优先铺满）
-- ✅ File System Access API TS 类型补齐（strict TS，不靠 any）
-- ✅ FS 扫描默认 ignore（node_modules/.git/dist/.next/.celest 等）避免卡死
-- ✅ 不支持 File System Access API 的提示兜底（避免白屏）
-
-### P1（交互高收益 + 分层洁净）
-
-- ✅ BottomToolbar 固定在 Canvas 底部居中（不被 Terminal 展开影响）
-- ✅ 删除闭环：Delete/Backspace 删除节点（可靠）
-- ✅ 选中可视化：节点选中为 tint（非描边）
-- ✅ 选中即时同步：点击 Node/Edge 立刻写入 store selection（Inspector/高亮不再需要再点空白）
-- ✅ Cursor 规范：全站无"小手 pointer"，默认箭头；输入区域保持 I-beam
-- ✅ 拖动/轻点分离：拖动时选中态不闪
-- ✅ **P1-1**：彻底隔离 UI 引擎（state 层使用 Canvas* 契约，不直接依赖任何 UI 库类型）
-- ✅ **P1-2**：ProjectState / ViewState 收敛到 `entities/project/types.ts`（Snapshot vs Runtime 分离）
-- ✅ **P1-3**：`entities/graph/types.ts` 去 Canvas* 命名（Canvas 视图类型移至 `features/canvas/types.ts`）
-- ✅ **P1-4**：FS Index path-based id（`fs:${normalizePath(relPath)}`）+ FS Tree UI 持久化闭环
-- ✅ **P1-5**：`useWorkbenchModel` 变薄（selector 化，已迁移至 `state/selectors/*`，有单测）
-- ✅ **P1-6**：Canvas 交互一致性（Figma-like：点击即选中、光标策略）
-
-### P0-2 持久化文件错误处理与版本管理（✅ 已完成）
-
-**状态**：已完成
-
-**交付**：
-- ✅ **错误恢复**：
-  - 文件损坏时自动创建备份（`.celest/workspace.json.backup`）
-  - 提供"重置为默认值"的降级选项
-  - 添加文件完整性校验
-- ✅ **版本迁移**：
-  - 实现 `migrateWorkspaceFile(v1 -> v2)` 函数
-  - 实现 `migrateGraphFile(v1 -> v2)` 函数
-  - 支持向后兼容（读取旧版本，写入新版本）
-- ✅ **备份机制**：
-  - 保存前自动备份（`.celest/workspace.json.backup`）
-  - 支持手动备份/恢复功能
-- ✅ **错误报告**：
-  - 详细的错误日志（文件路径、错误类型、建议操作）
-  - 用户友好的错误提示（UI 中显示）
-- ✅ **目录迁移**：
-  - 自动从 `.nodeide/` 迁移到 `.celest/`
-
-**DoD**：
-- ✅ 文件损坏时能自动恢复或提示用户
-- ✅ 版本升级时能自动迁移数据
-- ✅ 有备份机制防止数据丢失
-- ✅ 错误信息清晰，便于排查
-
----
-
-## 2) Roadmap（待完成项）
+## Roadmap（待完成项）
 
 > 说明：下面是面向下一阶段的执行版；每个 task 都要保持"最小变更集"。
 
 ### P0（稳定性与可靠性：高优先级）
 
-#### P0-1.5 自定义画布系统完善（🔄 进行中）
+#### P0-1 修复 CanvasNodeType 类型定义缺失
 
-**状态**：基础实现完成，但需要完善以达到生产质量
+**问题**：
+- `CanvasNodeType` 类型定义中缺少 `"frameNode"`
+- `codeGraphToCanvas.ts` 会返回 `"frameNode"`，但类型定义不包含，导致类型不匹配
 
-**当前进度**：
-- ✅ 实现自定义画布系统（SVG 渲染）
-- ✅ 基础交互实现：
-  - ✅ 点击选择（单选）
-  - ✅ 框选（部分重叠即选中）
-  - ✅ 节点拖拽（单个、多个）
-  - ✅ 视口管理（平移、缩放）
-  - ✅ 双击创建节点
-- ✅ 边连接系统（handles、连接、路由）
-- ✅ 保持 API 兼容（使用 `canvasEvents.ts` 契约）
-- ✅ 替换 `FlowCanvas.tsx` 为 `Canvas.tsx`
-- ✅ 完全移除 ReactFlow 依赖
+**交付**：
+- 在 `src/features/canvas/types.ts` 的 `CanvasNodeType` 中添加 `"frameNode"`
+- 确保所有节点类型都有对应的 Canvas 类型定义
 
-**待完善项（待用户反馈后补充）**：
-- ⏳ 等待用户反馈具体问题
-- ⏳ 交互细节优化
-- ⏳ 性能优化
-- ⏳ 边界情况处理
-- ⏳ 测试覆盖
+**DoD**：
+- `CanvasNodeType` 包含所有节点类型（noteNode, fileRefNode, groupNode, subgraphNode, frameNode）
+- 类型检查通过，无 TypeScript 错误
+- 运行时 `codeGraphToCanvas` 返回的类型都能匹配
 
-**DoD（目标）**：
-- 画布功能完全对等或超越 ReactFlow 版本
-- 所有交互行为完全符合 Figma
-- 无错误和性能问题
-- 用户体验流畅自然
-
-#### P0-3 修复连线校验问题
+#### P0-2 修复连线校验问题
 
 **问题**：
 - Frame/Group 节点 ports 为空但仍可连线（CanvasNode 硬编码了 left/right handle）
@@ -288,7 +208,7 @@ Shell（布局与交互）：
 - fileRef.out 只能连接到 note.in（符合 accepts 规则）
 - 连接校验逻辑完整且可扩展
 
-#### P0-4 对齐命名与文档口径
+#### P0-3 对齐命名与文档口径
 
 **问题**：
 - 代码使用 CodeMirror 但命名/文档都叫 "MonacoEditor"
@@ -308,31 +228,81 @@ Shell（布局与交互）：
 
 ---
 
-### P1（补充 Backlog：UI 价值高但不阻塞 P2）
+### P1（架构完整性与一致性：中优先级）
 
-> 这些是之前 Roadmap 里提过、但在你最新架构版 Roadmap 里未显式列出的项。建议按"一个一个做"的原则插队推进。
+#### P1-1 添加 Subgraph definition 存储路径常量
 
-#### P1-B1 多选（Shift toggle + 框选）
+**问题**：
+- AGENT.md 中定义 Subgraph 定义存储在 `/.celest/subgraphs/<name>/`
+- 代码中只有 `GRAPHS_DIRNAME = "graphs"`，缺少 `SUBGRAPHS_DIRNAME` 常量
+- 没有 Subgraph definition 的存储逻辑定义
 
-- Shift 点击 toggle selection；框选多选；Inspector 多选态显示"批量操作/仅显示计数"
-- DoD：多选稳定、删除行为符合预期
+**交付**：
+- 在 `src/core/persistence/nodeideSchema.ts` 中添加 `SUBGRAPHS_DIRNAME = "subgraphs"` 常量
+- 为后续 P2-4 Subgraph 定义存储功能提供基础
 
-#### P1-B2 Inspector 增加 Delete 按钮（非快捷键依赖）
+**DoD**：
+- 常量定义清晰，与 AGENT.md 定义一致
+- 为未来 Subgraph definition 存储功能预留接口
 
-- DoD：不靠键盘也能删除选中节点/边
+#### P1-2 更新 Frame 节点描述以匹配 AGENT.md
 
-#### P1-B3 Inspector Monaco language mapping（按扩展名选择语言）
+**问题**：
+- `registry.ts` 中 Frame 的描述为 "Visual grouping box (planned)"
+- AGENT.md 中 Frame 的定义更完整（可折叠、映射到文件夹、画板框选等）
 
-- DoD：`.md/.ts/.json` 等至少覆盖一批常用后缀
+**交付**：
+- 更新 `src/entities/graph/registry.ts` 中 Frame 的 description
+- 确保代码中的描述与 AGENT.md 的产品定义一致
 
-#### P1-B4 Inspector Markdown（CM6）对齐 Obsidian（交互/视觉）
+**DoD**：
+- Frame 的描述准确反映其在产品中的定位和功能
+- 代码注释与产品文档一致
 
-- 样式：标题/正文/列表/代码/引用/HR 的字号、行高、段间距贴近 Obsidian；代码块/行内 code 背景与主题色统一
-- 交互：列表/任务续写、Tab 缩进、任务勾选、``` 补全已保留，需最终验证
-- 符号：当前版本符号全显且无抖动；如需再次隐藏，需重新设计占位方案以保持行高稳定
-- 占位符：placeholder 文案可调整/关闭
+#### P1-3 多选（Shift toggle + 框选）
 
-#### P1-B5 真实文件编辑闭环（最小 .md 读写）
+**交付**：
+- Shift 点击 toggle selection
+- 框选多选
+- Inspector 多选态显示"批量操作/仅显示计数"
+
+**DoD**：
+- 多选稳定、删除行为符合预期
+- 交互符合 Figma 习惯
+
+#### P1-4 Inspector 增加 Delete 按钮（非快捷键依赖）
+
+**交付**：
+- Inspector 面板中添加 Delete 按钮
+- 支持删除选中的节点/边
+
+**DoD**：
+- 不靠键盘也能删除选中节点/边
+- 删除操作有明确的视觉反馈
+
+#### P1-5 Inspector CodeMirror language mapping（按扩展名选择语言）
+
+**交付**：
+- 根据文件扩展名自动选择 CodeMirror 语言模式
+- 支持常用文件类型（`.md/.ts/.json/.js/.css/.html` 等）
+
+**DoD**：
+- 至少覆盖一批常用后缀
+- 语言高亮正确显示
+
+#### P1-6 Inspector Markdown（CM6）对齐 Obsidian（交互/视觉）
+
+**交付**：
+- **样式**：标题/正文/列表/代码/引用/HR 的字号、行高、段间距贴近 Obsidian；代码块/行内 code 背景与主题色统一
+- **交互**：列表/任务续写、Tab 缩进、任务勾选、``` 补全
+- **符号**：当前版本符号全显且无抖动；如需再次隐藏，需重新设计占位方案以保持行高稳定
+- **占位符**：placeholder 文案可调整/关闭
+
+**DoD**：
+- 视觉和交互体验接近 Obsidian
+- 编辑体验流畅自然
+
+#### P1-7 真实文件编辑闭环（最小 .md 读写）
 
 **问题**：
 - Inspector 中编辑 Note 节点的 text 只更新了 graph，未写回真实文件
@@ -347,22 +317,6 @@ Shell（布局与交互）：
 - 编辑 Note 节点内容可写回真实 `.md` 文件
 - 打开文件时自动加载内容到 Note 节点
 - 文件保存有明确的成功/失败反馈
-
-#### P1-B6 Canvas handles 可扩展化
-
-**问题**：
-- CanvasNode 硬编码了 left/right 两个固定位置的 handles
-- 无法支持多端口节点（如 subgraphInstance 有 input/output 两个端口）
-
-**交付**：
-- CanvasNode 根据 `spec.ports` 动态渲染所有 handles
-- 支持任意数量和位置的 ports（in/out 分别渲染在左右两侧）
-- 保持现有连线逻辑兼容
-
-**DoD**：
-- 节点 handles 数量/位置由 NodeSpec 决定
-- subgraphInstance 等多端口节点正确渲染
-- 连线逻辑支持任意 port ID
 
 ---
 
@@ -393,23 +347,57 @@ Shell（布局与交互）：
 
 #### P2-3 折叠 Frame 的连线聚合端口
 
+**交付**：
 - 折叠时边挂到 frame 的 in/out badge（聚合端口）
 - 展开后恢复真实端点
+
+**DoD**：
+- Frame 折叠时，内部节点的连线聚合显示在 Frame 的 in/out badge
+- Frame 展开时，连线恢复为真实端点连接
 
 ---
 
 #### P2-4 Subgraph 占位完善（definition/instance + IO ports + schema versioning）
 
+**交付**：
+- 实现 Subgraph definition 存储逻辑（使用 `/.celest/subgraphs/<name>/` 路径）
 - `/.celest/graphs/*` schema 版本化 + import/export 占位
-- DoD：能创建 SubgraphDefinition（哪怕不可用），序列化不破
+- 能创建 SubgraphDefinition（哪怕不可用），序列化不破
+- Subgraph definition 在 FS Index 中显示为特殊图标（🪐）
+
+**DoD**：
+- 能创建 SubgraphDefinition，序列化不破
+- Subgraph definition 存储在正确的路径（`/.celest/subgraphs/`）
+- FS Index 中能识别并显示 Subgraph definition 文件夹
 
 ---
 
 #### P2-5 Knowledge Tree（MD Skill Tree）作为 Graph Mode
 
+**交付**：
 - `/.celest/knowledge/*.json` + md 内容策略（Phase1 可"一树一 md"）
 - 节点：todo/doing/done + summary（可编辑）+ branch
-- DoD：可保存/加载/重命名/分支基本闭环
+- 实现知识树的基本 CRUD 操作
+
+**DoD**：
+- 可保存/加载/重命名/分支基本闭环
+- 知识树节点支持状态切换和编辑
+
+#### P2-6 Group 在 FS Index 中的虚拟节点显示（可选）
+
+**问题**：
+- AGENT.md 中定义 Group 可以在 FS Index 中显示为虚拟节点（🧩）用于导航和选取
+- 当前 FS Index 只显示真实文件系统结构，没有 Group 虚拟节点
+
+**交付**：
+- 在 FS Index 中显示 Group 虚拟节点（可选功能）
+- 点击 Group 名称可选中画布上对应的 Group
+- Group 虚拟节点不产生实际文件夹
+
+**DoD**：
+- Group 可以在 FS Index 中显示为虚拟节点（可选）
+- 点击 Group 虚拟节点能正确选中画布上的 Group
+- 不影响真实文件系统的显示
 
 ---
 
@@ -417,11 +405,17 @@ Shell（布局与交互）：
 
 #### P3-1 架构健康度 Checklist
 
-- 输出：`docs/architecture-checklist.md`
+**交付**：
+- 输出：`docs/architecture-checklist.md`（已存在，需持续维护）
 - 每次变更前后对照：
-  - FS Index / CodeGraph / MirrorGraph 分离
+  - FS Index / CodeGraph / Knowledge Tree 分离
   - adapter 边界未破坏（state 不依赖 UI 引擎类型）
   - persistence schema 可升级（versioned）
+  - 三层关系（文件系统/FS Index/Canvas）清晰分离
+
+**DoD**：
+- 架构检查清单完整且可执行
+- 每次代码变更都对照检查清单验证
 
 ---
 
@@ -458,10 +452,10 @@ Shell（布局与交互）：
 
 ---
 
-## 3) README 里建议加一句（产品定位）
+## 产品定位补充说明
 
-- CodeGraph（手工图）：适合知识树/自定义结构/跨文件引用
-- FS Mirror Graph（默认视图）：适合"左侧结构 ⇄ 画布结构语义一一对应"的工作流（Frame 折叠懒加载保证性能）
+- **CodeGraph（手工图）**：适合知识树/自定义结构/跨文件引用
+- **FS Mirror Graph（默认视图）**：适合"左侧结构 ⇄ 画布结构语义一一对应"的工作流（Frame 折叠懒加载保证性能）
 
 ## License
 

@@ -3,7 +3,7 @@
  * ----------------
  * 全局样式入口：按顺序引入 tokens/base/shell/layout/canvas
  * 
- * Note: ReactFlow has been completely removed and replaced with custom Canvas implementation.
+ * Note: Custom Canvas implementation (replaced ReactFlow).
  */
 
 @import "./shared/styles/tokens.css";

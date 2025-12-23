@@ -5,7 +5,7 @@
  *
  * Notes:
  * - Keep slice boundaries explicit so later we can move stable domain types into `src/entities/*`.
- * - IMPORTANT (P1-1): state must not depend on ReactFlow/@xyflow types.
+ * - IMPORTANT (P1-1): state must not depend on UI engine types (uses Canvas* contracts).
  */
 
 import type {
@@ -175,7 +175,7 @@ export type EditorSlice = {
   /**
    * Phase 1 Step4B:
    * Minimal editor state, used when selecting a file from the left tree.
-   * Step6 will upgrade this into Monaco buffers + save/load.
+   * Step6 will upgrade this into CodeMirror buffers + save/load.
    */
   activeFilePath: string | null;
   openFile: (path: string) => void;

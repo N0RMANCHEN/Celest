@@ -9,7 +9,8 @@ import type {
   CanvasConnection,
   CanvasViewport,
 } from "../../../entities/canvas/canvasEvents";
-import type { CanvasEdge } from "../adapters/codeGraphToCanvas";
+import { getNodeSpec } from "../../../entities/graph/registry";
+import type { CanvasEdge, CanvasNode } from "../adapters/codeGraphToCanvas";
 import { screenToCanvas } from "../core/ViewportManager";
 
 export type ConnectionState = {
@@ -53,7 +54,8 @@ function isValidConnection(
   targetNode: string,
   targetHandle: string,
   targetType: "source" | "target",
-  existingEdges: CanvasEdge[]
+  existingEdges: CanvasEdge[],
+  nodes: CanvasNode[]
 ): { valid: boolean; reason?: string } {
   // 1. 必须从输出端口开始
   if (sourceType !== "source") {
@@ -82,6 +84,23 @@ function isValidConnection(
     return { valid: false, reason: "连接已存在" };
   }
 
+  // 5. 按 NodeSpec.accepts 校验（如果有定义）
+  // 例如：fileRef.out 只接受 note 节点
+  const sNode = nodes.find((n) => n.id === sourceNode);
+  const tNode = nodes.find((n) => n.id === targetNode);
+  if (sNode && tNode) {
+    const sSpec = getNodeSpec(sNode.data.kind);
+    const sourcePort = sSpec.ports.find((p) => p.id === sourceHandle && p.direction === "out");
+    if (sourcePort?.accepts && sourcePort.accepts.length > 0) {
+      if (!sourcePort.accepts.includes(tNode.data.kind)) {
+        return {
+          valid: false,
+          reason: `${sSpec.label} 的 ${sourcePort.label} 端口不接受 ${tNode.data.kind} 节点`,
+        };
+      }
+    }
+  }
+
   return { valid: true };
 }
 
@@ -89,6 +108,7 @@ type Mode = "create" | "delete";
 
 export function useCanvasConnection(
   edges: CanvasEdge[],
+  nodes: CanvasNode[],
   svgRef: React.RefObject<SVGSVGElement | null>,
   viewport: CanvasViewport,
   onConnect: (conn: CanvasConnection) => void,
@@ -189,7 +209,8 @@ export function useCanvasConnection(
           meta.nodeId!,
           meta.handleId!,
           meta.handleType!,
-          edges
+          edges,
+          nodes
         );
         isValidTarget = res.valid;
       }
@@ -202,8 +223,18 @@ export function useCanvasConnection(
         targetHandleType: hasTarget ? meta.handleType : null,
         isValidTarget: hasTarget ? isValidTarget : false,
       }));
-    },
-    [connectionState.isConnecting, connectionState.sourcePosition, connectionState.sourceHandleType, connectionState.sourceHandleId, connectionState.sourceNodeId, screenPointToCanvas, getHandleMetaFromEvent, edges]
+  },
+    [
+      connectionState.isConnecting,
+      connectionState.sourcePosition,
+      connectionState.sourceHandleType,
+      connectionState.sourceHandleId,
+      connectionState.sourceNodeId,
+      screenPointToCanvas,
+      getHandleMetaFromEvent,
+      edges,
+      nodes,
+    ]
   );
 
   // 完成连线（鼠标松开）
@@ -249,7 +280,8 @@ export function useCanvasConnection(
             targetNodeId,
             targetHandleId,
             targetHandleType,
-            edges
+            edges,
+            nodes
           );
 
           if (res.valid) {
@@ -265,7 +297,7 @@ export function useCanvasConnection(
 
       resetConnection();
     },
-    [connectionState, edges, onConnect, resetConnection, getHandleMetaFromEvent, onEdgesChange]
+    [connectionState, edges, nodes, onConnect, resetConnection, getHandleMetaFromEvent, onEdgesChange]
   );
 
   // 取消连线（ESC 或释放到空白）

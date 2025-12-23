@@ -6,7 +6,7 @@
  * - FS navigation is handled by fsIndexSlice.
  *
  * P1-1:
- * - state slice must not depend on ReactFlow/@xyflow types.
+ * - state slice must not depend on UI engine types (uses Canvas* contracts).
  * - Canvas UI layer translates engine events into Canvas* contracts.
  */
 
@@ -142,7 +142,7 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
           if (ch.type === "position") {
             if (!ch.position) continue;
             // CRITICAL: Always update position, even if it seems the same.
-            // ReactFlow needs to see the position update to stay in sync.
+            // Canvas needs to see the position update to stay in sync.
             g = updateNodePosition(g, ch.id, {
               x: ch.position.x,
               y: ch.position.y,
@@ -229,7 +229,7 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
 
     // IMPORTANT: If selection is unchanged, do not call `set()`.
     // Zustand will still publish an update even if projects reference is unchanged,
-    // which can cause ReactFlow to fall into an update loop.
+    // which can cause Canvas to fall into an update loop.
     if (arrayEq(p.selectedIds, next)) return;
 
     set((s) => ({

@@ -24,8 +24,8 @@ type RecentRecord = {
   handle: FileSystemDirectoryHandle;
 };
 
-const DB_NAME = "node_ide";
-const DB_VERSION = 1;
+const DB_NAME = "celest";
+const DB_VERSION = 2; // Bumped to migrate from "node_ide" to "celest"
 const STORE = "recents";
 const MAX_RECENTS = 12;
 
@@ -57,8 +57,16 @@ function openDb(): Promise<IDBDatabase> {
       return;
     }
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (event) => {
       const db = req.result;
+      const oldVersion = event.oldVersion;
+      
+      // Migration from "node_ide" (v1) to "celest" (v2)
+      if (oldVersion < 2) {
+        // Try to migrate data from old "node_ide" database
+        migrateFromNodeIde(db);
+      }
+      
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: "id" });
       }
@@ -67,6 +75,61 @@ function openDb(): Promise<IDBDatabase> {
     req.onerror = () =>
       reject(req.error ?? new Error("Failed to open IndexedDB"));
   });
+}
+
+/**
+ * Migrate data from old "node_ide" database to "celest" database.
+ * This is a best-effort migration that preserves user's recent projects.
+ */
+async function migrateFromNodeIde(newDb: IDBDatabase): Promise<void> {
+  try {
+    // Try to open the old database
+    const oldDbReq = indexedDB.open("node_ide", 1);
+    await new Promise<void>((resolve) => {
+      oldDbReq.onsuccess = () => resolve();
+      oldDbReq.onerror = () => {
+        // Old database doesn't exist, nothing to migrate
+        resolve();
+      };
+    });
+    
+    const oldDb = oldDbReq.result;
+    if (!oldDb) return; // No old database to migrate from
+    
+    // Check if old database has the recents store
+    if (!oldDb.objectStoreNames.contains(STORE)) {
+      oldDb.close();
+      return;
+    }
+    
+    // Read all records from old database
+    const oldStore = oldDb.transaction(STORE, "readonly").objectStore(STORE);
+    const getAllReq = oldStore.getAll();
+    
+    await new Promise<void>((resolve) => {
+      getAllReq.onsuccess = () => {
+        const oldRecords = getAllReq.result as RecentRecord[];
+        
+        // Write to new database
+        if (oldRecords.length > 0) {
+          const newStore = newDb.transaction(STORE, "readwrite").objectStore(STORE);
+          for (const record of oldRecords) {
+            newStore.put(record);
+          }
+        }
+        
+        oldDb.close();
+        resolve();
+      };
+      getAllReq.onerror = () => {
+        oldDb.close();
+        resolve(); // Non-fatal: continue without migration
+      };
+    });
+  } catch (e) {
+    // Migration failed, but this is non-fatal
+    console.warn("[recentStore] Failed to migrate from node_ide:", e);
+  }
 }
 
 async function withStore<T>(

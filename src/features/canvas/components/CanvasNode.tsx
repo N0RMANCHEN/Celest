@@ -94,6 +94,10 @@ export function CanvasNode({
   const spec = getNodeSpec(node.data.kind);
   const size = getNodeSize(node.id) || { width: 180, height: 100 };
   
+  // 根据 NodeSpec 动态查找端口（Frame/Group 的 ports 为空，不会渲染 handles）
+  const inPort = spec.ports.find((p) => p.direction === "in");
+  const outPort = spec.ports.find((p) => p.direction === "out");
+  
   // No viewport transform needed here - parent <g> already has transform
   // Use canvas coordinates directly
 
@@ -154,15 +158,17 @@ export function CanvasNode({
         onMouseDown={handleMouseDown}
       >
         {/* Left handle (input) */}
-        <NodeHandle
-          side="left"
-          className="canvas-handle-left"
-          dataNodeId={node.id}
-          dataHandleId={spec.ports[0]?.id ?? "in"}
-          dataHandleType="target"
-          isValid={isValidConnectionTarget}
-          isConnecting={isConnecting}
-        />
+        {inPort && (
+          <NodeHandle
+            side="left"
+            className="canvas-handle-left"
+            dataNodeId={node.id}
+            dataHandleId={inPort.id}
+            dataHandleType="target"
+            isValid={isValidConnectionTarget}
+            isConnecting={isConnecting}
+          />
+        )}
 
         <div style={titleStyle}>
           {getTitle()} {node.data.title}
@@ -180,32 +186,29 @@ export function CanvasNode({
         </div>
 
         {/* Right handle (output) */}
-        <NodeHandle
-          side="right"
-          className="canvas-handle-right"
-          dataNodeId={node.id}
-          dataHandleId={spec.ports[1]?.id ?? "out"}
-          dataHandleType="source"
-          isConnecting={isConnecting}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!onConnectionStart) return;
-            
-            // 计算 handle 在 canvas 坐标系中的位置（与边的计算一致）
-            const handleCanvasPos = {
-              x: node.position.x + size.width,
-              y: node.position.y + size.height / 2,
-            };
-            
-            onConnectionStart(
-              node.id,
-              spec.ports[1]?.id ?? "out",
-              "source",
-              handleCanvasPos
-            );
-          }}
-        />
+        {outPort && (
+          <NodeHandle
+            side="right"
+            className="canvas-handle-right"
+            dataNodeId={node.id}
+            dataHandleId={outPort.id}
+            dataHandleType="source"
+            isConnecting={isConnecting}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!onConnectionStart) return;
+              
+              // 计算 handle 在 canvas 坐标系中的位置（与边的计算一致）
+              const handleCanvasPos = {
+                x: node.position.x + size.width,
+                y: node.position.y + size.height / 2,
+              };
+              
+              onConnectionStart(node.id, outPort.id, "source", handleCanvasPos);
+            }}
+          />
+        )}
       </div>
     </foreignObject>
   );

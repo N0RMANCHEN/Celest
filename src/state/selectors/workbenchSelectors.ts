@@ -149,7 +149,7 @@ let cachedCanvasVM: {
 
 /**
  * Get canvas view model (custom Canvas nodes/edges) for the active project.
- * This replaces the old ReactFlow implementation.
+ * Converts CodeGraphModel to custom Canvas view model.
  */
 export function selectCanvasViewModel(state: AppState): ReturnType<
   typeof codeGraphToCanvas

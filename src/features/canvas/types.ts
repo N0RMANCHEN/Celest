@@ -11,12 +11,20 @@ import type { CodeNodeKind } from "../../entities/graph/types";
 
 /**
  * Canvas node type identifiers.
+ * 
+ * These correspond to CodeNodeKind types mapped by codeGraphToCanvas:
+ * - note -> noteNode
+ * - fileRef -> fileRefNode
+ * - group -> groupNode
+ * - subgraphInstance -> subgraphNode
+ * - frame -> frameNode
  */
 export type CanvasNodeType =
   | "noteNode"
   | "fileRefNode"
   | "groupNode"
-  | "subgraphNode";
+  | "subgraphNode"
+  | "frameNode";
 
 /**
  * Data shape for Canvas nodes.

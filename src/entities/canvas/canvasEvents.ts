@@ -11,9 +11,9 @@
  *   creating a dependency on features/ (which would violate layer boundaries).
  *
  * Architecture:
- * - State/store should not depend on ReactFlow/@xyflow types.
- * - Features (e.g., features/canvas/FlowCanvas.tsx) translate UI-engine events
- *   (ReactFlow) into these contracts before calling store actions.
+ * - State/store should not depend on UI engine types.
+ * - Features (e.g., features/canvas/Canvas.tsx) translate UI-engine events
+ *   into these contracts before calling store actions.
  * - This isolation allows us to swap Canvas engines in the future without
  *   modifying state/ or entities/ layers.
  */

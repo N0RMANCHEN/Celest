@@ -42,6 +42,8 @@ function makeMockState(project: AppState["projects"][0] | null): AppState {
     cutSelectionToClipboard: () => {},
     pasteClipboardAt: () => {},
     duplicateNodesForDrag: () => ({ nodes: [], edgeIds: [] }),
+    undoCanvas: () => {},
+    redoCanvas: () => {},
     fsIndexByProjectId: {},
     fsExpandedByProjectId: {},
     fsSelectedIdByProjectId: {},

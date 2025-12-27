@@ -44,10 +44,6 @@ export class UndoHistory {
       const nodesEqual = JSON.stringify(currentSnapshot.nodes) === JSON.stringify(snapshot.nodes);
       const edgesEqual = JSON.stringify(currentSnapshot.edges) === JSON.stringify(snapshot.edges);
       if (nodesEqual && edgesEqual) {
-        const currentNodesCount = Object.keys(currentSnapshot.nodes).length;
-        const currentEdgesCount = Object.keys(currentSnapshot.edges).length;
-        const newNodesCount = Object.keys(snapshot.nodes).length;
-        const newEdgesCount = Object.keys(snapshot.edges).length;
         return; // 状态未改变，不保存
       }
     }

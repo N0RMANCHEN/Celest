@@ -37,8 +37,10 @@ describe("NodeHandle", () => {
 
     const el = container.querySelector(".canvas-handle") as HTMLElement;
     expect(el.style.opacity).toBe("0.9");
-    expect(el.style.border).toContain("var(--accent)");
-    expect(el.style.background).toBe("var(--accent)");
+    // 连接时的端点：描边 #60a5fa (rgb(96, 165, 250))，填充 #b3d5ff
+    // 浏览器会将十六进制颜色转换为 RGB，所以检查 RGB 值
+    expect(el.style.border).toContain("rgb(96, 165, 250)");
+    expect(el.style.background).toBe("rgb(179, 213, 255)"); // #b3d5ff 的 RGB 值
   });
 });
 

@@ -22,7 +22,7 @@ import type {
 import type { AppState, GraphSlice } from "../types";
 import { mapActiveProject } from "../utils/projectUtils";
 
-import type { Vec2 } from "../../entities/graph/types";
+import type { CodeGraphEdge, CodeGraphNode, Vec2 } from "../../entities/graph/types";
 import {
   removeEdge,
   removeNode,
@@ -31,6 +31,34 @@ import {
   upsertEdge,
   upsertNode,
 } from "../../entities/graph/ops";
+
+type GraphClipboard = {
+  nodes: CodeGraphNode[];
+  edges: CodeGraphEdge[];
+  bboxCenter: Vec2;
+  pasteCount: number;
+};
+
+// App-internal graph clipboard (NOT the system clipboard).
+// Stored outside Zustand state intentionally to avoid re-renders and to keep it UI-internal.
+let graphClipboard: GraphClipboard | null = null;
+
+function computeBboxCenter(nodes: CodeGraphNode[]): Vec2 {
+  if (nodes.length === 0) return { x: 0, y: 0 };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const n of nodes) {
+    const x = n.position?.x ?? 0;
+    const y = n.position?.y ?? 0;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+}
 
 function arrayEq(a: string[], b: string[]) {
   if (a === b) return true;
@@ -246,5 +274,172 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
 
     // Mark dirty so selection is persisted to workspace.json
     get().markActiveProjectDirty("graph");
+  },
+
+  copySelectionToClipboard: () => {
+    const p = get().getActiveProject();
+    if (!p) return;
+
+    const selectedNodeIds = p.selectedIds.filter((id) => !!p.graph.nodes[id]);
+    if (selectedNodeIds.length === 0) return;
+
+    const nodeIdSet = new Set(selectedNodeIds);
+    const nodes = selectedNodeIds
+      .map((id) => p.graph.nodes[id])
+      .filter((n): n is CodeGraphNode => !!n);
+
+    const edges = Object.values(p.graph.edges).filter(
+      (e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target)
+    );
+
+    graphClipboard = {
+      nodes: nodes.map((n) => ({ ...n })),
+      edges: edges.map((e) => ({ ...e })),
+      bboxCenter: computeBboxCenter(nodes),
+      pasteCount: 0,
+    };
+  },
+
+  cutSelectionToClipboard: () => {
+    const p = get().getActiveProject();
+    if (!p) return;
+
+    // Copy first (clipboard uses nodes only; edges are derived between them)
+    get().copySelectionToClipboard();
+
+    // Then delete exactly what is selected (nodes/edges), consistent with current Delete behavior.
+    const nodeChanges: CanvasNodeChange[] = [];
+    const edgeChanges: CanvasEdgeChange[] = [];
+    for (const id of p.selectedIds) {
+      if (p.graph.nodes[id]) nodeChanges.push({ id, type: "remove" });
+      else if (p.graph.edges[id]) edgeChanges.push({ id, type: "remove" });
+    }
+    if (nodeChanges.length > 0) get().onNodesChange(nodeChanges);
+    if (edgeChanges.length > 0) get().onEdgesChange(edgeChanges);
+    get().onSelectionChange([]);
+  },
+
+  pasteClipboardAt: (pos: Vec2) => {
+    if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+    const clip = graphClipboard;
+    if (!clip || clip.nodes.length === 0) return;
+
+    let didChange = false;
+    set((s) => {
+      const p = s.getActiveProject();
+      if (!p) return {};
+
+      const pasteIndex = clip.pasteCount;
+      const nudge = { x: 24 * pasteIndex, y: 24 * pasteIndex };
+      const delta = {
+        x: pos.x - clip.bboxCenter.x + nudge.x,
+        y: pos.y - clip.bboxCenter.y + nudge.y,
+      };
+
+      const idMap = new Map<string, string>();
+      for (const n of clip.nodes) {
+        idMap.set(n.id, `n_${nanoid()}`);
+      }
+
+      let g = p.graph;
+      const newNodeIds: string[] = [];
+      const newEdgeIds: string[] = [];
+
+      for (const n of clip.nodes) {
+        const nextId = idMap.get(n.id);
+        if (!nextId) continue;
+        const nextPos = {
+          x: (n.position?.x ?? 0) + delta.x,
+          y: (n.position?.y ?? 0) + delta.y,
+        };
+        const nextNode = { ...n, id: nextId, position: nextPos } as CodeGraphNode;
+        g = upsertNode(g, nextNode);
+        newNodeIds.push(nextId);
+      }
+
+      for (const e of clip.edges) {
+        const ns = idMap.get(e.source);
+        const nt = idMap.get(e.target);
+        if (!ns || !nt) continue;
+        const nextEid = `e_${nanoid()}`;
+        const nextEdge = { ...e, id: nextEid, source: ns, target: nt } as CodeGraphEdge;
+        g = upsertEdge(g, nextEdge);
+        newEdgeIds.push(nextEid);
+      }
+
+      if (g === p.graph) return {};
+      didChange = true;
+
+      return {
+        projects: mapActiveProject(s.projects, s.activeProjectId, (pp) =>
+          pp.id !== p.id
+            ? pp
+            : {
+                ...pp,
+                graph: g,
+                selectedIds: [...newNodeIds, ...newEdgeIds],
+              }
+        ),
+      };
+    });
+
+    if (didChange) {
+      graphClipboard = { ...clip, pasteCount: clip.pasteCount + 1 };
+      get().markActiveProjectDirty("graph");
+    }
+  },
+
+  duplicateNodesForDrag: (nodeIds: string[]) => {
+    const p = get().getActiveProject();
+    if (!p) return { nodes: [], edgeIds: [] };
+
+    const baseIds = Array.from(new Set(nodeIds)).filter((id) => !!p.graph.nodes[id]);
+    if (baseIds.length === 0) return { nodes: [], edgeIds: [] };
+
+    const nodeIdSet = new Set(baseIds);
+    const nodes = baseIds.map((id) => p.graph.nodes[id]).filter((n): n is CodeGraphNode => !!n);
+    const edges = Object.values(p.graph.edges).filter(
+      (e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target)
+    );
+
+    const idMap = new Map<string, string>();
+    for (const n of nodes) idMap.set(n.id, `n_${nanoid()}`);
+
+    let nextGraph = p.graph;
+    const newNodes: { id: string; position: { x: number; y: number } }[] = [];
+    const newEdgeIds: string[] = [];
+
+    for (const n of nodes) {
+      const nextId = idMap.get(n.id)!;
+      const nextNode = { ...n, id: nextId } as CodeGraphNode;
+      nextGraph = upsertNode(nextGraph, nextNode);
+      newNodes.push({ id: nextId, position: { ...nextNode.position } });
+    }
+    for (const e of edges) {
+      const ns = idMap.get(e.source);
+      const nt = idMap.get(e.target);
+      if (!ns || !nt) continue;
+      const nextEid = `e_${nanoid()}`;
+      const nextEdge = { ...e, id: nextEid, source: ns, target: nt } as CodeGraphEdge;
+      nextGraph = upsertEdge(nextGraph, nextEdge);
+      newEdgeIds.push(nextEid);
+    }
+
+    if (nextGraph !== p.graph) {
+      set((s) => ({
+        projects: mapActiveProject(s.projects, s.activeProjectId, (pp) =>
+          pp.id !== p.id
+            ? pp
+            : {
+                ...pp,
+                graph: nextGraph,
+                selectedIds: [...newNodes.map((n) => n.id), ...newEdgeIds],
+              }
+        ),
+      }));
+      get().markActiveProjectDirty("graph");
+    }
+
+    return { nodes: newNodes, edgeIds: newEdgeIds };
   },
 });

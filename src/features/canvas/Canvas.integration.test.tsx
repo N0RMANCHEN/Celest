@@ -19,6 +19,10 @@ function setupCanvas(extraProps: Partial<React.ComponentProps<typeof Canvas>> = 
     viewport: DEFAULT_VIEWPORT,
     onViewportChange: noop,
     onCreateNoteNodeAt,
+    onCopySelectionToClipboard: noop,
+    onCutSelectionToClipboard: noop,
+    onPasteClipboardAt: noop,
+    onDuplicateNodesForDrag: () => ({ nodes: [], edgeIds: [] }),
     ...extraProps,
   };
 

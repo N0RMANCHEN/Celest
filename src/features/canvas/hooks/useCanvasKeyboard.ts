@@ -24,7 +24,11 @@ export function useCanvasKeyboard(
   onNodesChange: (changes: CanvasNodeChange[]) => void,
   onEdgesChange: (changes: CanvasEdgeChange[]) => void,
   onSelectionChange: (ids: string[]) => void,
-  onCancelConnection: () => void
+  onCancelConnection: () => void,
+  onCopySelectionToClipboard: () => void,
+  onCutSelectionToClipboard: () => void,
+  onPasteClipboardAt: (pos: { x: number; y: number }) => void,
+  getLastPointerCanvasPos: () => { x: number; y: number } | null
 ) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -37,6 +41,28 @@ export function useCanvasKeyboard(
           target.getAttribute("role") === "textbox");
 
       if (isTypingElement) return;
+
+      // Cmd/Ctrl + X/C/V: node clipboard (app-internal, does NOT touch system clipboard)
+      // IMPORTANT: We early-return above for typing elements, so Inspector text clipboard remains independent.
+      const isMod = e.metaKey || e.ctrlKey;
+      if (isMod && !e.shiftKey && !e.altKey && !isDragging && !isConnecting) {
+        if (e.code === "KeyC") {
+          e.preventDefault();
+          onCopySelectionToClipboard();
+          return;
+        }
+        if (e.code === "KeyX") {
+          e.preventDefault();
+          onCutSelectionToClipboard();
+          return;
+        }
+        if (e.code === "KeyV") {
+          e.preventDefault();
+          const pos = getLastPointerCanvasPos();
+          if (pos) onPasteClipboardAt(pos);
+          return;
+        }
+      }
 
       // Delete/Backspace: remove selected nodes/edges
       if (
@@ -110,6 +136,10 @@ export function useCanvasKeyboard(
     onEdgesChange,
     onSelectionChange,
     onCancelConnection,
+    onCopySelectionToClipboard,
+    onCutSelectionToClipboard,
+    onPasteClipboardAt,
+    getLastPointerCanvasPos,
   ]);
 }
 

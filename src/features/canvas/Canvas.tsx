@@ -22,7 +22,11 @@ import { CanvasNode as CanvasNodeComponent } from "./components/CanvasNode";
 import { CanvasEdge as CanvasEdgeComponent } from "./components/CanvasEdge";
 import { SelectionBox } from "./components/SelectionBox";
 import { ConnectionLine } from "./components/ConnectionLine";
-import { clampViewportToBounds, getViewportTransform } from "./core/ViewportManager";
+import {
+  clampViewportToBounds,
+  getViewportTransform,
+  screenToCanvas,
+} from "./core/ViewportManager";
 import {
   computeBoundsFromItems,
   expandRect,
@@ -61,6 +65,16 @@ export type Props = {
   focusRequest?: { nodeId: string; nonce: number } | null;
 
   onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void;
+
+  // Canvas internal clipboard actions (NOT system clipboard)
+  onCopySelectionToClipboard: () => void;
+  onCutSelectionToClipboard: () => void;
+  onPasteClipboardAt: (pos: { x: number; y: number }) => void;
+
+  // Used by Alt/Option-drag duplicate (Figma-like)
+  onDuplicateNodesForDrag: (
+    nodeIds: string[]
+  ) => { nodes: { id: string; position: { x: number; y: number } }[]; edgeIds: string[] };
 };
 
 export function Canvas(props: Props) {
@@ -75,10 +89,15 @@ export function Canvas(props: Props) {
     onViewportChange,
     focusRequest,
     onCreateNoteNodeAt,
+    onCopySelectionToClipboard,
+    onCutSelectionToClipboard,
+    onPasteClipboardAt,
+    onDuplicateNodesForDrag,
   } = props;
 
   // 状态管理
   const state = useCanvasState(nodes, edges, viewport);
+  const lastPointerCanvasPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Compute canvas bounds in world coords:
   // - base fixed bounds (configurable)
@@ -189,7 +208,8 @@ export function Canvas(props: Props) {
     state.setSelectedIds,
     onNodesChange,
     onSelectionChange,
-    state.selectionHandledInMouseDownRef
+    state.selectionHandledInMouseDownRef,
+    onDuplicateNodesForDrag
   );
 
   // 平移和缩放逻辑
@@ -251,7 +271,11 @@ export function Canvas(props: Props) {
     onNodesChange,
     onEdgesChange,
     onSelectionChange,
-    handleConnectionCancel
+    handleConnectionCancel,
+    onCopySelectionToClipboard,
+    onCutSelectionToClipboard,
+    onPasteClipboardAt,
+    () => lastPointerCanvasPosRef.current
   );
 
   // 计算边的位置信息
@@ -439,6 +463,20 @@ export function Canvas(props: Props) {
   const dotOffsetX = ((viewport.x % dotSpacing) + dotSpacing) % dotSpacing;
   const dotOffsetY = ((viewport.y % dotSpacing) + dotSpacing) % dotSpacing;
 
+  // 实时跟踪鼠标位置（用于粘贴定位）
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (rect) {
+        lastPointerCanvasPosRef.current = screenToCanvas(
+          { x: e.clientX - rect.left, y: e.clientY - rect.top },
+          viewport
+        );
+      }
+    },
+    [viewport]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -450,7 +488,17 @@ export function Canvas(props: Props) {
         position: "relative",
         overflow: "hidden",
       }}
-      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseDown={(e) => {
+        const rect = svgRef.current?.getBoundingClientRect();
+        if (rect) {
+          lastPointerCanvasPosRef.current = screenToCanvas(
+            { x: e.clientX - rect.left, y: e.clientY - rect.top },
+            viewport
+          );
+        }
+        handleMouseDown(e);
+      }}
       onMouseUp={handleMouseUp}
       onClick={(e) => {
         const target = e.target as HTMLElement;

@@ -127,6 +127,17 @@ export type GraphSlice = {
   onEdgesChange: (changes: CanvasEdgeChange[]) => void;
   onConnect: (c: CanvasConnection) => void;
   onSelectionChange: (ids: string[]) => void;
+
+  /**
+   * Canvas internal clipboard for node/edge blocks.
+   * IMPORTANT: This is app-internal (NOT the system clipboard), so Inspector text copy/paste remains independent.
+   */
+  copySelectionToClipboard: () => void;
+  cutSelectionToClipboard: () => void;
+  pasteClipboardAt: (pos: { x: number; y: number }) => void;
+  duplicateNodesForDrag: (
+    nodeIds: string[]
+  ) => { nodes: { id: string; position: { x: number; y: number } }[]; edgeIds: string[] };
 };
 
 /**

@@ -30,7 +30,10 @@ export function useCanvasDrag(
   setSelectedIds: (ids: Set<string>) => void,
   onNodesChange: (changes: CanvasNodeChange[]) => void,
   onSelectionChange: (ids: string[]) => void,
-  selectionHandledInMouseDownRef?: React.MutableRefObject<boolean>
+  selectionHandledInMouseDownRef?: React.MutableRefObject<boolean>,
+  onDuplicateNodesForDrag?: (
+    nodeIds: string[]
+  ) => { nodes: { id: string; position: { x: number; y: number } }[]; edgeIds: string[] }
 ) {
   // 开始拖动节点
   const handleNodeMouseDown = useCallback(
@@ -98,7 +101,41 @@ export function useCanvasDrag(
         nodePositions.set(node.id, { ...node.position });
       }
 
-      const dragResult = startDrag(nodeId, finalSelection, nodePositions);
+      // Alt/Option-drag: duplicate selection first (Figma-like), then drag the duplicate.
+      let dragNodeId = nodeId;
+      let dragSelection = finalSelection;
+
+      if (e.altKey && onDuplicateNodesForDrag) {
+        const selectedNodeIds = Array.from(finalSelection).filter((id) => nodePositions.has(id));
+        const idsForDup = selectedNodeIds.includes(nodeId)
+          ? [nodeId, ...selectedNodeIds.filter((id) => id !== nodeId)]
+          : [nodeId, ...selectedNodeIds];
+
+        const dup = onDuplicateNodesForDrag(idsForDup);
+        if (dup.nodes.length > 0) {
+          const dupNodeIds = dup.nodes.map((n) => n.id);
+
+          // Sync selection locally (store selection is already updated by the action)
+          const nextSelection = new Set<string>([...dupNodeIds, ...dup.edgeIds]);
+          setSelectedIds(nextSelection);
+          selectedIdsRef.current = nextSelection;
+          onSelectionChange(Array.from(nextSelection));
+          if (selectionHandledInMouseDownRef) {
+            selectionHandledInMouseDownRef.current = true;
+          }
+
+          // Seed local positions so drag updates are smooth even before next render
+          for (const n of dup.nodes) {
+            nodePositions.set(n.id, { ...n.position });
+            localNodePositionsRef.current.set(n.id, { ...n.position });
+          }
+
+          dragNodeId = dupNodeIds[0];
+          dragSelection = new Set<string>(dupNodeIds);
+        }
+      }
+
+      const dragResult = startDrag(dragNodeId, dragSelection, nodePositions);
 
       // dragResult.selectedIds 应该和 finalSelection 一致，但为了安全还是检查一下
       if (
@@ -131,6 +168,8 @@ export function useCanvasDrag(
       dragStateRef,
       onSelectionChange,
       selectionHandledInMouseDownRef,
+      onDuplicateNodesForDrag,
+      localNodePositionsRef,
     ]
   );
 

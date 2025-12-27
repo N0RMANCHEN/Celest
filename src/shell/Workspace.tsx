@@ -75,6 +75,10 @@ export default function Workspace() {
                   onConnect={vm.onConnect}
                   onSelectionChange={vm.onSelectionChange}
                   onCreateNoteNodeAt={vm.onCreateNoteNodeAt}
+                  onCopySelectionToClipboard={vm.onCopySelectionToClipboard}
+                  onCutSelectionToClipboard={vm.onCutSelectionToClipboard}
+                  onPasteClipboardAt={vm.onPasteClipboardAt}
+                  onDuplicateNodesForDrag={vm.onDuplicateNodesForDrag}
                   activeViewId={vm.activeViewId}
                   viewport={vm.viewport}
                   onViewportChange={vm.updateActiveViewViewport}
@@ -105,6 +109,10 @@ export default function Workspace() {
               onConnect={vm.onConnect}
               onSelectionChange={vm.onSelectionChange}
               onCreateNoteNodeAt={vm.onCreateNoteNodeAt}
+              onCopySelectionToClipboard={vm.onCopySelectionToClipboard}
+              onCutSelectionToClipboard={vm.onCutSelectionToClipboard}
+              onPasteClipboardAt={vm.onPasteClipboardAt}
+              onDuplicateNodesForDrag={vm.onDuplicateNodesForDrag}
               activeViewId={vm.activeViewId}
               viewport={vm.viewport}
               onViewportChange={vm.updateActiveViewViewport}

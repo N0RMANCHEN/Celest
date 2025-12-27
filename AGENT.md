@@ -3,7 +3,8 @@
 > This document defines the **product vision, architecture principles, scope boundaries, and development rules** for **Celest**.  
 > It is written to guide **Codex / GPT / AI agents** to work correctly inside this codebase and product direction.
 
-> **重要**：AI agents 在发现架构问题时，应遵循 `CONTRIBUTING_AI.md` 中的架构决策流程（Section 11），提出建议并说明理由，由用户最终决定。
+> **重要**：AI agents 在发现架构问题时，应遵循 `CONTRIBUTING_AI.md` 的流程提出建议并说明理由，由用户最终决定。  
+> 如果有冲突：**AGENT.md 优先**。
 
 ---
 
@@ -61,16 +62,11 @@ AI is an **accelerator**, never the source of truth.
 
 Celest serves three validated cognitive workflows:
 
-1. **Exploration / Questioning**  
-   Branching questions and hypotheses
+1. **Exploration / Questioning**
+2. **Organization / Synthesis**
+3. **Learning / Skill Progression** (Skill Tree)
 
-2. **Organization / Synthesis**  
-   Turning scattered material into structured knowledge
-
-3. **Learning / Skill Progression**  
-   Planned paths with progress tracking ("skill tree")
-
-The **MD Skill Tree** is the first _killer scenario_.
+> North Star: “My thinking no longer disappears in chat logs — it becomes a structure I can grow.”
 
 ---
 
@@ -89,27 +85,46 @@ Celest uses a **Figma-like Shell**.
 - **Left Sidebar**
 
   - **Views / Pages** (VERY IMPORTANT)
-
     - Located **above** the file tree
     - Behaves like **Figma Pages**
     - Switches the active graph / mode
-
   - **FS Index Tree**
     - Real files & folders
-    - Navigation only (not graph editing)
+    - Navigation only
 
 - **Center**
 
-  - **Canvas** (graph editor)
-  - Source of truth for structure
+  - **Canvas** (graph editor; source of truth)
 
 - **Right Sidebar**
 
   - **Inspector**
-  - Monaco editor (MD / text / fields)
+  - Phase 1 uses **CodeMirror** for Markdown/text editing
 
 - **Bottom Panel**
-  - Terminal (Phase 1 placeholder)
+  - **AI Input (main tab, planned)**
+    - selection-driven “summarize / branch / generate”
+    - entrypoint: a small Toolbar “AI” button can toggle/open this tab (the workspace lives in Bottom Panel).
+  - **Terminal (sub tab)**
+    - Phase 1 placeholder (logs/output)
+
+### 4.2 Selection Model (Primary + Selected Set)
+
+Celest 的所有“批量能力”（Inspector 多选查看 / 批量编辑 / Runtime AI Context Pack）都依赖同一套选择语义：
+
+- `selectedIds`: 当前选中集合（框选、Shift toggle 的结果）
+- `primaryId`: 主选中（键盘焦点、Inspector 默认展开项、AI 生成锚点）
+
+Inspector 多选 UI（Phase 1/2 约束）：
+
+- 右侧以 **Accordion** 展示选中集合
+- 默认只展开 `primaryId` 对应的节点，其余折叠；用户可逐个展开或“一键展开全部”
+- 切换 Accordion 的展开项不会改变 `selectedIds`；但可以更新 `primaryId`（使其成为主选中）
+
+Runtime AI 约束：
+
+- Context Pack 必须包含 `selectedIds`，并尽量包含 `primaryId`（缺失时，模型必须在 `questions` 请求补齐，而不是猜测）
+- 任何需要连线/摆放的动作优先锚定 `primaryId`；禁止在 (0,0) 堆叠新节点
 
 All non-canvas panels:
 
@@ -124,18 +139,8 @@ Views are **graph presets**, not UI filters.
 
 - Shown at the **top of the left sidebar**
 - Similar to **Figma Pages**
-
-Examples:
-
-- Main
-- View2
-- Knowledge Tree
-
-Rules:
-
-- Views can switch which graph is active
-- Views are future-extensible
-- Phase 1 ships with **2 fixed presets**
+- Views can switch which graph/mode is active
+- Phase 1 ships with **2 fixed presets**; future-extensible
 
 ---
 
@@ -144,8 +149,11 @@ Rules:
 ### 6.1 FS Index
 
 - Purpose: navigation
-- Mirrors file system
-- Never rendered as a canvas graph by default
+- Mirrors file system as a snapshot/index
+- Not the canvas graph by default
+
+> Future: FS Mirror Graph Mode renders a _derived_ graph view, but the boundary still holds:
+> FS Index remains navigation data; the mirror graph is a _separate_ graph mode/layout.
 
 ### 6.2 CodeGraph
 
@@ -153,161 +161,129 @@ Rules:
 - Node-based
 - Plugin-driven node types
 
-#### 6.2.1 Node Port System (节点端口系统)
+#### 6.2.1 Container Types
 
-- **Default Ports**: Nodes have default in/out ports (e.g., `note` and `fileRef` both have `in` and `out` ports)
-- **Extensibility**: Ports are defined via `NodeSpec` and can be extended dynamically
-- **Type Validation**: Ports support `accepts` rules for type checking (e.g., `fileRef.out` only accepts `note` nodes)
-- **Future**: Ports can be added and recognized dynamically
+**1) Group**
 
-#### 6.2.2 Container Types (容器类型)
+- Logical grouping (selection/organization)
+- No ports; not wireable
+- Optional: can appear in FS Index as virtual items (🧩)
 
-Celest defines three container types with distinct purposes:
+**2) Frame**
 
-**1. Group (打组)**
-- **Purpose**: Logical grouping for selection and organization
-- **Behavior**: Similar to Figma's Group concept
-- **Properties**:
-  - No ports (`ports: []`) — cannot be connected
-  - Pure visual/logical grouping
-  - Does NOT create folders in file system
-- **FS Index**: Can be displayed as virtual nodes (🧩) for navigation and selection, but does NOT create actual folders
-- **Use Case**: Organize nodes on canvas for easier selection and categorization
+- Visual container; maps to folders in FS Mirror Graph Mode
+- Can collapse/expand; can resize
+- When collapsed, future: edges aggregate to frame badges
 
-**2. Frame (容器/画板)**
-- **Purpose**: Visual container that maps to file system folders
-- **Behavior**: Similar to Figma's Frame/Section
-- **Properties**:
-  - No ports (`ports: []`) — cannot be connected directly
-  - Can be collapsed/expanded
-  - Can be resized
-  - When collapsed, edges can aggregate to frame's in/out badges (P2-3)
-- **FS Mapping**: Folder → Frame (P2-1 FS Mirror Graph Mode)
-- **FS Index**: Displays as folder icon (📁), clickable to expand/collapse
-- **Use Case**: 
-  - FS Mirror Graph Mode: visualize project structure
-  - Visual grouping with frame boundaries
+**3) Subgraph**
 
-**3. Subgraph (子图/打包节点)**
-- **Purpose**: Functional encapsulation and reuse
-- **Behavior**: Similar to Grasshopper and Blender geometry nodes
-- **Properties**:
-  - Has IO ports (`input` and `output`) — can be connected
-  - Can be opened to view/edit internal graph (separate viewport)
-  - Can create multiple instances from one definition
-  - Encapsulates a group of nodes into a single node
-- **FS Storage**: Subgraph definitions stored in folders (e.g., `/.celest/subgraphs/<name>/`)
-- **FS Index**: Displays as special icon (🪐) indicating subgraph definition storage location
-- **Use Case**: 
-  - Package reusable logic modules
-  - Create composable graph components
-  - Similar to function definitions in programming
-
-#### 6.2.3 Three-Layer Relationship (三层关系定义)
-
-Celest maintains a clear separation between three layers:
-
-**1. File System (文件系统)**
-- Real files and folders in the project root
-- Source of truth for actual project structure
-
-**2. FS Index (文件系统索引)**
-- Purpose: Navigation tree in left sidebar
-- Content: Snapshot/index of file system
-- Behavior: Navigation only (not for canvas editing)
-- Never rendered as canvas graph by default
-
-**3. Canvas Nodes (画布节点)**
-- Visual representation on canvas
-- Can map to file system (Frame) or be independent (Group, Subgraph)
-
-**Relationship Mapping:**
-
-| Node Type | File System Relation | FS Index Display | Canvas Behavior |
-|-----------|---------------------|------------------|-----------------|
-| **Frame** | ✅ Maps to real folder | 📁 Folder icon (expandable) | 🖼️ Visual container, can collapse |
-| **Subgraph** | ✅ Definition stored in folder (`/.celest/subgraphs/`) | 🪐 Special icon (definition storage) | 🪐 Reusable node with IO ports |
-| **Group** | ❌ No folder created | 🧩 Virtual node (navigation only, optional) | 🧩 Logical grouping, no ports |
-
-**Key Principles:**
-- **FS Index ≠ CodeGraph ≠ Knowledge Tree** (strict separation)
-- **Frame**: File system structure visualization (mapping)
-- **Subgraph**: Functional encapsulation (definition storage)
-- **Group**: Pure logical grouping (no file system impact)
+- Encapsulation + reuse (definition/instance)
+- Has IO ports
+- Definitions stored under `/.celest/subgraphs/<name>/`
+- FS Index shows special icon (🪐)
 
 ### 6.3 Knowledge Graph (MD Skill Tree)
 
 - Purpose: learning, research, synthesis
-- Implemented as a **Knowledge Subgraph**
-- Rendered using the same Canvas engine
-- Different node types & semantics
+- Implemented as a dedicated graph mode (or Knowledge Subgraph)
+- Rendered using the same Canvas engine, with different semantics
 
 ---
 
 ## 7. MD Skill Tree (Knowledge Tree)
 
-### 7.1 Definition
-
-The MD Skill Tree turns a Markdown document into a **branching knowledge graph**.
-
-- Entry point: a `.md` file
-- Action: "Open as Skill Tree"
-
-### 7.2 Node Model
-
 Each knowledge node contains:
 
-- `id`
-- `title`
+- `id`, `title`
 - `status` (todo / doing / done)
-- `summary` (editable; AI-assist later)
+- `summary` (editable)
 - `body` (Markdown content)
 - `parentId`
 - `sources[]` (file paths, URLs, references)
 
-### 7.3 Core Interactions
+Core interactions:
 
-- Create Next
-- Create Branch
-- Edit Summary
-- Edit Body (Monaco)
-- Rename / Delete
-- Progress state toggle
+- Create Next / Create Branch
+- Edit Summary / Edit Body
+- Rename / Delete / Move
+- Status toggle
 - Path highlight (root → selected)
 
-### 7.4 Storage Strategy (Phase 1)
+Storage strategy:
 
-- **Structure & layout**
+- `/.celest/knowledge/<treeId>.json` for structure/layout
+- Content strategy is upgradeable (Phase 1 may start with “one tree = one md”)
 
-  - `/.celest/knowledge/<treeId>.json`
-
-- **Content**
-  - One tree = one Markdown file
-  - (Later upgradeable to one node = one file)
-
-### 7.5 Key Principle
-
-> Branching stores **snapshots of understanding**, not AI state.
-
-Equivalent to Git commits, not CPU memory.
+> Branching stores snapshots of understanding, not AI state.
 
 ---
 
-## 8. AI Integration Rules
+## 8. AI Integration Contract (Planned, Binding Rules)
 
-### 8.1 What AI May Do
+### 8.1 Interaction Model: Selection → Context Pack → GraphPatch → GraphOps
 
-- Generate summaries
+AI input is always grounded by **explicit user selection**.
+
+**Definitions (binding):**
+
+- **Context Pack**: the _only_ context the model may use. Built from explicit user selection, with `constraints` and truncated excerpts.
+- **GraphPatch (JSON envelope)**: model output, strictly machine-validated. Contains ordered `ops` (create nodes before edges).
+- **GraphOps (execution layer)**: app-side domain actions derived from GraphPatch; must be deterministic and undoable.
+
+> GraphPlan is allowed only as an internal reasoning step; it must never be persisted or applied directly.
+
+- User selects nodes (box select / multi-select)
+- System builds a **Context Pack** (previewable, editable)
+- AI may internally think in a **GraphPlan** (non-executed), but its **only executable output** must be a:
+  - **GraphPatch**: strict JSON envelope containing `patch.ops[]`
+- The app validates GraphPatch (schema), previews it, and only then applies it as **GraphOps** (domain actions).
+- Output is applied as **Draft** first, then user clicks Apply
+
+### 8.2 Context Pack Rules (No Silent Overreach)
+
+- Context Pack must be **visible to the user** before sending to any model
+- Must support:
+  - include/exclude nodes
+  - per-node compression level (summary / excerpt / full)
+  - rough size estimate (chars/token estimate)
+
+### 8.3 Overflow Strategy (Must)
+
+If selection is too large:
+
+- Prefer node `summary`
+- Then add `excerpt` (e.g., first N lines / key spans)
+- If still too large: ask user to narrow scope
+- Never silently truncate without telling the user
+
+### 8.4 Draft-first Output (Must)
+
+Prompt templates + GraphPatch schemas live under: `docs/ai/runtime/`.
+
+- AI-generated changes land as **Draft** on the canvas (e.g., Draft Frame/Group)
+- User must be able to:
+  - Apply
+  - Discard
+  - Undo
+
+### 8.5 Incremental Generation + Deterministic Placement (Must)
+
+- AI/FS-generated nodes must be created **incrementally**
+- Use a **deterministic layout/placer** (no “everything at origin”)
+
+### 8.6 What AI May / Must Not Do
+
+AI may:
+
+- Summarize
 - Suggest next branches
-- Compress long text into nodes
+- Propose reorganizations
 
-### 8.2 What AI Must NOT Do
+AI must not:
 
 - Own or mutate saved state silently
-- Persist hidden reasoning chains
+- Persist hidden reasoning
 - Bypass user review
-
-AI always works through **explicit contracts**.
 
 ---
 
@@ -320,17 +296,15 @@ AI always works through **explicit contracts**.
 - `features/` — user-facing capabilities
 - `entities/` — stable domain models
 - `core/` — pure logic & persistence
-- `state/` — Zustand slices
+- `state/` — Zustand slices/selectors
 - `shared/` — reusable UI & utilities
 
 ### 9.2 State Management
 
 - Zustand
-- Single store
-- Multiple slices
+- Single store; multiple slices
 - No Immer in Phase 1
-
-UI never touches store internals directly.
+- UI talks to state through **events/adapters**, not engine types
 
 ---
 
@@ -338,19 +312,12 @@ UI never touches store internals directly.
 
 AI agents **must**:
 
-1. Preserve all existing files
-   - Old code goes to `src/_legacy/`
-2. Prioritize modularity
+1. Preserve all existing files (old code → `src/_legacy/`)
+2. Prefer modularity and clean boundaries
 3. Avoid global refactors unless requested
 4. Keep `npm run dev` working at every step
-5. Ask for clarification **before** guessing
+5. Ask for clarification **before** schema changes under `/.celest/`
 6. Stay focused on the current step
-
-AI agents **must not**:
-
-- Re-architect without instruction
-- Merge FS Index with graphs
-- Introduce hidden state
 
 ---
 
@@ -358,82 +325,37 @@ AI agents **must not**:
 
 For any coding change, the agent must also provide:
 
-- A **Regression Pack** (3–5 smoke checks) for the change
-- A **Self-check status** for each item: PASS / NOT VERIFIED (and why)
-
-Note: Automated unit tests are optional for MVP unless the repo already has a test runner and the change is pure logic.
-
----
-
-## 12. MVP Reliability Add-ons (Lightweight, Required)
-
-These are CS146S-style guardrails adapted to MVP speed.
-
-### 12.1 Schema & Persistence Changes (Ask First)
-
-If a change touches any persisted format under `/.celest/` (JSON schema, file names, folder layout):
-
-- Stop and ask before changing the format.
-- Provide a short migration note (how old data is handled).
-
-### 12.2 Minimal Observability
-
-For key actions, ensure there is at least minimal, non-sensitive reporting:
-
-- OPEN_PROJECT / SAVE / LOAD should have clear success/failure user feedback.
-- Do not log absolute paths or file contents.
-
-### 12.3 Debug Package When Reporting Bugs
-
-When reporting a bug or failure, always include:
-
-- Command/run context (what you did)
-- Error output (full)
-- What changed recently (files/feature)
-
-### 12.4 Lightweight Review Checklist
-
-Before delivering code, quickly check:
-
-- Does it violate FS Index ≠ CodeGraph ≠ Knowledge Tree?
-- Does it touch persistence? (then ask first)
-- Could it break open/save/load? (add to regression pack)
-
-### 12.5 Optional Multi-Agent Workflow (If Using Multiple Agents)
-
-If you split work across agents:
-
-- One agent may research/file-scan; one implements; one reviews/tests.
-- Output must still be consolidated into a single coherent delivery (full files).
+- Goal
+- DoD (testable)
+- Minimal changes (files touched, why)
+- Regression Pack (3–5 smoke checks)
+- Self-check status: PASS / NOT VERIFIED (and why)
 
 ---
 
-## 13. Phase 1 Scope (Locked)
+## 12. Phase 1 Scope (Locked)
 
-- Web only
+- Web only (browser)
 - File System Access API
-- React Flow (wrapped & isolated)
-- Monaco Editor
+- **Custom SVG Canvas** (self-built engine; UI engine isolated)
+- **CodeMirror** editor in Inspector
 - Two fixed Views
-- Terminal placeholder
+- Bottom Panel includes Terminal placeholder (AI tab planned)
 
 No desktop, no collaboration, no cloud sync.
 
 ---
 
-## 14. Product North Star
+## 13. Product North Star
 
 If Celest is successful, users will say:
 
-> "My thinking no longer disappears in chat logs — it becomes a structure I can grow."
+> “My thinking no longer disappears in chat logs — it becomes a structure I can grow.”
 
 ---
 
 ## Contributing & AI Execution Rules
 
-All AI agents (Codex / GPT / others) MUST also follow `CONTRIBUTING_AI.md`.
+All AI agents MUST also follow `CONTRIBUTING_AI.md`.
 If there is any conflict, **AGENT.md overrides CONTRIBUTING_AI.md**.
 Reading order: `AGENT.md` → `CONTRIBUTING_AI.md`.
-
-**This file is authoritative.**  
-Any AI system contributing to Celest must align with it.

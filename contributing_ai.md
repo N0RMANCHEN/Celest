@@ -1,7 +1,14 @@
 # CONTRIBUTING_AI.md
 
-> Rules for AI agents (Codex / GPT / others) contributing to **Celest**.
-> This document is **binding**.
+> Rules for AI agents (Codex / GPT / others) contributing to **Celest**.  
+> This document is **binding**. If there is a conflict, **AGENT.md wins**.
+
+---
+
+## 0. Scope（Dev AI vs Runtime AI）
+
+- 本文件约束的是 **Dev AI（开发协作）**：用于 Cursor/Windsurf/VSCode Agent/Codex 等 AI 编程工具如何改动仓库。
+- Celest 产品内置的“图驱动 AI”属于 **Runtime AI**：其输出应遵循 GraphPatch 合约（strict JSON ops），由应用校验/预览后再应用（详见 `docs/ai/runtime/`）。
 
 ---
 
@@ -10,9 +17,7 @@
 Before writing or modifying any code, AI agents must read:
 
 1. `AGENT.md`
-2. This file (`CONTRIBUTING_AI.md`)
-
-If there is a conflict, **AGENT.md wins**.
+2. `CONTRIBUTING_AI.md` (this file)
 
 ---
 
@@ -40,11 +45,10 @@ AI must respect these boundaries:
 - UI ≠ Domain Logic ≠ Persistence
 - Canvas ≠ Business Rules
 
-Violations require user approval.
+### 2.4 UI ↔ Domain 解耦守则（补充约束）
 
-**UI ↔ Domain 解耦守则（补充约束）**
 - UI 组件只消费视图模型/事件契约，不直接操作领域模型或文件 IO。
-- 交互/几何/拖拽/选中等规则放 `core/` 或 `utils/` 纯函数层，组件仅调用。
+- 交互/几何/拖拽/选中等规则放 `core/` 或 `entities/` 的纯函数层，组件仅调用。
 - Adapter 负责领域模型 ⇄ 视图模型转换（如 `codeGraphToCanvas`）；新增能力优先改 adapter，而非在 UI 内引用领域类型。
 - 状态读写走 slices/selectors，不在组件内直接 mutate store 或拼装领域数据。
 - 持久化/迁移/FS 访问留在 usecase 或 `core/persistence`，UI 事件中只触发 action。
@@ -65,7 +69,7 @@ New code must go in the correct layer:
 
 - `entities/` → stable domain models
 - `features/` → user capabilities
-- `state/` → Zustand slices
+- `state/` → Zustand slices/selectors
 - `core/` → pure logic / persistence
 - `shell/` → app shell only
 - `shared/` → reusable UI & utilities
@@ -84,33 +88,54 @@ UI components must not mutate state directly.
 
 ---
 
-## 5. AI-Specific Rules
+### 4.1 Selection Semantics (Primary + Multi-select)
 
-### 5.1 AI Never Owns State
+多选与批量能力必须遵循统一语义（否则会破坏 Inspector 与 Runtime AI 的一致性）：
 
-AI agents may:
+- Store 中必须区分：`selectedIds`（选中集合）与 `primaryId`（主选中）
+- 多选时 Inspector 采用 Accordion：默认展开 `primaryId`，其余折叠；允许用户展开查看更多
+- 任何新引入的批量操作（Delete、Batch edit、AI Load selection 等）都以 `selectedIds` 为作用域
 
-- Generate drafts
-- Suggest summaries
-- Propose branches
+禁止事项：
 
-AI agents must not:
+- 禁止把“最后点击的节点”隐式当作 primary（必须显式维护 `primaryId`）
+- 禁止在未征得用户同意的情况下更改 selection 状态结构或持久化格式
 
-- Persist hidden reasoning
-- Mutate saved data silently
-- Store provider-specific data
+## 5. AI Feature Rules (Planned, Binding When Implemented)
 
-### 5.2 Determinism
+> These rules apply to any future “AI panel / model calls” work.
 
-AI outputs must be:
+### 5.1 Context Pack Must Be Visible
 
-- Explicit
-- Reviewable
-- Editable by the user
+If any model call is introduced:
+
+- The app must build a **Context Pack** from explicit user selection.
+- The user must be able to preview and edit the pack **before** sending it.
+- Provide rough size estimate (chars / token estimate).
+- Never silently upload arbitrary files or the whole repo.
+
+### 5.2 Output Must Be Draft-first
+
+- Model output must be represented as **GraphPatch/GraphOps** (node/edge CRUD) or editable text.
+- Apply changes as **Draft** on the canvas first.
+- User must be able to Apply / Discard / Undo.
+
+### 5.3 Overflow Strategy (Must)
+
+When selection is large:
+
+- Prefer per-node `summary`
+- Then `excerpt` (e.g., first N lines)
+- If still too large: require user to narrow the selection
+- Never silently truncate without UI feedback
+
+### 5.4 Deterministic Placement (Must)
+
+All auto-generated nodes (AI or FS Mirror) must use a deterministic placer/layout and must not pile up at (0,0).
 
 ---
 
-## 6. Asking for Clarification
+## 6. Asking for Clarification (Hard Rule)
 
 AI agents **must ask** when:
 

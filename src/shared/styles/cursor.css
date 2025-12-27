@@ -18,13 +18,13 @@ body * {
 
 /* 3) Canvas interactions: allow contextual cursors (resize/drag/pan) */
 /* Canvas 容器使用自定义光标 SVG，热点位置在箭头尖端 */
-/* 光标尺寸 17x17，热点位置需要按比例调整 */
+/* 光标尺寸 17x17，热点位置向上调整以对齐视觉指针位置 */
 .canvas-container,
 .canvas-container * {
-  cursor: url("/assets/cursors/arrow.svg") 4 13, default !important;
+  cursor: url("/assets/cursors/arrow.svg") 3 0, default !important;
 }
 .canvas-container[data-cursor="default"] {
-  cursor: url("/assets/cursors/arrow.svg") 4 13, default !important;
+  cursor: url("/assets/cursors/arrow.svg") 3 0, default !important;
 }
 
 /* Node-level cursors (we drive via data-cursor to beat the global !important rule) */

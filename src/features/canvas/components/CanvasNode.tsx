@@ -38,12 +38,12 @@ const cardStyle: CSSProperties = {
   flexDirection: "column",
   padding: 10,
   borderRadius: 12,
-  border: "1px solid var(--border)",
+  border: "1.2px solid #d1d5db",
   background: "var(--panel-2)",
-  // 允许更小的收缩，防止“只能在两个尺寸间突变”
+  // 允许更小的收缩，防止"只能在两个尺寸间突变"
   minWidth: 120,
   maxWidth: 2000,
-  boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
+  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
   position: "relative",
   boxSizing: "border-box",
   userSelect: "none",
@@ -58,7 +58,7 @@ const selectedCardStyle: CSSProperties = {
   ...cardStyle,
   background: "var(--panel)",
   border: "0.7px solid " + SELECT_COLOR,
-  boxShadow: "0 6px 20px rgba(0,0,0,0.16), 0 0 0 0.7px " + SELECT_COLOR,
+  boxShadow: "0 4px 20px rgba(0,0,0,0.12), 0 0 0 0.7px " + SELECT_COLOR,
   cursor: "grab",
 };
 
@@ -160,7 +160,8 @@ export function CanvasNode({
     }
 
     // 如果鼠标在边缘/角落缩放区域，优先触发 resize（不触发拖动）
-    if (onNodeResizeStart && hoverResizeDirRef.current) {
+    // 缩放功能仅在节点被选中时有效
+    if (onNodeResizeStart && hoverResizeDirRef.current && node.selected) {
       e.preventDefault();
       e.stopPropagation();
       onNodeResizeStart(node.id, hoverResizeDirRef.current, e);
@@ -175,7 +176,8 @@ export function CanvasNode({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!onNodeResizeStart) return;
+    // 缩放功能仅在节点被选中时有效
+    if (!onNodeResizeStart || !node.selected) return;
     const el = rootRef.current;
     if (!el) return;
 
@@ -305,6 +307,7 @@ export function CanvasNode({
             dataHandleType="target"
             isValid={isValidConnectionTarget}
             isConnecting={isConnecting}
+            isNodeSelected={node.selected}
           />
         )}
 
@@ -333,6 +336,7 @@ export function CanvasNode({
             dataHandleId={outPort.id}
             dataHandleType="source"
             isConnecting={isConnecting}
+            isNodeSelected={node.selected}
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();

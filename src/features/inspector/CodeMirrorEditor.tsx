@@ -14,6 +14,7 @@ import type { Extension } from "@codemirror/state";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { indentMore, indentLess } from "@codemirror/commands";
+import { history, historyKeymap } from "@codemirror/commands";
 
 const ACCENT_COLOR = "#24414E";
 
@@ -87,6 +88,8 @@ function toggleTask(view: EditorView, event: MouseEvent): boolean {
 const editorExtensions: Extension[] = [
   markdown({ base: markdownLanguage }),
   EditorView.lineWrapping,
+  // 启用历史记录功能（撤销/重做）
+  history(),
   // 文本配色与基础布局
   EditorView.theme(
     {
@@ -279,6 +282,8 @@ const editorExtensions: Extension[] = [
     { key: "Tab", run: indentMore },
     { key: "Shift-Tab", run: indentLess },
   ]),
+  // historyKeymap 包含撤销/重做的快捷键（Cmd+Z / Ctrl+Z 和 Cmd+Shift+Z / Ctrl+Shift+Z）
+  keymap.of(historyKeymap),
   EditorView.domEventHandlers({
     mousedown: (event, view) => toggleTask(view, event as MouseEvent),
   }),

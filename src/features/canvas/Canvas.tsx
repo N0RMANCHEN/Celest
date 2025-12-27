@@ -75,6 +75,10 @@ export type Props = {
   onDuplicateNodesForDrag: (
     nodeIds: string[]
   ) => { nodes: { id: string; position: { x: number; y: number } }[]; edgeIds: string[] };
+
+  // Undo/Redo canvas state
+  onUndoCanvas?: () => void;
+  onRedoCanvas?: () => void;
 };
 
 export function Canvas(props: Props) {
@@ -303,6 +307,7 @@ export function Canvas(props: Props) {
   const { startPan, handlePanEnd } = useCanvasPanZoom(
     viewport,
     state.containerRef,
+    state.svgRef,
     state.isPanning,
     state.setIsPanning,
     state.panStartRef,
@@ -311,6 +316,15 @@ export function Canvas(props: Props) {
     state.spaceKeyPressedRef,
     onViewportChange,
     boundsRect
+  );
+
+  // 计算边的位置信息
+  const edgePositions = useCanvasEdgePositions(
+    edges,
+    nodes,
+    viewport,
+    state.svgRef,
+    getNodeSize
   );
 
   // 选择逻辑
@@ -322,6 +336,8 @@ export function Canvas(props: Props) {
     clearBoxSelection,
   } = useCanvasSelection(
     nodes,
+    edges,
+    edgePositions,
     viewport,
     state.svgRef,
     state.boxSelection,
@@ -362,16 +378,9 @@ export function Canvas(props: Props) {
     onCopySelectionToClipboard,
     onCutSelectionToClipboard,
     onPasteClipboardAt,
-    () => lastPointerCanvasPosRef.current
-  );
-
-  // 计算边的位置信息
-  const edgePositions = useCanvasEdgePositions(
-    edges,
-    nodes,
-    viewport,
-    state.svgRef,
-    getNodeSize
+    () => lastPointerCanvasPosRef.current,
+    props.onUndoCanvas,
+    props.onRedoCanvas
   );
 
   // 鼠标事件处理
@@ -401,7 +410,8 @@ export function Canvas(props: Props) {
   const resizeStateRef = useRef<null | {
     nodeId: string;
     dir: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
-    startMouse: { x: number; y: number };
+    startMouse: { x: number; y: number }; // 屏幕坐标
+    startMouseCanvas: { x: number; y: number }; // Canvas 坐标
     startPos: { x: number; y: number };
     startSize: { width: number; height: number };
   }>(null);
@@ -458,10 +468,19 @@ export function Canvas(props: Props) {
         startSize = { ...startSize, height: Math.max(startSize.height, minH0) };
       }
 
+      // 计算初始鼠标位置的 canvas 坐标
+      const rect = state.svgRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const startMouseCanvas = screenToCanvas(
+        { x: e.clientX - rect.left, y: e.clientY - rect.top },
+        state.localViewportRef.current
+      );
+
       resizeStateRef.current = {
         nodeId,
         dir,
         startMouse: { x: e.clientX, y: e.clientY },
+        startMouseCanvas,
         startPos: { x: node.position.x, y: node.position.y },
         startSize,
       };
@@ -469,8 +488,18 @@ export function Canvas(props: Props) {
       const handleMove = (ev: MouseEvent) => {
         const st = resizeStateRef.current;
         if (!st) return;
-        const dx = (ev.clientX - st.startMouse.x) / viewport.zoom;
-        const dy = (ev.clientY - st.startMouse.y) / viewport.zoom;
+
+        // 计算当前鼠标位置的 canvas 坐标
+        const currentRect = state.svgRef.current?.getBoundingClientRect();
+        if (!currentRect) return;
+        const currentMouseCanvas = screenToCanvas(
+          { x: ev.clientX - currentRect.left, y: ev.clientY - currentRect.top },
+          state.localViewportRef.current
+        );
+
+        // 计算 canvas 坐标的差值
+        const dx = currentMouseCanvas.x - st.startMouseCanvas.x;
+        const dy = currentMouseCanvas.y - st.startMouseCanvas.y;
 
         const minW = 120;
         // 使用初始测量高度作为 MIN_H，确保缩放最小高度与初始状态一致
@@ -486,20 +515,53 @@ export function Canvas(props: Props) {
         const affectsS = st.dir.includes("s");
         const affectsN = st.dir.includes("n");
 
-        if (affectsE) nextW = Math.max(minW, st.startSize.width + dx);
-        // 钳制到初始测量高度，确保线性变化
-        if (affectsS) nextH = Math.max(minH, st.startSize.height + dy);
+        // 对于角落 resize，需要独立处理每个方向，确保当一个方向达到最小值时，
+        // 另一个方向仍然可以正确响应鼠标移动
 
-        if (affectsW) {
-          const w = Math.max(minW, st.startSize.width - dx);
-          nextX = st.startPos.x + (st.startSize.width - w);
-          nextW = w;
+        // 处理东边（右边缘）
+        if (affectsE) {
+          nextW = Math.max(minW, st.startSize.width + dx);
         }
-        // 钳制到初始测量高度，确保线性变化
+
+        // 处理南边（下边缘）
+        if (affectsS) {
+          nextH = Math.max(minH, st.startSize.height + dy);
+        }
+
+        // 处理西边（左边缘）
+        // 注意：对于角落 resize（如左上角），即使另一个方向达到最小值，
+        // 这个方向仍然应该独立响应鼠标移动
+        if (affectsW) {
+          // 计算期望的新宽度（基于鼠标的 x 方向移动）
+          // 这个计算是独立的，不受高度方向的影响
+          const desiredW = st.startSize.width - dx;
+          // 钳制到最小值
+          const actualW = Math.max(minW, desiredW);
+          // 计算实际移动的距离（考虑最小值限制）
+          // 如果 desiredW < minW，说明宽度已经达到最小值，actualDx 会被限制
+          const actualDx = st.startSize.width - actualW;
+          // 用实际移动距离更新位置（确保左边边缘正确移动）
+          // 即使宽度达到最小值，位置也应该正确更新（虽然宽度不会再变化）
+          nextX = st.startPos.x + actualDx;
+          nextW = actualW;
+        }
+
+        // 处理北边（上边缘）
+        // 注意：对于角落 resize（如左上角），即使另一个方向达到最小值，
+        // 这个方向仍然应该独立响应鼠标移动
         if (affectsN) {
-          const h = Math.max(minH, st.startSize.height - dy);
-          nextY = st.startPos.y + (st.startSize.height - h);
-          nextH = h;
+          // 计算期望的新高度（基于鼠标的 y 方向移动）
+          // 这个计算是独立的，不受宽度方向的影响
+          const desiredH = st.startSize.height - dy;
+          // 钳制到最小值
+          const actualH = Math.max(minH, desiredH);
+          // 计算实际移动的距离（考虑最小值限制）
+          // 如果 desiredH < minH，说明高度已经达到最小值，actualDy 会被限制
+          const actualDy = st.startSize.height - actualH;
+          // 用实际移动距离更新位置（确保上边边缘正确移动）
+          // 即使高度达到最小值，位置也应该正确更新（虽然高度不会再变化）
+          nextY = st.startPos.y + actualDy;
+          nextH = actualH;
         }
 
         // Coalesce updates to once per frame for smooth resizing
@@ -545,7 +607,7 @@ export function Canvas(props: Props) {
       window.addEventListener("mousemove", handleMove);
       window.addEventListener("mouseup", handleUp);
     },
-    [nodes, getNodeSize, getMinHeightForNode, onNodesChange, viewport.zoom, clampDimension, state.svgRef]
+    [nodes, getNodeSize, getMinHeightForNode, onNodesChange, clampDimension, state.svgRef, state.localViewportRef]
   );
 
   // 连接时全局监听鼠标移动/抬起
@@ -634,7 +696,7 @@ export function Canvas(props: Props) {
       onClick={(e) => {
         const target = e.target as HTMLElement;
         const isOnNode = target.closest(".canvas-node") || target.closest("foreignObject");
-        const isOnEdge = target.closest(".canvas-edge");
+        const isOnEdge = target.closest(".canvas-edge") || target.closest(".canvas-edge-hit");
         if (!isOnNode && !isOnEdge) {
           handlePaneClickInternal(e);
         }

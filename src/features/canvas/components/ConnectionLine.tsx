@@ -28,7 +28,7 @@ export function ConnectionLine({ start, end, isValid }: Props) {
       d={path.d}
       style={{
         ...baseStyle,
-        stroke: isValid ? "var(--accent)" : "var(--danger, #e53935)",
+        stroke: isValid ? "#60a5fa" : "var(--danger, #e53935)",
       }}
       data-testid="connection-preview"
     />

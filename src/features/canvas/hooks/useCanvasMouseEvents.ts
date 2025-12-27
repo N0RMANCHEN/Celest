@@ -168,16 +168,17 @@ export function useCanvasMouseEvents(
       }
 
       // Single click clears selection
-      // 但如果框选刚刚完成，不清除选择（因为框选完成后，click 事件会触发，但此时选择应该保持）
+      // 如果框选刚刚完成，不清除选择（因为框选完成后，click 事件会触发，但此时选择应该保持）
       if (boxSelectionJustFinishedRef.current) {
-        // 框选刚刚完成，不清除选择
+        // 框选刚刚完成，不清除选择（无论是点击空白处还是节点/连线）
         return;
       }
 
       const target = e.target as HTMLElement;
       const isOnNode = target.closest(".canvas-node") || target.closest("foreignObject");
-      const isOnEdge = target.closest(".canvas-edge");
+      const isOnEdge = target.closest(".canvas-edge") || target.closest(".canvas-edge-hit");
 
+      // 如果点击的是空白处，清除选择
       if (!isOnNode && !isOnEdge) {
         handlePaneClick();
       }

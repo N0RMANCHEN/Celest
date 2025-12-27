@@ -18,6 +18,7 @@ import {
 
 import { ensureWorkspaceFile } from "../../core/persistence/loadSave";
 import type { PersistenceError } from "../../core/persistence/errors";
+import { getUndoHistory } from "../../features/canvas/core/UndoHistory";
 
 const adapter = createBrowserAdapter();
 
@@ -150,6 +151,12 @@ export const createProjectSlice: StateCreator<
       lastSavedAt: project.workspaceMeta.updatedAt,
     });
 
+    // Step5C: 保存初始状态到撤销历史（在项目打开时）
+    // 这确保了 undo 可以回到项目打开时的初始状态
+    const undoHistory = getUndoHistory(project.id);
+    // 保存初始状态，不跳过（即使与空状态相同也要保存，作为基准点）
+    undoHistory.saveSnapshot(project.graph.nodes, project.graph.edges, false);
+
     set({ openStatus: { state: "idle" } });
   },
 
@@ -230,6 +237,12 @@ export const createProjectSlice: StateCreator<
     get().initProjectPersistence(project.id, {
       lastSavedAt: project.workspaceMeta.updatedAt,
     });
+
+    // Step5C: 保存初始状态到撤销历史（在项目打开时）
+    // 这确保了 undo 可以回到项目打开时的初始状态
+    const undoHistory = getUndoHistory(project.id);
+    // 保存初始状态，不跳过（即使与空状态相同也要保存，作为基准点）
+    undoHistory.saveSnapshot(project.graph.nodes, project.graph.edges, false);
 
     set({ openStatus: { state: "idle" } });
   },

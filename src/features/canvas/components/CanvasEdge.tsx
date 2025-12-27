@@ -4,6 +4,7 @@
  * Canvas edge component (SVG path).
  */
 
+import { useState } from "react";
 import type { CanvasEdge as CanvasEdgeType } from "../adapters/codeGraphToCanvas";
 import { calculateBezierPath } from "../utils/edgeRouting";
 
@@ -28,11 +29,17 @@ const edgeStyle: React.CSSProperties = {
 
 const selectedEdgeStyle: React.CSSProperties = {
   ...edgeStyle,
-  stroke: "var(--accent)",
+  stroke: "#60a5fa",
   strokeWidth: 3,
 };
 
-// 扩大可点击/可选中区域的“热区”样式（视觉透明）
+const hoverEdgeStyle: React.CSSProperties = {
+  ...edgeStyle,
+  stroke: "#b3d5ff",
+  strokeWidth: 2.5,
+};
+
+// 扩大可点击/可选中区域的"热区"样式（视觉透明）
 const hitAreaStyle: React.CSSProperties = {
   fill: "none",
   stroke: "transparent",
@@ -48,6 +55,8 @@ export function CanvasEdge({
   targetHandlePos,
   onEdgeClick,
 }: Props) {
+  const [isHovered, setIsHovered] = useState(false);
+
   // No viewport transform needed here - parent <g> already has transform
   // Use canvas coordinates directly
   const canvasSource = sourceHandlePos || sourcePos;
@@ -68,13 +77,22 @@ export function CanvasEdge({
     }
   };
 
+  // 确定使用的样式：选中 > hover > 默认
+  const currentStyle = edge.selected
+    ? selectedEdgeStyle
+    : isHovered
+      ? hoverEdgeStyle
+      : edgeStyle;
+
   return (
     <>
       {/* 扩大的透明热区，提升选中/点击容错，不影响视觉 */}
-    <path
-      d={path.d}
+      <path
+        d={path.d}
         style={hitAreaStyle}
-      onClick={handleClick}
+        onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         data-edge-id={edge.id}
         className="canvas-edge-hit"
       />
@@ -82,12 +100,12 @@ export function CanvasEdge({
       <path
         d={path.d}
         style={{
-          ...(edge.selected ? selectedEdgeStyle : edgeStyle),
+          ...currentStyle,
           pointerEvents: "none", // 仅热区参与交互，避免重复触发
         }}
-      data-edge-id={edge.id}
-      className="canvas-edge"
-    />
+        data-edge-id={edge.id}
+        className="canvas-edge"
+      />
     </>
   );
 }

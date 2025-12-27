@@ -89,6 +89,8 @@ export function useWorkbenchModel() {
     toggleFsExpanded,
     selectFsEntry,
     openFile,
+    undoCanvas,
+    redoCanvas,
   } = useAppStore(
     useShallow((s) => ({
       onNodesChange: s.onNodesChange,
@@ -108,6 +110,8 @@ export function useWorkbenchModel() {
       toggleFsExpanded: s.toggleFsExpanded,
       selectFsEntry: s.selectFsEntry,
       openFile: s.openFile,
+      undoCanvas: s.undoCanvas,
+      redoCanvas: s.redoCanvas,
     }))
   );
 
@@ -171,6 +175,8 @@ export function useWorkbenchModel() {
     onUpdateNodeTitle: updateNodeTitle,
     onUpdateNoteText: updateNoteText,
     onUpdateFilePath: updateFilePath,
+    onUndoCanvas: undoCanvas,
+    onRedoCanvas: redoCanvas,
 
     setActiveView,
     updateActiveViewViewport,

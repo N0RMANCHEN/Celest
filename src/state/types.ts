@@ -138,6 +138,16 @@ export type GraphSlice = {
   duplicateNodesForDrag: (
     nodeIds: string[]
   ) => { nodes: { id: string; position: { x: number; y: number } }[]; edgeIds: string[] };
+
+  /**
+   * Undo last canvas action
+   */
+  undoCanvas: () => void;
+
+  /**
+   * Redo last undone canvas action
+   */
+  redoCanvas: () => void;
 };
 
 /**

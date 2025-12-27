@@ -6,7 +6,8 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
-import type { CanvasNode } from "../adapters/codeGraphToCanvas";
+import type { CanvasNode, CanvasEdge } from "../adapters/codeGraphToCanvas";
+import type { EdgePosition } from "./useCanvasEdgePositions";
 import { screenToCanvas } from "../core/ViewportManager";
 import {
   handleNodeClick as handleNodeClickSelection,
@@ -17,6 +18,8 @@ import { normalizeSelectionBox, getNodeBounds } from "../core/BoxSelection";
 
 export function useCanvasSelection(
   nodes: CanvasNode[],
+  edges: CanvasEdge[],
+  edgePositions: Map<string, EdgePosition>,
   viewport: CanvasViewport,
   svgRef: React.RefObject<SVGSVGElement | null>,
   boxSelection: { start: { x: number; y: number }; end: { x: number; y: number } } | null,
@@ -98,6 +101,41 @@ export function useCanvasSelection(
     [svgRef, viewport, isBoxSelectingRef, selectedIdsRef, setBoxSelection, handlePaneClick]
   );
 
+  // 检测连线是否与框选区域相交
+  const isEdgeInSelectionBox = useCallback(
+    (
+      _edge: CanvasEdge,
+      edgePos: EdgePosition,
+      selectionBox: { left: number; top: number; right: number; bottom: number }
+    ): boolean => {
+      // 获取连线的起点和终点
+      const start = edgePos.sourceHandle || edgePos.source;
+      const end = edgePos.targetHandle || edgePos.target;
+
+      // 计算连线的边界框
+      const minX = Math.min(start.x, end.x);
+      const maxX = Math.max(start.x, end.x);
+      const minY = Math.min(start.y, end.y);
+      const maxY = Math.max(start.y, end.y);
+
+      // 检测边界框是否与框选区域相交（部分重叠即为选中）
+      const edgeBounds = {
+        left: minX,
+        top: minY,
+        right: maxX,
+        bottom: maxY,
+      };
+
+      return (
+        edgeBounds.right >= selectionBox.left &&
+        edgeBounds.left <= selectionBox.right &&
+        edgeBounds.bottom >= selectionBox.top &&
+        edgeBounds.top <= selectionBox.bottom
+      );
+    },
+    []
+  );
+
   // 实时更新框选选择（提取为独立函数，供 updateBoxSelection 和 finishBoxSelection 使用）
   const updateSelectionFromBox = useCallback(
     (currentBoxSelection: { start: { x: number; y: number }; end: { x: number; y: number } }) => {
@@ -118,11 +156,23 @@ export function useCanvasSelection(
     }
 
     // Select nodes in box
-    const boxSelected = handleBoxSelection(
+    const boxSelectedNodes = handleBoxSelection(
       nodes.map((n) => n.id),
       nodeBounds,
       normalizedBox
     );
+
+    // Select edges in box
+    const boxSelectedEdges = new Set<string>();
+    for (const edge of edges) {
+      const edgePos = edgePositions.get(edge.id);
+      if (edgePos && isEdgeInSelectionBox(edge, edgePos, normalizedBox)) {
+        boxSelectedEdges.add(edge.id);
+      }
+    }
+
+    // 合并节点和连线的选择
+    const boxSelected = new Set([...boxSelectedNodes, ...boxSelectedEdges]);
 
       // Figma 行为：Shift 框选时，与初始选择合并（取并集）
     let finalSelection: Set<string>;
@@ -130,7 +180,7 @@ export function useCanvasSelection(
         // Shift 框选：累加到框选开始时的选择（而不是实时更新的选择）
         finalSelection = new Set([...boxSelectionInitialSelectionRef.current, ...boxSelected]);
     } else {
-      // 普通框选：只选中框选的节点
+      // 普通框选：只选中框选的节点和连线
       finalSelection = boxSelected;
     }
 
@@ -138,7 +188,7 @@ export function useCanvasSelection(
     selectedIdsRef.current = finalSelection;
     onSelectionChange(Array.from(finalSelection));
     },
-    [nodes, getNodeSize, selectedIdsRef, setSelectedIds, onSelectionChange]
+    [nodes, edges, edgePositions, getNodeSize, selectedIdsRef, setSelectedIds, onSelectionChange, isEdgeInSelectionBox]
   );
 
   // 更新框选（鼠标移动时）
@@ -178,13 +228,20 @@ export function useCanvasSelection(
       doubleClickWasDragRef.current = true;
     }
 
+    // 标记框选刚刚完成，防止 click 事件清除选择
+    // 在更新选择之前立即设置标志，确保 onClick 事件能检查到
+    // 只要进行了框选操作（不管框选大小），都设置标志
+    if (boxSelectionJustFinishedRef) {
+      boxSelectionJustFinishedRef.current = true;
+    }
+
     // 使用统一的更新逻辑（已经在 updateBoxSelection 中实时更新过了，这里确保最终状态正确）
     updateSelectionFromBox(boxSelection);
 
-    // 标记框选刚刚完成，防止 click 事件清除选择
+    // 延迟清除标志，确保 click 事件能检查到
+    // onClick 事件在 mouseup 之后触发，需要确保标志在 onClick 触发时仍然为 true
+    // 使用 setTimeout 延迟清除，给 onClick 事件足够的时间来检查标志
     if (boxSelectionJustFinishedRef) {
-      boxSelectionJustFinishedRef.current = true;
-      // 延迟清除标志，确保 click 事件能检查到
       setTimeout(() => {
         if (boxSelectionJustFinishedRef) {
           boxSelectionJustFinishedRef.current = false;
@@ -211,7 +268,6 @@ export function useCanvasSelection(
   }, [isBoxSelectingRef, setBoxSelection]);
 
   // 全局鼠标监听（框选过程中）
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isBoxSelectingRef.current) {
       window.addEventListener("mousemove", updateBoxSelection);
@@ -221,8 +277,9 @@ export function useCanvasSelection(
         window.removeEventListener("mouseup", finishBoxSelection);
       };
     }
+    // Note: isBoxSelectingRef is intentionally omitted from deps - ref objects are stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateBoxSelection, finishBoxSelection]);
-  // Note: isBoxSelectingRef is intentionally omitted from deps - ref objects are stable
 
   return {
     handleNodeClick,

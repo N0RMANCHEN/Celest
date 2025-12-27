@@ -13,12 +13,13 @@ import { CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM } from "../../../config/canvas";
 import { clampViewportToBounds } from "../core/ViewportManager";
 import type { Rect } from "../core/canvasBounds";
 
-const PINCH_DELTA_MULTIPLIER = 0.03; // 提升缩放灵敏度
-const PINCH_BASE = 1.18;
+const PINCH_DELTA_MULTIPLIER = 0.05; // 提升缩放灵敏度
+const PINCH_BASE = 1.20;
 
 export function useCanvasPanZoom(
   viewport: CanvasViewport,
   containerRef: React.RefObject<HTMLDivElement | null>,
+  svgRef: React.RefObject<SVGSVGElement | null>,
   isPanning: boolean,
   setIsPanning: (value: boolean) => void,
   panStartRef: React.MutableRefObject<{
@@ -174,10 +175,11 @@ export function useCanvasPanZoom(
         e.stopPropagation();
         e.stopImmediatePropagation();
 
-        const rect = containerRef.current?.getBoundingClientRect();
+        // 使用 svgRef 获取正确的坐标，确保与 Canvas.tsx 中的坐标系统一致
+        const rect = svgRef.current?.getBoundingClientRect();
         if (!rect) return false;
 
-        // Mouse position relative to canvas
+        // Mouse position relative to SVG canvas
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
@@ -225,9 +227,11 @@ export function useCanvasPanZoom(
         e.stopImmediatePropagation();
 
         const currentViewport = localViewportRef.current;
+        // 增加滑动灵敏度（1.5倍）
+        const panSensitivity = 1.4;
         const newViewport: CanvasViewport = {
-          x: currentViewport.x - e.deltaX,
-          y: currentViewport.y - e.deltaY,
+          x: currentViewport.x - e.deltaX * panSensitivity,
+          y: currentViewport.y - e.deltaY * panSensitivity,
           zoom: currentViewport.zoom,
           z: currentViewport.z,
         };
@@ -257,7 +261,7 @@ export function useCanvasPanZoom(
         element.removeEventListener("wheel", handleWheel, { capture: true });
       };
     }
-  }, [containerRef, localViewportRef, onViewportChange, boundsRect, clampWithContainer]);
+  }, [containerRef, svgRef, localViewportRef, onViewportChange, boundsRect, clampWithContainer]);
 
   return {
     startPan,

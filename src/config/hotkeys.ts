@@ -88,6 +88,18 @@ export const HOTKEYS = {
     scope: "global",
     bindings: [{ key: "s", mod: true }],
   },
+  globalUndo: {
+    id: "global.undo",
+    description: "Undo last action",
+    scope: "global",
+    bindings: [{ key: "z", mod: true }],
+  },
+  globalRedo: {
+    id: "global.redo",
+    description: "Redo last undone action",
+    scope: "global",
+    bindings: [{ key: "z", mod: true, shift: true }],
+  },
 } satisfies Record<string, HotkeyConfig>;
 
 

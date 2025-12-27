@@ -32,6 +32,7 @@ import {
   upsertNode,
 } from "../../entities/graph/ops";
 import { MIN_H_WITH_TEXT, MIN_H_NO_TEXT } from "../../features/canvas/config/constants";
+import { getUndoHistory } from "../../features/canvas/core/UndoHistory";
 
 type GraphClipboard = {
   nodes: CodeGraphNode[];
@@ -44,6 +45,9 @@ type GraphClipboard = {
 // App-internal graph clipboard (NOT the system clipboard).
 // Stored outside Zustand state intentionally to avoid re-renders and to keep it UI-internal.
 let graphClipboard: GraphClipboard | null = null;
+
+// 跟踪拖动状态，用于优化 undo history（拖动过程中不保存快照）
+const dragStateByProjectId = new Map<string, { isDragging: boolean; timeoutId?: NodeJS.Timeout }>();
 
 function computeBbox(nodes: CodeGraphNode[]): { center: Vec2; size: Vec2 } {
   if (nodes.length === 0) return { center: { x: 0, y: 0 }, size: { x: 0, y: 0 } };
@@ -105,6 +109,13 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
   },
 
   createNoteNodeAt: (pos: Vec2) => {
+    const project = get().getActiveProject();
+    if (!project) return;
+    
+    // 保存变化前的状态到撤销历史
+    const undoHistory = getUndoHistory(project.id);
+    undoHistory.saveSnapshot(project.graph.nodes, project.graph.edges);
+    
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
         const id = `n_${nanoid()}`;
@@ -176,11 +187,43 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
   onNodesChange: (changes: CanvasNodeChange[]) => {
     if (changes.length === 0) return;
     
+    const project = get().getActiveProject();
+    if (!project) return;
+    
+    // 检查是否是拖动操作（只有位置变化）
+    const isOnlyPositionChanges = changes.every(ch => ch.type === "position");
+    const dragState = dragStateByProjectId.get(project.id);
+    const isDragging = dragState?.isDragging ?? false;
+    
+    // 如果在拖动中，且只有位置变化，不保存快照（拖动结束时再保存）
+    // 如果不在拖动中，或者有其他类型的变化（如尺寸变化、删除等），保存快照
+    if (!isDragging || !isOnlyPositionChanges) {
+      // 保存变化前的状态到撤销历史（在应用变化之前）
+      const undoHistory = getUndoHistory(project.id);
+      // 对于非位置变化（如删除、尺寸变化），强制保存快照（skipIfUnchanged = false）
+      // 对于位置变化，允许跳过未改变的状态（skipIfUnchanged = true）
+      // 注意：只有在非拖动状态下的位置变化才允许跳过，其他情况都强制保存
+      const shouldSkipUnchanged = isOnlyPositionChanges && !isDragging;
+      undoHistory.saveSnapshot(project.graph.nodes, project.graph.edges, shouldSkipUnchanged);
+      
+      // 如果开始拖动（只有位置变化，且之前不在拖动中），标记为拖动中
+      if (isOnlyPositionChanges && !isDragging) {
+        dragStateByProjectId.set(project.id, {
+          isDragging: true,
+        });
+      } else if (!isOnlyPositionChanges && isDragging) {
+        // 如果有其他类型的变化（如尺寸变化），清除之前的 timeout（如果有）
+        const dragState = dragStateByProjectId.get(project.id);
+        if (dragState?.timeoutId) {
+          clearTimeout(dragState.timeoutId);
+        }
+        // 结束拖动标记
+        dragStateByProjectId.delete(project.id);
+      }
+    }
+    
     let didChange = false;
     set((s) => {
-      const project = s.getActiveProject();
-      if (!project) return {};
-      
       const nextProjects = mapActiveProject(s.projects, s.activeProjectId, (p) => {
         let g = p.graph;
         for (const ch of changes) {
@@ -268,10 +311,53 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
     // The debounce in markActiveProjectDirty will handle batching.
     if (didChange) {
       get().markActiveProjectDirty("graph");
+      
+      // 如果拖动结束（有其他类型的变化），保存拖动结束时的快照
+      const dragState = dragStateByProjectId.get(project.id);
+      if (dragState?.isDragging && !isOnlyPositionChanges) {
+        // 有其他类型的变化，说明拖动已结束，清除之前的 timeout（如果有）
+        if (dragState.timeoutId) {
+          clearTimeout(dragState.timeoutId);
+        }
+        // 保存快照并清除标记
+        const undoHistory = getUndoHistory(project.id);
+        undoHistory.saveSnapshot(project.graph.nodes, project.graph.edges);
+        dragStateByProjectId.delete(project.id);
+      } else if (dragState?.isDragging && isOnlyPositionChanges) {
+        // 如果还在拖动中，清除之前的 timeout（如果有），然后设置新的 timeout
+        if (dragState.timeoutId) {
+          clearTimeout(dragState.timeoutId);
+        }
+        // 延迟保存快照（在拖动真正结束后）
+        const timeoutId = setTimeout(() => {
+          const currentDragState = dragStateByProjectId.get(project.id);
+          if (currentDragState?.isDragging) {
+            const currentProject = get().getActiveProject();
+            if (currentProject && currentProject.id === project.id) {
+              const undoHistory = getUndoHistory(project.id);
+              undoHistory.saveSnapshot(currentProject.graph.nodes, currentProject.graph.edges);
+            }
+            dragStateByProjectId.delete(project.id);
+          }
+        }, 200); // 200ms 后保存，如果拖动继续，会被新的调用覆盖
+        
+        // 存储 timeout ID，以便在下次调用时清除
+        dragStateByProjectId.set(project.id, {
+          ...dragState,
+          timeoutId,
+        });
+      }
     }
   },
 
   onEdgesChange: (changes: CanvasEdgeChange[]) => {
+    const project = get().getActiveProject();
+    if (!project) return;
+    
+    // 保存变化前的状态到撤销历史
+    const undoHistory = getUndoHistory(project.id);
+    undoHistory.saveSnapshot(project.graph.nodes, project.graph.edges);
+    
     let didChange = false;
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
@@ -291,6 +377,13 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
   },
 
   onConnect: (c: CanvasConnection) => {
+    const project = get().getActiveProject();
+    if (!project) return;
+    
+    // 保存变化前的状态到撤销历史
+    const undoHistory = getUndoHistory(project.id);
+    undoHistory.saveSnapshot(project.graph.nodes, project.graph.edges);
+    
     let didChange = false;
     set((s) => ({
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
@@ -537,5 +630,55 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
     }
 
     return { nodes: newNodes, edgeIds: newEdgeIds };
+  },
+
+  undoCanvas: () => {
+    const project = get().getActiveProject();
+    if (!project) return;
+
+    const undoHistory = getUndoHistory(project.id);
+    const snapshot = undoHistory.undo();
+
+    if (!snapshot) return; // 没有可撤销的状态
+
+    // 恢复状态（不修改 viewport）
+    set((s) => ({
+      projects: mapActiveProject(s.projects, s.activeProjectId, (p) => ({
+        ...p,
+        graph: {
+          version: p.graph.version, // 保持 version 不变
+          nodes: snapshot.nodes,
+          edges: snapshot.edges,
+        },
+        // 保持 viewport 不变
+      })),
+    }));
+
+    get().markActiveProjectDirty("graph");
+  },
+
+  redoCanvas: () => {
+    const project = get().getActiveProject();
+    if (!project) return;
+
+    const undoHistory = getUndoHistory(project.id);
+    const snapshot = undoHistory.redo();
+
+    if (!snapshot) return; // 没有可重做的状态
+
+    // 恢复状态（不修改 viewport）
+    set((s) => ({
+      projects: mapActiveProject(s.projects, s.activeProjectId, (p) => ({
+        ...p,
+        graph: {
+          version: p.graph.version, // 保持 version 不变
+          nodes: snapshot.nodes,
+          edges: snapshot.edges,
+        },
+        // 保持 viewport 不变
+      })),
+    }));
+
+    get().markActiveProjectDirty("graph");
   },
 });

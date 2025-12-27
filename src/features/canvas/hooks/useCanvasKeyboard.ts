@@ -28,7 +28,9 @@ export function useCanvasKeyboard(
   onCopySelectionToClipboard: () => void,
   onCutSelectionToClipboard: () => void,
   onPasteClipboardAt: (pos: { x: number; y: number }) => void,
-  getLastPointerCanvasPos: () => { x: number; y: number } | null
+  getLastPointerCanvasPos: () => { x: number; y: number } | null,
+  onUndoCanvas?: () => void,
+  onRedoCanvas?: () => void
 ) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -40,7 +42,32 @@ export function useCanvasKeyboard(
           target.getAttribute("contenteditable") === "true" ||
           target.getAttribute("role") === "textbox");
 
+      // 检查是否在 CodeMirror 编辑器中（Inspector）
+      const isInCodeMirror = target?.closest(".cm-editor") !== null;
+
+      // 如果在 CodeMirror 编辑器中，让 CodeMirror 自己处理撤销（不拦截）
+      if (isInCodeMirror) {
+        return;
+      }
+
+      // 如果在其他输入元素中，也不处理
       if (isTypingElement) return;
+
+      // Cmd/Ctrl + Z: 撤销
+      if (matchAnyHotkey(e, HOTKEYS.globalUndo.bindings) && onUndoCanvas) {
+        e.preventDefault();
+        e.stopPropagation();
+        onUndoCanvas();
+        return;
+      }
+
+      // Cmd/Ctrl + Shift + Z: 重做
+      if (matchAnyHotkey(e, HOTKEYS.globalRedo.bindings) && onRedoCanvas) {
+        e.preventDefault();
+        e.stopPropagation();
+        onRedoCanvas();
+        return;
+      }
 
       // Cmd/Ctrl + X/C/V: node clipboard (app-internal, does NOT touch system clipboard)
       // IMPORTANT: We early-return above for typing elements, so Inspector text clipboard remains independent.
@@ -140,6 +167,8 @@ export function useCanvasKeyboard(
     onCutSelectionToClipboard,
     onPasteClipboardAt,
     getLastPointerCanvasPos,
+    onUndoCanvas,
+    onRedoCanvas,
   ]);
 }
 

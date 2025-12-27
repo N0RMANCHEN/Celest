@@ -79,6 +79,8 @@ export default function Workspace() {
                   onCutSelectionToClipboard={vm.onCutSelectionToClipboard}
                   onPasteClipboardAt={vm.onPasteClipboardAt}
                   onDuplicateNodesForDrag={vm.onDuplicateNodesForDrag}
+                  onUndoCanvas={vm.onUndoCanvas}
+                  onRedoCanvas={vm.onRedoCanvas}
                   activeViewId={vm.activeViewId}
                   viewport={vm.viewport}
                   onViewportChange={vm.updateActiveViewViewport}
@@ -113,6 +115,8 @@ export default function Workspace() {
               onCutSelectionToClipboard={vm.onCutSelectionToClipboard}
               onPasteClipboardAt={vm.onPasteClipboardAt}
               onDuplicateNodesForDrag={vm.onDuplicateNodesForDrag}
+              onUndoCanvas={vm.onUndoCanvas}
+              onRedoCanvas={vm.onRedoCanvas}
               activeViewId={vm.activeViewId}
               viewport={vm.viewport}
               onViewportChange={vm.updateActiveViewViewport}

@@ -138,6 +138,10 @@ export function Canvas(props: Props) {
   const [measuredNodeSizes, setMeasuredNodeSizes] = useState<
     Record<string, { width: number; height: number }>
   >({});
+  // 记录节点显式尺寸变化，用于在尺寸被清理时同步清理测量缓存
+  const prevExplicitSizeRef = useRef<Map<string, { width?: number; height?: number }>>(
+    new Map()
+  );
 
   const clampDimension = useCallback(
     (value: number, min: number, max: number) => Math.min(max, Math.max(min, value)),
@@ -176,22 +180,69 @@ export function Canvas(props: Props) {
     [nodes]
   );
 
+  // 动态最小高度：有文本与无文本分开处理
+  // 有文本（1 行）：padding(20) + title(16) + marginTop(6) + paddingBottom(10) + 行高(15) ≈ 67
+  // 无文本：仅标题 + padding，取 50 以保留基本留白
+  const MIN_H_WITH_TEXT = 67;
+  const MIN_H_NO_TEXT = 50;
+
+  const getMinHeightForNode = useCallback(
+    (nodeId: string): number => {
+      const node = nodes.find((n) => n.id === nodeId);
+      const hasSubtitle = Boolean((node as any)?.data?.subtitle);
+      return hasSubtitle ? MIN_H_WITH_TEXT : MIN_H_NO_TEXT;
+    },
+    [nodes]
+  );
+
   const getNodeSize = useCallback(
     (nodeId: string): { width: number; height: number } => {
       const MIN_W = 120;
-      const MIN_H = 60;
+      const MIN_H = getMinHeightForNode(nodeId);
       const MAX_W = 2000;
       const MAX_H = 5000;
       const node = nodes.find((n) => n.id === nodeId);
       const measured = measuredNodeSizes[nodeId];
-      const rawWidth = node?.width ?? measured?.width ?? 180;
+      const rawWidth = node?.width ?? measured?.width ?? 120;
       const rawHeight = node?.height ?? measured?.height ?? 100;
       const width = clampDimension(rawWidth, MIN_W, MAX_W);
       const height = clampDimension(rawHeight, MIN_H, MAX_H);
       return { width, height };
     },
-    [nodes, measuredNodeSizes, clampDimension]
+    [nodes, measuredNodeSizes, clampDimension, getMinHeightForNode]
   );
+
+  // 当节点显式 width/height 被清理时，清理对应的测量缓存，允许 DOM 重新测量
+  useEffect(() => {
+    const nodesToClear: string[] = [];
+    const prev = prevExplicitSizeRef.current;
+
+    nodes.forEach((n) => {
+      const prevEntry = prev.get(n.id);
+      const currEntry = { width: n.width, height: n.height };
+
+      const widthCleared =
+        prevEntry && typeof prevEntry.width === "number" && typeof currEntry.width !== "number";
+      const heightCleared =
+        prevEntry && typeof prevEntry.height === "number" && typeof currEntry.height !== "number";
+
+      if (widthCleared || heightCleared) {
+        nodesToClear.push(n.id);
+      }
+
+      prev.set(n.id, currEntry);
+    });
+
+    if (nodesToClear.length > 0) {
+      setMeasuredNodeSizes((prevSizes) => {
+        const next = { ...prevSizes };
+        nodesToClear.forEach((id) => {
+          delete next[id];
+        });
+        return next;
+      });
+    }
+  }, [nodes]);
 
   // 拖动逻辑
   const { handleNodeMouseDown, handleDragEnd } = useCanvasDrag(
@@ -306,7 +357,8 @@ export function Canvas(props: Props) {
       startBoxSelection,
       clearBoxSelection,
       handlePaneClick,
-      onCreateNoteNodeAt
+      onCreateNoteNodeAt,
+      state.localViewportRef
     );
 
   // Resize (node dimensions) - drag edges/corners to resize cards
@@ -353,7 +405,7 @@ export function Canvas(props: Props) {
         const dy = (ev.clientY - st.startMouse.y) / viewport.zoom;
 
         const minW = 120;
-        const minH = 60;
+        const minH = getMinHeightForNode(st.nodeId);
 
         let nextX = st.startPos.x;
         let nextY = st.startPos.y;
@@ -464,18 +516,25 @@ export function Canvas(props: Props) {
   const dotOffsetY = ((viewport.y % dotSpacing) + dotSpacing) % dotSpacing;
 
   // 实时跟踪鼠标位置（用于粘贴定位）
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+  // 使用全局 mousemove 事件，确保即使鼠标移出容器也能跟踪位置
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
       const rect = svgRef.current?.getBoundingClientRect();
       if (rect) {
+        // 使用最新的 viewport（通过 ref）
+        const currentViewport = state.localViewportRef.current;
         lastPointerCanvasPosRef.current = screenToCanvas(
           { x: e.clientX - rect.left, y: e.clientY - rect.top },
-          viewport
+          currentViewport
         );
       }
-    },
-    [viewport]
-  );
+    };
+
+    window.addEventListener("mousemove", handleGlobalMouseMove);
+    return () => {
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+    };
+  }, [svgRef, state.localViewportRef]);
 
   return (
     <div
@@ -488,13 +547,14 @@ export function Canvas(props: Props) {
         position: "relative",
         overflow: "hidden",
       }}
-      onMouseMove={handleMouseMove}
       onMouseDown={(e) => {
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
+          // 使用最新的 viewport（通过 ref）
+          const currentViewport = state.localViewportRef.current;
           lastPointerCanvasPosRef.current = screenToCanvas(
             { x: e.clientX - rect.left, y: e.clientY - rect.top },
-            viewport
+            currentViewport
           );
         }
         handleMouseDown(e);

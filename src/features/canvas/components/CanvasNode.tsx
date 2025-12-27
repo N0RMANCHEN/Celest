@@ -40,7 +40,8 @@ const cardStyle: CSSProperties = {
   borderRadius: 12,
   border: "1px solid var(--border)",
   background: "var(--panel-2)",
-  minWidth: 180,
+  // 允许更小的收缩，防止“只能在两个尺寸间突变”
+  minWidth: 120,
   maxWidth: 2000,
   boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
   position: "relative",
@@ -188,8 +189,10 @@ export function CanvasNode({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const EDGE_T = 13; // 边缘命中阈值（px）— 再扩大以提升可选中性
-    const HANDLE_AVOID_R = 16; // 避开左右 in/out 圆点区域（围绕垂直中线）
+    // 动态阈值：随节点屏幕尺寸变化，避免过大/过小
+    const minSide = Math.max(1, Math.min(rect.width, rect.height));
+    const EDGE_T = Math.max(6, Math.min(13, minSide * 0.08)); // 6px-13px 之间，约占短边 8%
+    const HANDLE_AVOID_R = Math.max(10, Math.min(24, rect.height * 0.2)); // 随高度调整，10-24px
     const midY = rect.height / 2;
 
     const nearLeft = x <= EDGE_T;
@@ -302,6 +305,7 @@ export function CanvasNode({
         <div style={titleStyle}>
           {getTitle()} {node.data.title}
         </div>
+        {/* 有 subtitle 时才渲染内容区域；无 subtitle 时不占高度，由最小高度控制 */}
         {node.data.subtitle ? (
           <div
             style={{
@@ -359,17 +363,19 @@ function useNodeSizeReporter(
     if (!el) return;
 
     const report = () => {
-      const rect = el.getBoundingClientRect();
-      const width = Number.isFinite(rect.width) ? rect.width : 0;
-      const height = Number.isFinite(rect.height) ? rect.height : 0;
+      // 使用 offsetWidth/offsetHeight 避免 zoom 影响测量值
+      let width = el.offsetWidth;
+      let height = el.offsetHeight;
+
+      if (!Number.isFinite(width) || width <= 0 || width > MAX_W) width = 0;
+      if (!Number.isFinite(height) || height <= 0 || height > MAX_H) height = 0;
+
       const next = {
         width: Math.min(MAX_W, Math.max(1, width)),
         height: Math.min(MAX_H, Math.max(1, height)),
       };
-      // Guard against 0x0 in test envs (JSDOM) or transient layout moments
       if (next.width < 1 || next.height < 1) return;
       const prev = lastReportedRef?.current;
-      // Avoid noisy updates
       if (prev && Math.abs(prev.width - next.width) < 0.5 && Math.abs(prev.height - next.height) < 0.5) {
         return;
       }

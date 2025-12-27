@@ -36,6 +36,7 @@ type GraphClipboard = {
   nodes: CodeGraphNode[];
   edges: CodeGraphEdge[];
   bboxCenter: Vec2;
+  bboxSize: Vec2;
   pasteCount: number;
 };
 
@@ -43,8 +44,8 @@ type GraphClipboard = {
 // Stored outside Zustand state intentionally to avoid re-renders and to keep it UI-internal.
 let graphClipboard: GraphClipboard | null = null;
 
-function computeBboxCenter(nodes: CodeGraphNode[]): Vec2 {
-  if (nodes.length === 0) return { x: 0, y: 0 };
+function computeBbox(nodes: CodeGraphNode[]): { center: Vec2; size: Vec2 } {
+  if (nodes.length === 0) return { center: { x: 0, y: 0 }, size: { x: 0, y: 0 } };
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -52,12 +53,17 @@ function computeBboxCenter(nodes: CodeGraphNode[]): Vec2 {
   for (const n of nodes) {
     const x = n.position?.x ?? 0;
     const y = n.position?.y ?? 0;
+    const w = typeof (n as any).width === "number" ? (n as any).width : 0;
+    const h = typeof (n as any).height === "number" ? (n as any).height : 0;
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x);
-    maxY = Math.max(maxY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
   }
-  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+  return {
+    center: { x: (minX + maxX) / 2, y: (minY + maxY) / 2 },
+    size: { x: maxX - minX, y: maxY - minY },
+  };
 }
 
 function arrayEq(a: string[], b: string[]) {
@@ -138,7 +144,16 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
       projects: mapActiveProject(s.projects, s.activeProjectId, (p) => {
         const node = p.graph.nodes[nodeId];
         if (!node || node.kind !== "note" || node.text === text) return p;
-        const nextGraph = upsertNode(p.graph, { ...node, text });
+        const prevHasText = Boolean(node.text && node.text.trim().length > 0);
+        const nextHasText = Boolean(text && text.trim().length > 0);
+        const subtitleChanged = prevHasText !== nextHasText;
+
+        const nextGraph = upsertNode(p.graph, {
+          ...node,
+          text,
+          // 当文本有/无发生切换时，清理显式 height，让 UI 重新测量回到 A/C 状态
+          ...(subtitleChanged ? { height: undefined } : {}),
+        });
         return { ...p, graph: nextGraph };
       }),
     }));
@@ -178,9 +193,26 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
             });
           } else if (ch.type === "dimensions") {
             if (!ch.dimensions) continue;
-            const w = Math.max(80, ch.dimensions.width);
-            const h = Math.max(50, ch.dimensions.height);
-            g = updateNodeDimensions(g, ch.id, { width: w, height: h });
+            const MIN_W = 80;
+            const MAX_W = 2000;
+            const MAX_H = 5000;
+            const node = p.graph.nodes[ch.id];
+
+            const hasSubtitle =
+              node && (node.kind !== "note" ? false : Boolean((node as any).text));
+            const MIN_H = hasSubtitle ? 67 : 50;
+            const EPS = 0.5; // 允许细微误差
+
+            const w = Math.min(MAX_W, Math.max(MIN_W, ch.dimensions.width));
+            let h = Math.min(MAX_H, Math.max(MIN_H, ch.dimensions.height));
+
+            // 如果高度被拖到接近 minH，视为回到基准态，清理显式 height
+            const nearMin = h <= MIN_H + EPS;
+            const nextDimensions = nearMin
+              ? { width: w, height: undefined }
+              : { width: w, height: h };
+
+            g = updateNodeDimensions(g, ch.id, nextDimensions as { width: number; height: number });
           } else if (ch.type === "remove") {
             g = removeNode(g, ch.id);
           }
@@ -288,14 +320,35 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
       .map((id) => p.graph.nodes[id])
       .filter((n): n is CodeGraphNode => !!n);
 
+    // 防御：清理异常尺寸（非有限或过大）
+    const sanitizeNode = (n: CodeGraphNode): CodeGraphNode => {
+      const width = (n as any).width;
+      const height = (n as any).height;
+      const safeWidth =
+        typeof width === "number" && Number.isFinite(width) && width > 0 && width <= 2000
+          ? width
+          : undefined;
+      const safeHeight =
+        typeof height === "number" && Number.isFinite(height) && height > 0 && height <= 5000
+          ? height
+          : undefined;
+      return safeWidth === width && safeHeight === height
+        ? n
+        : ({ ...n, ...(safeWidth ? { width: safeWidth } : { width: undefined }), ...(safeHeight ? { height: safeHeight } : { height: undefined }) } as CodeGraphNode);
+    };
+
+    const sanitizedNodes = nodes.map(sanitizeNode);
+
     const edges = Object.values(p.graph.edges).filter(
       (e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target)
     );
 
+    const bbox = computeBbox(sanitizedNodes);
     graphClipboard = {
-      nodes: nodes.map((n) => ({ ...n })),
+      nodes: sanitizedNodes.map((n) => ({ ...n })),
       edges: edges.map((e) => ({ ...e })),
-      bboxCenter: computeBboxCenter(nodes),
+      bboxCenter: bbox.center,
+      bboxSize: bbox.size,
       pasteCount: 0,
     };
   },
@@ -329,11 +382,16 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
       const p = s.getActiveProject();
       if (!p) return {};
 
+      // 把选中块的 bbox 中心对齐到鼠标位置，并在后续粘贴时施加固定偏移
       const pasteIndex = clip.pasteCount;
-      const nudge = { x: 24 * pasteIndex, y: 24 * pasteIndex };
+      const baseDelta = {
+        x: pos.x - clip.bboxCenter.x,
+        y: pos.y - clip.bboxCenter.y,
+      };
+      const nudgePerPaste = { x: 16, y: 16 }; // 固定偏移，不随 pasteCount 累加增长
       const delta = {
-        x: pos.x - clip.bboxCenter.x + nudge.x,
-        y: pos.y - clip.bboxCenter.y + nudge.y,
+        x: baseDelta.x + nudgePerPaste.x * pasteIndex,
+        y: baseDelta.y + nudgePerPaste.y * pasteIndex,
       };
 
       const idMap = new Map<string, string>();

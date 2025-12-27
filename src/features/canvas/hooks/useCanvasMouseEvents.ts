@@ -27,7 +27,8 @@ export function useCanvasMouseEvents(
   startBoxSelection: (e: React.MouseEvent) => void,
   clearBoxSelection: () => void,
   handlePaneClick: () => void,
-  onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void
+  onCreateNoteNodeAt?: (pos: { x: number; y: number }) => void,
+  localViewportRef?: React.MutableRefObject<CanvasViewport>
 ) {
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -79,6 +80,7 @@ export function useCanvasMouseEvents(
       clearBoxSelection,
       startPan,
       startBoxSelection,
+      doubleClickWasDragRef,
     ]
   );
 
@@ -151,9 +153,11 @@ export function useCanvasMouseEvents(
 
         const rect = svgRef.current?.getBoundingClientRect();
         if (rect) {
+          // 使用最新的 viewport（通过 ref，如果提供的话）
+          const currentViewport = localViewportRef?.current ?? viewport;
           const canvasPos = screenToCanvas(
             { x: e.clientX - rect.left, y: e.clientY - rect.top },
-            viewport
+            currentViewport
           );
           onCreateNoteNodeAt({
             x: canvasPos.x - NODE_WIDTH / 2,
@@ -188,6 +192,7 @@ export function useCanvasMouseEvents(
       handlePaneClick,
       isConnecting,
       handleConnectionCancel,
+      localViewportRef,
     ]
   );
 

@@ -5,7 +5,7 @@
  * 使用 RAF 优化性能，避免频繁的 store 更新
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { CanvasNodeChange, CanvasViewport } from "../../../entities/canvas/canvasEvents";
 import type { CanvasNode } from "../adapters/codeGraphToCanvas";
 import { screenToCanvas } from "../core/ViewportManager";
@@ -35,11 +35,15 @@ export function useCanvasDrag(
     nodeIds: string[]
   ) => { nodes: { id: string; position: { x: number; y: number } }[]; edgeIds: string[] }
 ) {
+  // Alt 拖拽中是否已生成副本（防止重复生成）
+  const hasDuplicatedInDragRef = useRef(false);
+
   // 开始拖动节点
   const handleNodeMouseDown = useCallback(
     (nodeId: string, e: React.MouseEvent) => {
       // Only start drag on left button
       if (e.button !== 0) return;
+      hasDuplicatedInDragRef.current = false;
 
       // Don't start drag if clicking on handle
       const target = e.target as HTMLElement;
@@ -191,6 +195,50 @@ export function useCanvasDrag(
       dragAnimationFrameRef.current = requestAnimationFrame(() => {
         if (!dragStateRef.current || !rect) return;
 
+        // Alt/Option 在拖动中按下：动态复制并切换到副本继续拖拽（Figma 行为）
+        if (
+          e.altKey &&
+          !hasDuplicatedInDragRef.current &&
+          onDuplicateNodesForDrag &&
+          dragStateRef.current.draggedNodeIds.size > 0
+        ) {
+          const idsToDup = Array.from(dragStateRef.current.draggedNodeIds);
+          const dup = onDuplicateNodesForDrag(idsToDup);
+          if (dup.nodes.length > 0) {
+            hasDuplicatedInDragRef.current = true;
+
+            // 计算当前鼠标的画布坐标，作为新的拖拽起点
+            const currentMouseNow = screenToCanvas(
+              { x: mouseX - rect.left, y: mouseY - rect.top },
+              localViewportRef.current
+            );
+
+            // 重建拖拽状态，切换到新生成的节点
+            const newDragStartPositions = new Map<string, { x: number; y: number }>();
+            for (const n of dup.nodes) {
+              newDragStartPositions.set(n.id, { ...n.position });
+              localNodePositionsRef.current.set(n.id, { ...n.position });
+            }
+
+            const newDragged = new Set<string>(dup.nodes.map((n) => n.id));
+            const selection = new Set<string>([
+              ...dup.nodes.map((n) => n.id),
+              ...dup.edgeIds,
+            ]);
+
+            dragStateRef.current = {
+              draggedNodeIds: newDragged,
+              dragStartPositions: newDragStartPositions,
+              dragStartMouse: currentMouseNow,
+            };
+
+            // 同步选择到副本
+            setSelectedIds(selection);
+            selectedIdsRef.current = selection;
+            onSelectionChange(Array.from(selection));
+          }
+        }
+
         // Use latest viewport from ref
         const currentMouse = screenToCanvas(
           { x: mouseX - rect.left, y: mouseY - rect.top },
@@ -239,6 +287,11 @@ export function useCanvasDrag(
       localViewportRef,
       onNodesChange,
       selectionHandledInMouseDownRef,
+      onDuplicateNodesForDrag,
+      hasDuplicatedInDragRef,
+      setSelectedIds,
+      selectedIdsRef,
+      onSelectionChange,
     ]
   );
 
@@ -265,6 +318,7 @@ export function useCanvasDrag(
       }
     }
 
+    hasDuplicatedInDragRef.current = false;
     setIsDragging(false);
     dragStateRef.current = null;
     

@@ -53,6 +53,20 @@ export function bootstrap() {
       const shift = e.shiftKey;
       const alt = e.altKey;
 
+      // 禁用浏览器缩放快捷键
+      if (
+        (ctrlOrCmd && (e.key === "+" || e.key === "=")) || // Ctrl/Cmd + Plus (+)
+        (ctrlOrCmd && e.key === "-") || // Ctrl/Cmd + Minus (-)
+        (ctrlOrCmd && e.key === "0") || // Ctrl/Cmd + 0 (重置缩放)
+        (ctrlOrCmd && e.key === "NumpadAdd") || // Ctrl/Cmd + Numpad +
+        (ctrlOrCmd && e.key === "NumpadSubtract") || // Ctrl/Cmd + Numpad -
+        (ctrlOrCmd && e.key === "Numpad0") // Ctrl/Cmd + Numpad 0
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       // 开发者工具相关快捷键
       if (
         (ctrlOrCmd && shift && (e.key === "I" || e.key === "i")) || // Ctrl+Shift+I / Cmd+Shift+I

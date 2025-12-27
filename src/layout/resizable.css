@@ -61,13 +61,13 @@
 /* 垂直分割线（左右拖动）- 默认 1px */
 .resizable-pane__divider--vertical {
   width: 1px;
-  cursor: col-resize;
+  cursor: col-resize !important;
 }
 
 /* 水平分割线（上下拖动）- 默认 1px */
 .resizable-pane__divider--horizontal {
   height: 1px;
-  cursor: row-resize;
+  cursor: row-resize !important;
 }
 
 /* 扩大命中区域：实际可拖动区域更大，但不影响布局 */
@@ -75,6 +75,7 @@
   content: "";
   position: absolute;
   z-index: 1;
+  cursor: inherit;
 }
 
 .resizable-pane__divider--vertical::before {

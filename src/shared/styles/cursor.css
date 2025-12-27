@@ -17,8 +17,14 @@ body * {
 }
 
 /* 3) Canvas interactions: allow contextual cursors (resize/drag/pan) */
+/* Canvas 容器使用自定义光标 SVG，热点位置在箭头尖端 */
+/* 光标尺寸 17x17，热点位置需要按比例调整 */
+.canvas-container,
+.canvas-container * {
+  cursor: url("/assets/cursors/arrow.svg") 4 13, default !important;
+}
 .canvas-container[data-cursor="default"] {
-  cursor: default !important;
+  cursor: url("/assets/cursors/arrow.svg") 4 13, default !important;
 }
 
 /* Node-level cursors (we drive via data-cursor to beat the global !important rule) */
@@ -53,4 +59,21 @@ textarea,
 .cm-editor,
 .cm-editor * {
   cursor: text !important;
+}
+
+/* 4) Resizable panes: allow resize cursors */
+.resizable-pane__divider,
+.resizable-pane__divider *,
+.resizable-pane__divider::before {
+  cursor: col-resize !important;
+}
+.resizable-pane__divider--horizontal,
+.resizable-pane__divider--horizontal *,
+.resizable-pane__divider--horizontal::before {
+  cursor: row-resize !important;
+}
+.resizable-pane__divider--vertical,
+.resizable-pane__divider--vertical *,
+.resizable-pane__divider--vertical::before {
+  cursor: col-resize !important;
 }

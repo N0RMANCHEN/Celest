@@ -21,7 +21,7 @@ export type EdgePosition = {
 export function useCanvasEdgePositions(
   edges: CanvasEdge[],
   nodes: CanvasNode[],
-  viewport: CanvasViewport,
+  _viewport: CanvasViewport,
   _svgRef: React.RefObject<SVGSVGElement | null>,
   getNodeSize: (nodeId: string) => { width: number; height: number }
 ): Map<string, EdgePosition> {
@@ -57,6 +57,6 @@ export function useCanvasEdgePositions(
     }
 
     return positions;
-  }, [edges, nodes, viewport, getNodeSize]);
+  }, [edges, nodes, getNodeSize]);
 }
 

@@ -2,8 +2,9 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useCanvasConnection } from "./useCanvasConnection";
-import type { CanvasNode } from "../adapters/codeGraphToCanvas";
+import type { CanvasNode, CanvasEdge } from "../adapters/codeGraphToCanvas";
 import type { CanvasNodeType } from "../types";
+import type { CodeNodeKind } from "../../../entities/graph/types";
 
 const viewport = { x: 0, y: 0, zoom: 1, z: 1 };
 
@@ -37,7 +38,7 @@ function makeNodes(nodes: Array<{ id: string; kind: string }>): CanvasNode[] {
     id: n.id,
     type: mapKindToCanvasType(n.kind),
     position: { x: 0, y: 0 },
-    data: { kind: n.kind as any, title: n.id },
+    data: { kind: n.kind as CodeNodeKind, title: n.id },
     selected: false,
   }));
 }
@@ -66,7 +67,7 @@ describe("useCanvasConnection", () => {
     target.dataset.handleType = "target";
 
     act(() => {
-      result.current.handleConnectionEnd({ target } as any);
+      result.current.handleConnectionEnd({ target } as unknown as MouseEvent);
     });
 
     expect(onConnect).toHaveBeenCalledWith({
@@ -81,8 +82,8 @@ describe("useCanvasConnection", () => {
   it("deletes a connection in delete mode", () => {
     const onConnect = vi.fn();
     const onEdgesChange = vi.fn();
-    const edges = [
-      { id: "e1", source: "a", target: "b", sourceHandle: "out", targetHandle: "in" },
+    const edges: CanvasEdge[] = [
+      { id: "e1", source: "a", target: "b", sourceHandle: "out", targetHandle: "in", selected: false },
     ];
     const nodes = makeNodes([
       { id: "a", kind: "note" },
@@ -90,7 +91,7 @@ describe("useCanvasConnection", () => {
     ]);
 
     const { result } = renderHook(() =>
-      useCanvasConnection(edges as any, nodes, makeSvgRef(), viewport, onConnect, onEdgesChange)
+      useCanvasConnection(edges, nodes, makeSvgRef(), viewport, onConnect, onEdgesChange)
     );
 
     act(() => {
@@ -104,7 +105,7 @@ describe("useCanvasConnection", () => {
     target.dataset.handleType = "target";
 
     act(() => {
-      result.current.handleConnectionEnd({ target } as any);
+      result.current.handleConnectionEnd({ target } as unknown as MouseEvent);
     });
 
     expect(onConnect).not.toHaveBeenCalled();
@@ -134,7 +135,7 @@ describe("useCanvasConnection", () => {
     target.dataset.handleType = "target";
 
     act(() => {
-      result.current.handleConnectionEnd({ target } as any);
+      result.current.handleConnectionEnd({ target } as unknown as MouseEvent);
     });
 
     expect(onConnect).toHaveBeenCalledWith({
@@ -168,7 +169,7 @@ describe("useCanvasConnection", () => {
     target.dataset.handleType = "target";
 
     act(() => {
-      result.current.handleConnectionEnd({ target } as any);
+      result.current.handleConnectionEnd({ target } as unknown as MouseEvent);
     });
 
     // fileRef.out 只接受 note，不接受 fileRef，所以不应该调用 onConnect
@@ -198,7 +199,7 @@ describe("useCanvasConnection", () => {
     target.dataset.handleType = "target";
 
     act(() => {
-      result.current.handleConnectionEnd({ target } as any);
+      result.current.handleConnectionEnd({ target } as unknown as MouseEvent);
     });
 
     // note.out 没有 accepts 限制，应该可以连接任何节点

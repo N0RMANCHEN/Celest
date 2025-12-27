@@ -53,8 +53,8 @@ function computeBbox(nodes: CodeGraphNode[]): { center: Vec2; size: Vec2 } {
   for (const n of nodes) {
     const x = n.position?.x ?? 0;
     const y = n.position?.y ?? 0;
-    const w = typeof (n as any).width === "number" ? (n as any).width : 0;
-    const h = typeof (n as any).height === "number" ? (n as any).height : 0;
+    const w = typeof n.width === "number" ? n.width : 0;
+    const h = typeof n.height === "number" ? n.height : 0;
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
     maxX = Math.max(maxX, x + w);
@@ -197,22 +197,41 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
             const MAX_W = 2000;
             const MAX_H = 5000;
             const node = p.graph.nodes[ch.id];
+            if (!node) continue;
 
             const hasSubtitle =
-              node && (node.kind !== "note" ? false : Boolean((node as any).text));
-            const MIN_H = hasSubtitle ? 67 : 50;
+              node.kind === "note" ? Boolean(node.text) : false;
+            // 与 Canvas.tsx 中的 MIN_H_WITH_TEXT 和 MIN_H_NO_TEXT 保持一致
+            const MIN_H = hasSubtitle ? 73 : 56;
             const EPS = 0.5; // 允许细微误差
 
             const w = Math.min(MAX_W, Math.max(MIN_W, ch.dimensions.width));
-            let h = Math.min(MAX_H, Math.max(MIN_H, ch.dimensions.height));
+            const h = Math.min(MAX_H, Math.max(MIN_H, ch.dimensions.height));
 
             // 如果高度被拖到接近 minH，视为回到基准态，清理显式 height
             const nearMin = h <= MIN_H + EPS;
-            const nextDimensions = nearMin
-              ? { width: w, height: undefined }
-              : { width: w, height: h };
-
-            g = updateNodeDimensions(g, ch.id, nextDimensions as { width: number; height: number });
+            if (nearMin) {
+              // 使用 upsertNode 更新节点，只设置 width，删除 height 属性
+              // 注意：FrameNode 需要保留 height，所以只对非 frame 节点删除 height
+              if (node.kind === "frame") {
+                // FrameNode 必须保留 height，所以只更新 width
+                g = upsertNode(g, {
+                  ...node,
+                  width: w,
+                });
+              } else {
+                // 其他节点可以删除 height，让 DOM 重新测量
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { height, ...nodeWithoutHeight } = node;
+                g = upsertNode(g, {
+                  ...nodeWithoutHeight,
+                  width: w,
+                });
+              }
+            } else {
+              // 正常情况：使用 updateNodeDimensions 更新尺寸
+              g = updateNodeDimensions(g, ch.id, { width: w, height: h });
+            }
           } else if (ch.type === "remove") {
             g = removeNode(g, ch.id);
           }
@@ -322,8 +341,8 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
 
     // 防御：清理异常尺寸（非有限或过大）
     const sanitizeNode = (n: CodeGraphNode): CodeGraphNode => {
-      const width = (n as any).width;
-      const height = (n as any).height;
+      const width = n.width;
+      const height = n.height;
       const safeWidth =
         typeof width === "number" && Number.isFinite(width) && width > 0 && width <= 2000
           ? width

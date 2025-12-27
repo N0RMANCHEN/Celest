@@ -271,6 +271,7 @@ export function CanvasNode({
       width={size.width}
       height={size.height}
       style={{ overflow: "visible" }}
+      data-node-id={node.id}
     >
       <div
         ref={rootRef}

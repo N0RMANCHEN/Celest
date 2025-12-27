@@ -5,7 +5,7 @@
  * 管理选择、拖动、平移、框选等状态
  */
 
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect, useLayoutEffect, useMemo } from "react";
 import type { CanvasViewport } from "../../../entities/canvas/canvasEvents";
 import type { CanvasNode, CanvasEdge } from "../adapters/codeGraphToCanvas";
 
@@ -82,7 +82,7 @@ export function useCanvasState(
   }, [nodes]);
 
   // 节点删除后清理拖动/选择残留状态，避免异常
-  useEffect(() => {
+  useLayoutEffect(() => {
     const currentNodeIds = new Set(nodes.map((n) => n.id));
     const selectedNodeIds = Array.from(selectedIdsRef.current);
 
@@ -93,7 +93,10 @@ export function useCanvasState(
       );
 
       if (!draggedStillExists) {
-        setIsDragging(false);
+        // 使用 requestAnimationFrame 延迟 setState，避免在 effect 中同步调用
+        requestAnimationFrame(() => {
+          setIsDragging(false);
+        });
         dragStateRef.current = null;
         if (dragAnimationFrameRef.current) {
           cancelAnimationFrame(dragAnimationFrameRef.current);
@@ -106,19 +109,24 @@ export function useCanvasState(
     const validSelection = selectedNodeIds.filter((id) => currentNodeIds.has(id));
     if (validSelection.length !== selectedNodeIds.length) {
       const newSelection = new Set(validSelection);
-      setSelectedIds(newSelection);
+      // 使用 requestAnimationFrame 延迟 setState，避免在 effect 中同步调用
+      requestAnimationFrame(() => {
+        setSelectedIds(newSelection);
+      });
       selectedIdsRef.current = newSelection;
     }
   }, [nodes, setIsDragging, setSelectedIds]);
 
   // Cleanup animation frames on unmount
   useEffect(() => {
+    const dragRaf = dragAnimationFrameRef.current;
+    const panRaf = panAnimationFrameRef.current;
     return () => {
-      if (dragAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(dragAnimationFrameRef.current);
+      if (dragRaf !== null) {
+        cancelAnimationFrame(dragRaf);
       }
-      if (panAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(panAnimationFrameRef.current);
+      if (panRaf !== null) {
+        cancelAnimationFrame(panRaf);
       }
     };
   }, []);
@@ -133,15 +141,18 @@ export function useCanvasState(
   }, [nodes, edges]);
 
   // Sync propsSelection to state only when it actually changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (
       propsSelection.size !== selectedIds.size ||
       !Array.from(propsSelection).every((id) => selectedIds.has(id))
     ) {
-      setSelectedIds(propsSelection);
+      // 使用 requestAnimationFrame 延迟 setState，避免在 effect 中同步调用
+      requestAnimationFrame(() => {
+        setSelectedIds(propsSelection);
+      });
       selectedIdsRef.current = propsSelection;
     }
-  }, [propsSelection, selectedIds]);
+  }, [propsSelection, selectedIds, setSelectedIds]);
 
   return {
     // DOM refs

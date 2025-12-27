@@ -108,8 +108,8 @@ function createCacheKey(
       const node = graph.nodes[id];
       const pos = node.position;
       const size = {
-        w: typeof (node as any).width === "number" ? (node as any).width : "na",
-        h: typeof (node as any).height === "number" ? (node as any).height : "na",
+        w: typeof node.width === "number" ? node.width : "na",
+        h: typeof node.height === "number" ? node.height : "na",
       };
       const selected = selectedIds.includes(id);
       return `${id}:${pos.x},${pos.y}:${size.w}x${size.h}:${selected ? "1" : "0"}`;
@@ -200,8 +200,8 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
         n.position.x === other.position.x &&
         n.position.y === other.position.y &&
         n.selected === other.selected &&
-        (n as any).width === (other as any).width &&
-        (n as any).height === (other as any).height;
+        n.width === other.width &&
+        n.height === other.height;
     }) &&
     cachedCanvasVM.edges.every((e, i) => {
       const other = vm.edges[i];

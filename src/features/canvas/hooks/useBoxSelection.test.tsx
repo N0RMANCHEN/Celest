@@ -44,7 +44,7 @@ describe("useBoxSelection", () => {
         clientX: 5,
         clientY: 5,
         shiftKey: false,
-      } as any);
+      } as MouseEvent);
     });
 
     expect(selectedIdsRef.current.size).toBe(0);

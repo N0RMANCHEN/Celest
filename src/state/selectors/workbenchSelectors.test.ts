@@ -7,6 +7,8 @@ import {
   selectCanvasViewModel,
 } from "./workbenchSelectors";
 import { createEmptyCodeGraph, upsertNode } from "../../entities/graph/ops";
+import type { NoteNode } from "../../entities/graph/types";
+import type { ProjectState } from "../../entities/project/types";
 
 function makeMockState(project: AppState["projects"][0] | null): AppState {
   return {
@@ -36,6 +38,10 @@ function makeMockState(project: AppState["projects"][0] | null): AppState {
     onEdgesChange: () => {},
     onConnect: () => {},
     onSelectionChange: () => {},
+    copySelectionToClipboard: () => {},
+    cutSelectionToClipboard: () => {},
+    pasteClipboardAt: () => {},
+    duplicateNodesForDrag: () => ({ nodes: [], edgeIds: [] }),
     fsIndexByProjectId: {},
     fsExpandedByProjectId: {},
     fsSelectedIdByProjectId: {},
@@ -241,12 +247,13 @@ describe("workbenchSelectors", () => {
     expect(vm1.nodes[0].height).toBeUndefined();
 
     // mutate graph with dimensions only
-    const graphWithSize = upsertNode(graphWithNode, {
-      ...graphWithNode.nodes[nodeId],
+    const nodeWithSize: NoteNode = {
+      ...(graphWithNode.nodes[nodeId] as NoteNode),
       width: 300,
       height: 180,
-    } as any);
-    const state2 = makeMockState({ ...baseProject, graph: graphWithSize } as any);
+    };
+    const graphWithSize = upsertNode(graphWithNode, nodeWithSize);
+    const state2 = makeMockState({ ...baseProject, graph: graphWithSize } as ProjectState);
     const vm2 = selectCanvasViewModel(state2);
 
     expect(vm2.nodes[0].width).toBe(300);

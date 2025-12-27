@@ -66,7 +66,7 @@ class MockDirectoryHandle {
       return new MockFileHandle(file);
     }
     const err = new Error("NotFoundError");
-    (err as any).name = "NotFoundError";
+    Object.defineProperty(err, "name", { value: "NotFoundError" });
     throw err;
   }
 
@@ -74,7 +74,7 @@ class MockDirectoryHandle {
     const existed = this.files.delete(name);
     if (!existed) {
       const err = new Error("NotFoundError");
-      (err as any).name = "NotFoundError";
+      Object.defineProperty(err, "name", { value: "NotFoundError" });
       throw err;
     }
   }
@@ -86,6 +86,16 @@ class MockDirectoryHandle {
 
   has(name: string): boolean {
     return this.files.has(name);
+  }
+
+  // Helper for tests: update file content
+  setFileContent(name: string, content: string): void {
+    const file = this.files.get(name);
+    if (file) {
+      file.content = content;
+    } else {
+      this.files.set(name, new MockFile(content));
+    }
   }
 }
 
@@ -122,13 +132,13 @@ describe("createBackup", () => {
 
     // 更新源并再次备份
     dir.read(FILE); // noop read for clarity
-    (dir as any).files.get(FILE).content = "v2";
+    dir.setFileContent(FILE, "v2");
     await createBackup(dir as unknown as FileSystemDirectoryHandle, FILE); // backup=v2, backup.1=v1
 
-    (dir as any).files.get(FILE).content = "v3";
+    dir.setFileContent(FILE, "v3");
     await createBackup(dir as unknown as FileSystemDirectoryHandle, FILE); // backup=v3, backup.1=v2, backup.2=v1
 
-    (dir as any).files.get(FILE).content = "v4";
+    dir.setFileContent(FILE, "v4");
     await createBackup(dir as unknown as FileSystemDirectoryHandle, FILE); // backup=v4, backup.1=v3, backup.2=v2 (v1 被覆盖掉)
 
     expect(dir.read("workspace.json.backup")).toBe("v4");

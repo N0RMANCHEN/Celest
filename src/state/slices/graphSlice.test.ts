@@ -140,7 +140,8 @@ describe("graphSlice", () => {
       const store = makeStore(project);
       store.getState().updateNoteText("n1", "New Content");
       const updated = store.getState().projects[0];
-      expect((updated.graph.nodes.n1 as any).text).toBe("New Content");
+      const node = updated.graph.nodes.n1;
+      expect(node?.kind === "note" ? node.text : undefined).toBe("New Content");
       expect(store.getState().markActiveProjectDirty).toHaveBeenCalledWith("graph");
     });
 
@@ -160,7 +161,8 @@ describe("graphSlice", () => {
       const store = makeStore(project);
       store.getState().updateFilePath("n2", "/new/path.md");
       const updated = store.getState().projects[0];
-      expect((updated.graph.nodes.n2 as any).path).toBe("/new/path.md");
+      const node = updated.graph.nodes.n2;
+      expect(node?.kind === "fileRef" ? node.path : undefined).toBe("/new/path.md");
       expect(store.getState().markActiveProjectDirty).toHaveBeenCalledWith("graph");
     });
 
@@ -193,8 +195,9 @@ describe("graphSlice", () => {
         { id: "n1", type: "dimensions", dimensions: { width: 320, height: 180 } },
       ]);
       const updated = store.getState().projects[0];
-      expect((updated.graph.nodes.n1 as any).width).toBe(320);
-      expect((updated.graph.nodes.n1 as any).height).toBe(180);
+      const node = updated.graph.nodes.n1;
+      expect(node?.width).toBe(320);
+      expect(node?.height).toBe(180);
       expect(store.getState().markActiveProjectDirty).toHaveBeenCalledWith("graph");
     });
 

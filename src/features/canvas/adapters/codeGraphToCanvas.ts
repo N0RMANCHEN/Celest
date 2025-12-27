@@ -113,8 +113,8 @@ export function codeGraphToCanvas(
     // Size (resizable cards):
     // - frame has required width/height in domain
     // - other nodes may optionally carry width/height after user resize
-    if (typeof (n as any).width === "number") node.width = (n as any).width;
-    if (typeof (n as any).height === "number") node.height = (n as any).height;
+    if (typeof n.width === "number") node.width = n.width;
+    if (typeof n.height === "number") node.height = n.height;
 
     // Add default size for frame nodes if missing (legacy safety)
     if (n.kind === "frame") {

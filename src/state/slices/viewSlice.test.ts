@@ -3,7 +3,7 @@ import { createStore } from "zustand/vanilla";
 
 import { createViewSlice } from "./viewSlice";
 import type { ViewSlice } from "../types";
-import type { ProjectState } from "../../entities/project/types";
+import type { ProjectState, ViewId } from "../../entities/project/types";
 import type { StateCreator } from "zustand";
 
 type TestState = {
@@ -77,7 +77,7 @@ describe("viewSlice", () => {
     const project = makeStubProject();
     const store = makeStore(project);
     const initialView = store.getState().getActiveView();
-    store.getState().setActiveView("nonexistent" as any);
+    store.getState().setActiveView("nonexistent" as ViewId);
     const view = store.getState().getActiveView();
     expect(view?.id).toBe(initialView?.id);
     expect(store.getState().markActiveProjectDirty).not.toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe("viewSlice", () => {
   });
 
   it("updateActiveViewViewport 无活动视图时不更新", () => {
-    const project = makeStubProject({ activeViewId: "nonexistent" as any });
+    const project = makeStubProject({ activeViewId: "nonexistent" as ViewId });
     const store = makeStore(project);
     store.getState().updateActiveViewViewport({ x: 100, y: 200, zoom: 1.5, z: 1.5 });
     expect(store.getState().markActiveProjectDirty).not.toHaveBeenCalled();

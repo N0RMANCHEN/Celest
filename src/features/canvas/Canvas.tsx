@@ -2,7 +2,7 @@
  * features/canvas/Canvas.tsx
  * ----------------
  * Canvas 主组件（重构版）
- * 
+ *
  * 架构改进：
  * - 从 972 行重构为 ~200 行
  * - 将逻辑拆分到专门的 hooks
@@ -10,7 +10,7 @@
  * - 更易于维护和测试
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   CanvasConnection,
   CanvasEdgeChange,
@@ -133,7 +133,7 @@ export function Canvas(props: Props) {
       onViewportChange(clamped);
     }
   }, [viewport, boundsRect, onViewportChange, state.containerRef]);
-  
+
   // Get node size helper
   const [measuredNodeSizes, setMeasuredNodeSizes] = useState<
     Record<string, { width: number; height: number }>
@@ -177,19 +177,18 @@ export function Canvas(props: Props) {
         return { ...prev, [nodeId]: size };
       });
     },
-    [nodes]
+    [nodes, validateSize]
   );
 
   // 动态最小高度：有文本与无文本分开处理
-  // 有文本（1 行）：padding(20) + title(16) + marginTop(6) + paddingBottom(10) + 行高(15) ≈ 67
-  // 无文本：仅标题 + padding，取 50 以保留基本留白
-  const MIN_H_WITH_TEXT = 67;
-  const MIN_H_NO_TEXT = 50;
+  // 微调以减小“首次拖拽高度突变”，并给句柄留出点击空间
+  const MIN_H_WITH_TEXT = 73; // 1 行文本 + padding + 留白
+  const MIN_H_NO_TEXT = 56; // 仅标题 + padding + 句柄留白
 
   const getMinHeightForNode = useCallback(
     (nodeId: string): number => {
       const node = nodes.find((n) => n.id === nodeId);
-      const hasSubtitle = Boolean((node as any)?.data?.subtitle);
+      const hasSubtitle = Boolean(node?.data?.subtitle);
       return hasSubtitle ? MIN_H_WITH_TEXT : MIN_H_NO_TEXT;
     },
     [nodes]
@@ -204,7 +203,13 @@ export function Canvas(props: Props) {
       const node = nodes.find((n) => n.id === nodeId);
       const measured = measuredNodeSizes[nodeId];
       const rawWidth = node?.width ?? measured?.width ?? 120;
-      const rawHeight = node?.height ?? measured?.height ?? 100;
+
+      // ✅ 关键修复：
+      // 以前这里用 MIN_H * 1.1 当 fallback，会让“默认视觉最小高度 a”与“逻辑尺寸 b”不一致，
+      // 进入 resize 的第一帧就会 a→b 突变。
+      // 现在 fallback 直接用 MIN_H，让默认状态逻辑高度=视觉高度，拖拽放大时连续变化。
+      const rawHeight = node?.height ?? measured?.height ?? MIN_H;
+
       const width = clampDimension(rawWidth, MIN_W, MAX_W);
       const height = clampDimension(rawHeight, MIN_H, MAX_H);
       return { width, height };
@@ -213,7 +218,8 @@ export function Canvas(props: Props) {
   );
 
   // 当节点显式 width/height 被清理时，清理对应的测量缓存，允许 DOM 重新测量
-  useEffect(() => {
+  // 使用 useLayoutEffect + requestAnimationFrame 避免在 effect 中同步调用 setState
+  useLayoutEffect(() => {
     const nodesToClear: string[] = [];
     const prev = prevExplicitSizeRef.current;
 
@@ -234,12 +240,15 @@ export function Canvas(props: Props) {
     });
 
     if (nodesToClear.length > 0) {
-      setMeasuredNodeSizes((prevSizes) => {
-        const next = { ...prevSizes };
-        nodesToClear.forEach((id) => {
-          delete next[id];
+      // 使用 requestAnimationFrame 延迟执行，避免在 effect 中同步调用 setState
+      requestAnimationFrame(() => {
+        setMeasuredNodeSizes((prevSizes) => {
+          const next = { ...prevSizes };
+          nodesToClear.forEach((id) => {
+            delete next[id];
+          });
+          return next;
         });
-        return next;
       });
     }
   }, [nodes]);
@@ -389,7 +398,39 @@ export function Canvas(props: Props) {
     ) => {
       const node = nodes.find((n) => n.id === nodeId);
       if (!node) return;
-      const startSize = getNodeSize(nodeId);
+
+      const minH0 = getMinHeightForNode(nodeId);
+      let startSize = getNodeSize(nodeId);
+
+      // 如果节点没有显式 height，从 DOM 读取实际高度，避免 resize 开始时的突变
+      // ✅ 同时钳制到 minH，避免偶发测量偏小导致 first-move 跳一下
+      if (typeof node.height !== "number") {
+        const svg = state.svgRef.current;
+        if (svg) {
+          const foreignObject = svg.querySelector(
+            `foreignObject[data-node-id="${nodeId}"]`
+          ) as SVGForeignObjectElement | null;
+          if (foreignObject) {
+            const innerDiv = foreignObject.querySelector("div") as HTMLDivElement | null;
+            if (innerDiv) {
+              const actualHeight = innerDiv.offsetHeight;
+              if (actualHeight > 0 && Number.isFinite(actualHeight)) {
+                startSize = {
+                  ...startSize,
+                  height: clampDimension(actualHeight, minH0, 5000),
+                };
+              } else {
+                // fallback：至少保证 startSize 不低于 minH
+                startSize = { ...startSize, height: Math.max(startSize.height, minH0) };
+              }
+            }
+          }
+        }
+      } else {
+        // explicit height：也保证不低于 minH（防止旧数据低于 min）
+        startSize = { ...startSize, height: Math.max(startSize.height, minH0) };
+      }
+
       resizeStateRef.current = {
         nodeId,
         dir,
@@ -474,7 +515,7 @@ export function Canvas(props: Props) {
       window.addEventListener("mousemove", handleMove);
       window.addEventListener("mouseup", handleUp);
     },
-    [nodes, getNodeSize, onNodesChange, viewport.zoom]
+    [nodes, getNodeSize, getMinHeightForNode, onNodesChange, viewport.zoom, clampDimension, state.svgRef]
   );
 
   // 连接时全局监听鼠标移动/抬起

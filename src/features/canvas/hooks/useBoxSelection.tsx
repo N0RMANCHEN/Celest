@@ -28,6 +28,7 @@ export function useBoxSelection(params: Params) {
     selectedIdsRef,
     setSelectedIds,
     onSelectionChange,
+    isBoxSelectingRef,
   } = params;
 
   const startBoxSelection = useCallback(
@@ -43,9 +44,9 @@ export function useBoxSelection(params: Params) {
         start: { x: e.clientX, y: e.clientY },
         end: { x: e.clientX, y: e.clientY },
       });
-      params.isBoxSelectingRef.current = true;
+      isBoxSelectingRef.current = true;
     },
-    [onSelectionChange, selectedIdsRef, setBoxSelection, setSelectedIds, params.isBoxSelectingRef]
+    [onSelectionChange, selectedIdsRef, setBoxSelection, setSelectedIds, isBoxSelectingRef]
   );
 
   return {

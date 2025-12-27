@@ -76,7 +76,7 @@ class MockDirectoryHandle {
       return dir;
     }
     const err = new Error("NotFoundError");
-    (err as any).name = "NotFoundError";
+    Object.defineProperty(err, "name", { value: "NotFoundError" });
     throw err;
   }
 
@@ -92,7 +92,7 @@ class MockDirectoryHandle {
       return new MockFileHandle(f);
     }
     const err = new Error("NotFoundError");
-    (err as any).name = "NotFoundError";
+    Object.defineProperty(err, "name", { value: "NotFoundError" });
     throw err;
   }
 
@@ -100,7 +100,7 @@ class MockDirectoryHandle {
     if (this.files.delete(name)) return;
     if (this.dirs.delete(name)) return;
     const err = new Error("NotFoundError");
-    (err as any).name = "NotFoundError";
+    Object.defineProperty(err, "name", { value: "NotFoundError" });
     throw err;
   }
 

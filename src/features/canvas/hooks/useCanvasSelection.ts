@@ -211,6 +211,7 @@ export function useCanvasSelection(
   }, [isBoxSelectingRef, setBoxSelection]);
 
   // 全局鼠标监听（框选过程中）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isBoxSelectingRef.current) {
       window.addEventListener("mousemove", updateBoxSelection);
@@ -220,7 +221,8 @@ export function useCanvasSelection(
         window.removeEventListener("mouseup", finishBoxSelection);
       };
     }
-  }, [isBoxSelectingRef.current, updateBoxSelection, finishBoxSelection]);
+  }, [updateBoxSelection, finishBoxSelection]);
+  // Note: isBoxSelectingRef is intentionally omitted from deps - ref objects are stable
 
   return {
     handleNodeClick,

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { CanvasNode } from "./CanvasNode";
 import type { CanvasNode as CanvasNodeType } from "../adapters/codeGraphToCanvas";
 import type { CanvasNodeType as CanvasNodeTypeEnum } from "../types";
+import type { CodeNodeKind } from "../../../entities/graph/types";
 
 function mapKindToCanvasType(kind: string): CanvasNodeTypeEnum {
   switch (kind) {
@@ -27,7 +28,7 @@ function makeNode(kind: string, id: string = "n1"): CanvasNodeType {
     id,
     type: mapKindToCanvasType(kind),
     position: { x: 0, y: 0 },
-    data: { kind: kind as any, title: id },
+    data: { kind: kind as CodeNodeKind, title: id },
     selected: false,
   };
 }

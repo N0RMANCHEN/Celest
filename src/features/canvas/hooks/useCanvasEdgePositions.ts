@@ -22,7 +22,7 @@ export function useCanvasEdgePositions(
   edges: CanvasEdge[],
   nodes: CanvasNode[],
   viewport: CanvasViewport,
-  svgRef: React.RefObject<SVGSVGElement | null>,
+  _svgRef: React.RefObject<SVGSVGElement | null>,
   getNodeSize: (nodeId: string) => { width: number; height: number }
 ): Map<string, EdgePosition> {
   return useMemo(() => {

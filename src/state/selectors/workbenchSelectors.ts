@@ -169,7 +169,7 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   }
 
   const selectedIds = project?.selectedIds ?? [];
-  const activeViewId = state.activeViewId ?? "default";
+  const activeViewId = project?.activeViewId ?? "default";
   const cacheKey = createCacheKey(graph, selectedIds, activeViewId);
 
   // IMPORTANT: project selection is projected back onto Canvas nodes/edges

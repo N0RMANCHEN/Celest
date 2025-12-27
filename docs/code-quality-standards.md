@@ -366,3 +366,4 @@ const ARCHITECTURE_RULES = {
 4. **支持重构**：清晰的边界便于未来重构
 
 
+

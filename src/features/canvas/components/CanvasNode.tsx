@@ -41,13 +41,14 @@ const cardStyle: CSSProperties = {
   border: "1px solid var(--border)",
   background: "var(--panel-2)",
   minWidth: 180,
+  maxWidth: 2000,
   boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
   position: "relative",
   boxSizing: "border-box",
   userSelect: "none",
   transition: "box-shadow 0.15s ease, border-color 0.15s ease",
   willChange: "transform", // Performance hint for GPU acceleration
-  overflow: "hidden",
+  overflow: "visible",
 };
 
 const SELECT_COLOR = "#B8C0C3";
@@ -187,7 +188,7 @@ export function CanvasNode({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const EDGE_T = 6.5; // 边缘命中阈值（px）— 收紧，降低误触概率
+    const EDGE_T = 13; // 边缘命中阈值（px）— 再扩大以提升可选中性
     const HANDLE_AVOID_R = 16; // 避开左右 in/out 圆点区域（围绕垂直中线）
     const midY = rect.height / 2;
 
@@ -350,6 +351,8 @@ function useNodeSizeReporter(
   onNodeSizeChange?: (nodeId: string, size: { width: number; height: number }) => void,
   lastReportedRef?: React.MutableRefObject<{ width: number; height: number } | null>
 ) {
+  const MAX_W = 2000;
+  const MAX_H = 5000;
   useEffect(() => {
     if (!onNodeSizeChange) return;
     const el = ref.current;
@@ -357,7 +360,12 @@ function useNodeSizeReporter(
 
     const report = () => {
       const rect = el.getBoundingClientRect();
-      const next = { width: rect.width, height: rect.height };
+      const width = Number.isFinite(rect.width) ? rect.width : 0;
+      const height = Number.isFinite(rect.height) ? rect.height : 0;
+      const next = {
+        width: Math.min(MAX_W, Math.max(1, width)),
+        height: Math.min(MAX_H, Math.max(1, height)),
+      };
       // Guard against 0x0 in test envs (JSDOM) or transient layout moments
       if (next.width < 1 || next.height < 1) return;
       const prev = lastReportedRef?.current;

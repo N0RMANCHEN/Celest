@@ -120,8 +120,25 @@ export function Canvas(props: Props) {
     Record<string, { width: number; height: number }>
   >({});
 
+  const clampDimension = useCallback(
+    (value: number, min: number, max: number) => Math.min(max, Math.max(min, value)),
+    []
+  );
+
+  const validateSize = useCallback(
+    (size: { width: number; height: number }) => {
+      if (!Number.isFinite(size.width) || !Number.isFinite(size.height)) return false;
+      const w = clampDimension(size.width, 1, 2000);
+      const h = clampDimension(size.height, 1, 5000);
+      return w === size.width && h === size.height;
+    },
+    [clampDimension]
+  );
+
   const handleNodeSizeChange = useCallback(
     (nodeId: string, size: { width: number; height: number }) => {
+      // Reject clearly invalid or extreme sizes to avoid runaway width/height.
+      if (!validateSize(size)) return;
       // If user manually set size, do not override with DOM measurement.
       const n = nodes.find((x) => x.id === nodeId);
       if (n && (typeof n.width === "number" || typeof n.height === "number")) return;
@@ -142,13 +159,19 @@ export function Canvas(props: Props) {
 
   const getNodeSize = useCallback(
     (nodeId: string): { width: number; height: number } => {
+      const MIN_W = 120;
+      const MIN_H = 60;
+      const MAX_W = 2000;
+      const MAX_H = 5000;
       const node = nodes.find((n) => n.id === nodeId);
       const measured = measuredNodeSizes[nodeId];
-      const width = node?.width ?? measured?.width ?? 180;
-      const height = node?.height ?? measured?.height ?? 100;
+      const rawWidth = node?.width ?? measured?.width ?? 180;
+      const rawHeight = node?.height ?? measured?.height ?? 100;
+      const width = clampDimension(rawWidth, MIN_W, MAX_W);
+      const height = clampDimension(rawHeight, MIN_H, MAX_H);
       return { width, height };
     },
-    [nodes, measuredNodeSizes]
+    [nodes, measuredNodeSizes, clampDimension]
   );
 
   // 拖动逻辑

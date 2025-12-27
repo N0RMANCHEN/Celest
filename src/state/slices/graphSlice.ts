@@ -31,6 +31,7 @@ import {
   upsertEdge,
   upsertNode,
 } from "../../entities/graph/ops";
+import { MIN_H_WITH_TEXT, MIN_H_NO_TEXT } from "../../features/canvas/config/constants";
 
 type GraphClipboard = {
   nodes: CodeGraphNode[];
@@ -201,32 +202,50 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
 
             const hasSubtitle =
               node.kind === "note" ? Boolean(node.text) : false;
-            // 与 Canvas.tsx 中的 MIN_H_WITH_TEXT 和 MIN_H_NO_TEXT 保持一致
-            const MIN_H = hasSubtitle ? 73 : 56;
+            // 使用与 Canvas.tsx 相同的常量，确保一致性
+            // 注意：Canvas.tsx 会优先使用初始测量高度，但这里使用 fallback 值作为判断基准
+            const MIN_H = hasSubtitle ? MIN_H_WITH_TEXT : MIN_H_NO_TEXT;
             const EPS = 0.5; // 允许细微误差
 
             const w = Math.min(MAX_W, Math.max(MIN_W, ch.dimensions.width));
+            // 注意：这里使用 MIN_H 作为钳制值，但实际的最小高度由 Canvas.tsx 的 getMinHeightForNode 决定
+            // 在 resize 过程中，Canvas.tsx 会使用初始测量高度作为 MIN_H，确保线性变化
             const h = Math.min(MAX_H, Math.max(MIN_H, ch.dimensions.height));
 
-            // 如果高度被拖到接近 minH，视为回到基准态，清理显式 height
+            // 如果高度被拖到接近 minH，需要区分两种情况：
+            // 1. 节点之前没有显式 height（初始状态）：删除 height，让它回到初始测量高度
+            // 2. 节点之前有显式 height（用户调整过）：将 height 设置为当前高度 h（已经钳制到 MIN_H）
+            // 这样在 resize 过程中，高度会线性减小到初始测量高度（通过 Canvas.tsx 的 getMinHeightForNode）
             const nearMin = h <= MIN_H + EPS;
             if (nearMin) {
-              // 使用 upsertNode 更新节点，只设置 width，删除 height 属性
-              // 注意：FrameNode 需要保留 height，所以只对非 frame 节点删除 height
+              // FrameNode 必须保留 height
               if (node.kind === "frame") {
-                // FrameNode 必须保留 height，所以只更新 width
                 g = upsertNode(g, {
                   ...node,
                   width: w,
+                  height: MIN_H,
                 });
               } else {
-                // 其他节点可以删除 height，让 DOM 重新测量
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { height, ...nodeWithoutHeight } = node;
-                g = upsertNode(g, {
-                  ...nodeWithoutHeight,
-                  width: w,
-                });
+                const hadExplicitHeight = typeof node.height === "number";
+                if (hadExplicitHeight) {
+                  // 节点之前有显式 height（用户调整过），将 height 设置为当前高度 h
+                  // 在 resize 过程中，Canvas.tsx 会使用初始测量高度作为 MIN_H 进行钳制
+                  // 所以 h 应该已经接近或等于初始测量高度，保持线性变化
+                  g = upsertNode(g, {
+                    ...node,
+                    width: w,
+                    height: h,
+                  });
+                } else {
+                  // 节点之前没有显式 height（初始状态），删除 height 让它回到初始测量高度
+                  // Canvas.tsx 的 getMinHeightForNode 会使用初始测量高度作为 MIN_H
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  const { height, ...nodeWithoutHeight } = node;
+                  g = upsertNode(g, {
+                    ...nodeWithoutHeight,
+                    width: w,
+                  });
+                }
               }
             } else {
               // 正常情况：使用 updateNodeDimensions 更新尺寸

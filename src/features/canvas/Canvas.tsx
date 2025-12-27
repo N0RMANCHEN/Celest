@@ -48,7 +48,7 @@ import {
   CANVAS_FIXED_HEIGHT,
   CANVAS_FIXED_WIDTH,
 } from "../../config/canvas";
-import { NODE_HEIGHT, NODE_WIDTH } from "./config/constants";
+import { NODE_HEIGHT, NODE_WIDTH, MIN_H_WITH_TEXT, MIN_H_NO_TEXT } from "./config/constants";
 
 export type Props = {
   nodes: CanvasNode[];
@@ -142,6 +142,8 @@ export function Canvas(props: Props) {
   const prevExplicitSizeRef = useRef<Map<string, { width?: number; height?: number }>>(
     new Map()
   );
+  // 记录每个节点的初始测量高度（第一次测量时，且没有显式 height），用于作为 MIN_H
+  const initialMeasuredHeightsRef = useRef<Map<string, number>>(new Map());
 
   const clampDimension = useCallback(
     (value: number, min: number, max: number) => Math.min(max, Math.max(min, value)),
@@ -165,6 +167,12 @@ export function Canvas(props: Props) {
       // If user manually set size, do not override with DOM measurement.
       const n = nodes.find((x) => x.id === nodeId);
       if (n && (typeof n.width === "number" || typeof n.height === "number")) return;
+      
+      // 记录初始测量高度（第一次测量时，且没有显式 height）
+      if (!initialMeasuredHeightsRef.current.has(nodeId) && typeof n?.height !== "number") {
+        initialMeasuredHeightsRef.current.set(nodeId, size.height);
+      }
+      
       setMeasuredNodeSizes((prev) => {
         const cur = prev[nodeId];
         if (
@@ -181,13 +189,18 @@ export function Canvas(props: Props) {
   );
 
   // 动态最小高度：有文本与无文本分开处理
-  // 微调以减小“首次拖拽高度突变”，并给句柄留出点击空间
-  const MIN_H_WITH_TEXT = 73; // 1 行文本 + padding + 留白
-  const MIN_H_NO_TEXT = 56; // 仅标题 + padding + 句柄留白
+  // 使用实际 DOM 测量的初始高度作为 MIN_H，确保缩放最小高度与初始状态一致
+  // fallback 值从 config/constants 导入，使用统一的计算方式
 
   const getMinHeightForNode = useCallback(
     (nodeId: string): number => {
       const node = nodes.find((n) => n.id === nodeId);
+      // 优先使用初始测量高度（如果有），确保与初始状态一致
+      const initialHeight = initialMeasuredHeightsRef.current.get(nodeId);
+      if (initialHeight && initialHeight > 0) {
+        return initialHeight;
+      }
+      // 如果没有初始测量高度，使用统一计算的 fallback（从 config 导入）
       const hasSubtitle = Boolean(node?.data?.subtitle);
       return hasSubtitle ? MIN_H_WITH_TEXT : MIN_H_NO_TEXT;
     },
@@ -218,10 +231,23 @@ export function Canvas(props: Props) {
   );
 
   // 当节点显式 width/height 被清理时，清理对应的测量缓存，允许 DOM 重新测量
+  // 同时清理已删除节点的初始高度记录
   // 使用 useLayoutEffect + requestAnimationFrame 避免在 effect 中同步调用 setState
   useLayoutEffect(() => {
     const nodesToClear: string[] = [];
     const prev = prevExplicitSizeRef.current;
+    const currentNodeIds = new Set(nodes.map((n) => n.id));
+
+    // 清理已删除节点的初始高度记录
+    const deletedNodeIds: string[] = [];
+    initialMeasuredHeightsRef.current.forEach((_, nodeId) => {
+      if (!currentNodeIds.has(nodeId)) {
+        deletedNodeIds.push(nodeId);
+      }
+    });
+    deletedNodeIds.forEach((id) => {
+      initialMeasuredHeightsRef.current.delete(id);
+    });
 
     nodes.forEach((n) => {
       const prevEntry = prev.get(n.id);
@@ -246,6 +272,7 @@ export function Canvas(props: Props) {
           const next = { ...prevSizes };
           nodesToClear.forEach((id) => {
             delete next[id];
+            // 注意：不清除 initialMeasuredHeightsRef，因为我们需要保留初始高度作为 MIN_H
           });
           return next;
         });
@@ -446,6 +473,7 @@ export function Canvas(props: Props) {
         const dy = (ev.clientY - st.startMouse.y) / viewport.zoom;
 
         const minW = 120;
+        // 使用初始测量高度作为 MIN_H，确保缩放最小高度与初始状态一致
         const minH = getMinHeightForNode(st.nodeId);
 
         let nextX = st.startPos.x;
@@ -459,6 +487,7 @@ export function Canvas(props: Props) {
         const affectsN = st.dir.includes("n");
 
         if (affectsE) nextW = Math.max(minW, st.startSize.width + dx);
+        // 钳制到初始测量高度，确保线性变化
         if (affectsS) nextH = Math.max(minH, st.startSize.height + dy);
 
         if (affectsW) {
@@ -466,6 +495,7 @@ export function Canvas(props: Props) {
           nextX = st.startPos.x + (st.startSize.width - w);
           nextW = w;
         }
+        // 钳制到初始测量高度，确保线性变化
         if (affectsN) {
           const h = Math.max(minH, st.startSize.height - dy);
           nextY = st.startPos.y + (st.startSize.height - h);

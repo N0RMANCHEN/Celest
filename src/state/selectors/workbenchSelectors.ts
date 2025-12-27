@@ -191,6 +191,7 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
   }
   
   // Check content equality
+  // CRITICAL: Must check title and subtitle (text) to ensure real-time updates
   const contentEqual = 
     cachedCanvasVM.nodes.length === vm.nodes.length &&
     cachedCanvasVM.edges.length === vm.edges.length &&
@@ -201,7 +202,9 @@ export function selectCanvasViewModel(state: AppState): ReturnType<
         n.position.y === other.position.y &&
         n.selected === other.selected &&
         n.width === other.width &&
-        n.height === other.height;
+        n.height === other.height &&
+        n.data.title === other.data.title &&
+        n.data.subtitle === other.data.subtitle;
     }) &&
     cachedCanvasVM.edges.every((e, i) => {
       const other = vm.edges[i];

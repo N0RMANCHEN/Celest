@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactElement } from "react";
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 
 import type { NodeKindSpec } from "../../entities/graph/registry";
 import { getNodeSpec } from "../../entities/graph/registry";
@@ -106,16 +106,35 @@ function NoteInspector({
   onChangeNoteText,
 }: NoteInspectorProps): ReactElement {
   const titleInputId = useMemo(() => `title-${node.id}`, [node.id]);
+  const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // 自动调整 textarea 高度以适应内容
+  useEffect(() => {
+    const textarea = titleTextareaRef.current;
+    if (textarea) {
+      // 重置高度为 auto，然后设置为 scrollHeight，确保所有内容可见
+      // 使用 requestAnimationFrame 确保在 DOM 更新后计算
+      requestAnimationFrame(() => {
+        if (textarea) {
+          textarea.style.height = "auto";
+          const newHeight = textarea.scrollHeight;
+          textarea.style.height = `${newHeight}px`;
+        }
+      });
+    }
+  }, [node.title]);
 
   return (
     <div style={nodeShellStyle}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-        <input
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, width: "100%" }}>
+        <textarea
+          ref={titleTextareaRef}
           id={titleInputId}
           className="input"
           value={node.title}
           onChange={(e) => onChangeTitle(node.id, e.target.value)}
           placeholder="无标题"
+          rows={1}
           style={{
             border: "none",
             background: "transparent",
@@ -124,6 +143,23 @@ function NoteInspector({
             padding: "4px 0 4px 13px",
             fontWeight: 700,
             color: "var(--text)",
+            width: "100%",
+            resize: "none",
+            overflow: "hidden",
+            whiteSpace: "pre-wrap",
+            wordWrap: "break-word",
+            minHeight: "1.4em",
+            lineHeight: "1.4",
+          }}
+          onInput={(e) => {
+            // 自动调整高度以适应内容，确保所有文字可见
+            const target = e.target as HTMLTextAreaElement;
+            // 使用 requestAnimationFrame 确保在 DOM 更新后计算
+            requestAnimationFrame(() => {
+              target.style.height = "auto";
+              const newHeight = target.scrollHeight;
+              target.style.height = `${newHeight}px`;
+            });
           }}
         />
       </div>

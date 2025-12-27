@@ -66,6 +66,11 @@ const titleStyle: CSSProperties = {
   fontWeight: 800,
   fontSize: 13,
   lineHeight: 1.2,
+  // 单行显示，超过宽度显示省略号
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: "100%",
 };
 
 const subtitleStyle: CSSProperties = {

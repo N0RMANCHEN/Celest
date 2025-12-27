@@ -47,7 +47,7 @@ const cardStyle: CSSProperties = {
   position: "relative",
   boxSizing: "border-box",
   userSelect: "none",
-  transition: "box-shadow 0.15s ease, border-color 0.15s ease",
+  transition: "box-shadow 0.2s ease, border-color 0.2s ease, border-width 0.2s ease, background-color 0.2s ease",
   willChange: "transform", // Performance hint for GPU acceleration
   overflow: "visible",
 };
@@ -60,6 +60,13 @@ const selectedCardStyle: CSSProperties = {
   border: "0.7px solid " + SELECT_COLOR,
   boxShadow: "0 4px 20px rgba(0,0,0,0.12), 0 0 0 0.7px " + SELECT_COLOR,
   cursor: "grab",
+};
+
+const hoveredCardStyle: CSSProperties = {
+  ...cardStyle,
+  border: "1.2px solid #b3d5ff",
+  background: "var(--panel)",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
 };
 
 const titleStyle: CSSProperties = {
@@ -110,6 +117,7 @@ export function CanvasNode({
   const lastCursorRef = useRef<string>("default");
   const [subtitleClamp, setSubtitleClamp] = useState(5);
   const [subtitleMaxHeight, setSubtitleMaxHeight] = useState<number | undefined>(undefined);
+  const [isHovered, setIsHovered] = useState(false);
 
   useNodeSizeReporter(node.id, rootRef, onNodeSizeChange, lastReportedRef);
   // 根据卡片高度估算可展示的整行数，避免底部半行被截断
@@ -249,11 +257,16 @@ export function CanvasNode({
   const handleMouseLeave = () => {
     const el = rootRef.current;
     if (!el) return;
+    setIsHovered(false);
     hoverResizeDirRef.current = null;
     if (lastCursorRef.current !== "default") {
       el.dataset.cursor = "default";
       lastCursorRef.current = "default";
     }
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
   };
 
   const getTitle = () => {
@@ -283,7 +296,11 @@ export function CanvasNode({
       <div
         ref={rootRef}
         style={{
-          ...(node.selected ? selectedCardStyle : cardStyle),
+          ...(node.selected
+            ? selectedCardStyle
+            : isHovered
+              ? hoveredCardStyle
+              : cardStyle),
           // Keep width stable; height should be content-driven (dynamic).
           width: size.width,
           ...(typeof node.height === "number"
@@ -293,6 +310,7 @@ export function CanvasNode({
         data-cursor="default"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        onMouseEnter={handleMouseEnter}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         onMouseDown={handleMouseDown}

@@ -529,8 +529,8 @@ export function Canvas(props: Props) {
         }
 
         // 处理西边（左边缘）
-        // 注意：对于角落 resize（如左上角），即使另一个方向达到最小值，
-        // 这个方向仍然应该独立响应鼠标移动
+        // 注意：对于角落 resize（如左上角、左下角）和单独的左边边（w），
+        // 当高度达到最小值时，横向移动应该直接基于 dx 的变化
         if (affectsW) {
           // 计算期望的新宽度（基于鼠标的 x 方向移动）
           // 这个计算是独立的，不受高度方向的影响
@@ -540,14 +540,42 @@ export function Canvas(props: Props) {
           // 计算实际移动的距离（考虑最小值限制）
           // 如果 desiredW < minW，说明宽度已经达到最小值，actualDx 会被限制
           const actualDx = st.startSize.width - actualW;
-          // 用实际移动距离更新位置（确保左边边缘正确移动）
-          // 即使宽度达到最小值，位置也应该正确更新（虽然宽度不会再变化）
-          nextX = st.startPos.x + actualDx;
-          nextW = actualW;
+          
+          // 关键修复：当高度达到最小值时，横向移动应该直接基于 dx 的变化
+          // 而不是基于 actualDx（因为 actualDx 在宽度达到最小值时会被固定）
+          // 检查高度是否达到最小值（适用于左上角、左下角和单独的左边边）
+          let heightAtMin = false;
+          if (affectsN) {
+            // 拖动左上角或右上角时，检查高度是否达到最小值
+            const desiredH = st.startSize.height - dy;
+            const actualH = Math.max(minH, desiredH);
+            heightAtMin = actualH === minH;
+          } else if (affectsS) {
+            // 拖动左下角或右下角时，检查高度是否达到最小值
+            const desiredH = st.startSize.height + dy;
+            const actualH = Math.max(minH, desiredH);
+            heightAtMin = actualH === minH;
+          } else {
+            // 只拖动左边边（w）时，检查初始高度是否已经达到最小值
+            // 如果初始高度就是最小值，那么高度已经达到最小值
+            heightAtMin = st.startSize.height === minH;
+          }
+          
+          if (heightAtMin) {
+            // 高度已经达到最小值，左边边应该跟随鼠标移动
+            // 直接使用 dx 来更新 nextX，确保左边边能够响应鼠标移动
+            // 即使宽度也达到最小值，左边边仍然应该跟随鼠标移动
+            nextW = actualW;
+            nextX = st.startPos.x + dx;
+          } else {
+            // 高度未达到最小值，使用基于宽度约束的计算
+            nextX = st.startPos.x + actualDx;
+            nextW = actualW;
+          }
         }
 
         // 处理北边（上边缘）
-        // 注意：对于角落 resize（如左上角），即使另一个方向达到最小值，
+        // 注意：对于角落 resize（如左上角、右上角），即使另一个方向达到最小值，
         // 这个方向仍然应该独立响应鼠标移动
         if (affectsN) {
           // 计算期望的新高度（基于鼠标的 y 方向移动）
@@ -558,9 +586,30 @@ export function Canvas(props: Props) {
           // 计算实际移动的距离（考虑最小值限制）
           // 如果 desiredH < minH，说明高度已经达到最小值，actualDy 会被限制
           const actualDy = st.startSize.height - actualH;
-          // 用实际移动距离更新位置（确保上边边缘正确移动）
-          // 即使高度达到最小值，位置也应该正确更新（虽然高度不会再变化）
+          
+          // 关键修复：当宽度达到最小值时，纵向移动应该直接基于 dy 的变化
+          // 而不是基于 actualDy（因为 actualDy 在高度达到最小值时会被固定）
+          // 检查宽度是否达到最小值（适用于左上角和右上角）
+          // 通过检查实际计算出的宽度是否等于最小值来判断
+          let widthAtMin = false;
+          if (affectsW) {
+            const desiredW = st.startSize.width - dx;
+            const actualW = Math.max(minW, desiredW);
+            widthAtMin = actualW === minW;
+          } else if (affectsE) {
+            const desiredW = st.startSize.width + dx;
+            const actualW = Math.max(minW, desiredW);
+            widthAtMin = actualW === minW;
+          }
+          
+          if (widthAtMin) {
+            // 宽度已经达到最小值，纵向移动应该直接基于 dy 的变化
+            // 这样可以确保即使高度也达到最小值，上边边缘仍然能正确响应鼠标移动
+            nextY = st.startPos.y + dy;
+          } else {
+            // 宽度未达到最小值，使用基于高度约束的计算
           nextY = st.startPos.y + actualDy;
+          }
           nextH = actualH;
         }
 

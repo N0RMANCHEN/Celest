@@ -261,21 +261,24 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
             // 这样在 resize 过程中，高度会线性减小到初始测量高度（通过 Canvas.tsx 的 getMinHeightForNode）
             const nearMin = h <= MIN_H + EPS;
             if (nearMin) {
+              // BUG FIX: 在nearMin分支中，必须使用当前graph中的最新node（包含最新position），
+              // 而不是旧的p.graph中的node，否则会覆盖掉之前position change更新的position
+              const currentNode = g.nodes[ch.id];
               // FrameNode 必须保留 height
-              if (node.kind === "frame") {
+              if (currentNode.kind === "frame") {
                 g = upsertNode(g, {
-                  ...node,
+                  ...currentNode,
                   width: w,
                   height: MIN_H,
                 });
               } else {
-                const hadExplicitHeight = typeof node.height === "number";
+                const hadExplicitHeight = typeof currentNode.height === "number";
                 if (hadExplicitHeight) {
                   // 节点之前有显式 height（用户调整过），将 height 设置为当前高度 h
                   // 在 resize 过程中，Canvas.tsx 会使用初始测量高度作为 MIN_H 进行钳制
                   // 所以 h 应该已经接近或等于初始测量高度，保持线性变化
                   g = upsertNode(g, {
-                    ...node,
+                    ...currentNode,
                     width: w,
                     height: h,
                   });
@@ -283,9 +286,9 @@ export const createGraphSlice: StateCreator<AppState, [], [], GraphSlice> = (
                   // 节点之前没有显式 height（初始状态），删除 height 让它回到初始测量高度
                   // Canvas.tsx 的 getMinHeightForNode 会使用初始测量高度作为 MIN_H
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  const { height, ...nodeWithoutHeight } = node;
+                  const { height, ...currentNodeWithoutHeight } = currentNode;
                   g = upsertNode(g, {
-                    ...nodeWithoutHeight,
+                    ...currentNodeWithoutHeight,
                     width: w,
                   });
                 }

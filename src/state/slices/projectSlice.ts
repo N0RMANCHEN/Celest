@@ -154,6 +154,17 @@ export const createProjectSlice: StateCreator<
   },
 
   reopenRecent: async (key) => {
+    // 检查项目是否已经打开（通过 id === key 判断）
+    const { projects } = get();
+    const existingProject = projects.find((p) => p.id === key);
+    
+    if (existingProject) {
+      // 项目已经打开，直接切换到该项目
+      get().terminalLog("info", `Switching to already open project: ${existingProject.name}`);
+      set({ activeProjectId: key });
+      return;
+    }
+
     const out = await reopenRecentUsecase(adapter, key);
     if (out.kind === "cancel") return;
     if (out.kind === "error") {

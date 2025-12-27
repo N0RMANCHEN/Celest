@@ -36,18 +36,24 @@
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
-  color: var(--text);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 .top-tabs__iconbtn:hover {
   background: var(--bg-hover);
+  color: var(--text);
 }
 .top-tabs__iconbtn.is-on {
-  background: var(--bg-active);
+  background: transparent;
+  color: var(--text);
+}
+.top-tabs__iconbtn.is-on:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .top-tabs__strip {
@@ -55,8 +61,39 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
   overflow: hidden;
+}
+
+.top-tabs__tabSep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.top-tabs__addBtn {
+  height: 32px;
+  width: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+  margin-left: 0;
+}
+.top-tabs__addBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.top-tabs__addBtn:hover .top-tabs__plusIconPath {
+  stroke-width: 2;
 }
 
 .top-tabs__tab {
@@ -71,7 +108,7 @@
   max-width: 260px;
   transition: background 0.12s ease;
 }
-.top-tabs__tab:hover {
+.top-tabs__tab:hover:not(.is-active) {
   background: var(--bg-hover);
 }
 .top-tabs__tab.is-active {
@@ -133,6 +170,28 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+}
+
+.top-tabs__plusIcon {
+  transition: transform 0.12s ease;
+}
+.top-tabs__plusIconPath {
+  transition: stroke-width 0.12s ease;
+}
+
+/* Panel icons - 选中时外框颜色不变，内部竖条变淡 */
+.top-tabs__panelIconBar {
+  opacity: 0.5;
+  transition: opacity 0.12s ease;
+}
+.top-tabs__iconbtn.is-on .top-tabs__panelIconBar {
+  opacity: 0.3;
+}
+
+/* Terminal icon - 选中时外框颜色不变，内部元素变淡 */
+.top-tabs__iconbtn.is-on svg path:not(:first-child) {
+  opacity: 0.5;
 }
 .top-tabs__sep {
   width: 1px;
